@@ -296,11 +296,11 @@ class CedulasController extends Controller
                             ->leftJoin("cedulas", "cedulas.idSolicitud", "cedulas_solicitudes.id")
                             ->where("cedulas_solicitudes.id", $params["id"])
                             ->first();
-            if($solicitud->idEstatus != 1 || (!isset($solicitud->idCedula) && $solicitud->ListaParaEnviar === 1)){
+            if($solicitud->idEstatus != 1 || !isset($solicitud->idCedula)){
                 $response =  [
                     'success'=>true,
                     'results'=>false,
-                    'errors'=>"La solicitud no se puede eliminar, tiene una cedula activa lista para enviar o ya fue aceptada"
+                    'errors'=>"La solicitud no se puede editar, tiene una cédula activa o ya fue aceptada"
                 ];
                 return response()->json($response,200);
             }
@@ -383,11 +383,11 @@ class CedulasController extends Controller
                             ->leftJoin("cedulas", "cedulas.idSolicitud", "cedulas_solicitudes.id")
                             ->where("cedulas_solicitudes.id", $params["id"])
                             ->first();
-            if($solicitud->idEstatus != 1 || (!isset($solicitud->idCedula) && $solicitud->ListaParaEnviar === 1)){
+            if($solicitud->idEstatus != 1 || !isset($solicitud->idCedula)){
                 $response =  [
                     'success'=>true,
                     'results'=>false,
-                    'errors'=>"La solicitud no se puede eliminar, tiene una cedula activa lista para enviar o ya fue aceptada"
+                    'errors'=>"La solicitud no se puede eliminar, tiene una cédula activa o ya fue aceptada"
                 ];
                 return response()->json($response,200);
             }
@@ -395,11 +395,7 @@ class CedulasController extends Controller
             DB::table("cedulas_solicitudes")
             ->where("id", $params["id"])
             ->delete();
-
-            DB::table("cedulas")
-            ->where("idSolicitud", $params["id"])
-            ->delete();
-
+            
             $response = [
                 'success'=>true,
                 'results'=>true, 
@@ -688,6 +684,8 @@ class CedulasController extends Controller
             $id =   DB::table("cedulas")
                     ->insertGetId($params);
 
+            $this->updateSolicitudFromCedula($params, $user);
+
             $formatedPrestaciones = [];
             foreach($prestaciones as $prestacion){
                 array_push($formatedPrestaciones, [
@@ -802,7 +800,6 @@ class CedulasController extends Controller
             return  response()->json($response, 200);
                         
         } catch (\Throwable $errors) {
-            dd($errors);
             $response = [
                 'success'=>false,
                 'results'=>false, 
@@ -1110,5 +1107,63 @@ class CedulasController extends Controller
     
                 return  response()->json($response, 200);
         }
+    }
+
+    private function updateSolicitudFromCedula($cedula, $user){
+            $params = [
+                "FechaSolicitud"=>$cedula->FechaSolicitud,
+                "FolioTarjetaImpulso"=>$cedula->FolioTarjetaImpulso,
+                "Nombre"=>$cedula->Nombre,
+                "Paterno"=>$cedula->Paterno,
+                "Materno"=>$cedula->Materno,
+                "FechaNacimiento"=>$cedula->FechaNacimiento,
+                "Edad"=>$cedula->Edad,
+                "Sexo"=>$cedula->Sexo,
+                "idEntidadNacimiento"=>$cedula->idEntidadNacimiento,
+                "CURP"=>$cedula->CURP,
+                "RFC"=>$cedula->RFC ? $cedula->RFC : null,
+                "idEstadoCivil"=>$cedula->idEstadoCivil,
+                "idParentescoJefeHogar"=>$cedula->idParentescoJefeHogar,
+                "NumHijos"=>$cedula->NumHijos,
+                "NumHijas"=>$cedula->NumHijas,
+                "ComunidadIndigena"=>$cedula->ComunidadIndigena ? $cedula->ComunidadIndigena : null,
+                "Dialecto"=>$cedula->Dialecto ? $cedula->Dialecto : null,
+                "Afromexicano"=>$cedula->Afromexicano,
+                "idSituacionActual"=>$cedula->idSituacionActual,
+                "TarjetaImpulso"=>$cedula->TarjetaImpulso,
+                "ContactoTarjetaImpulso"=>$cedula->ContactoTarjetaImpulso,
+                "Celular"=>$cedula->Celular,
+                "Telefono"=>$cedula->Telefono ? $cedula->Telefono : null,
+                "TelRecados"=>$cedula->TelRecados ? $cedula->TelRecados : null,
+                "Correo"=>$cedula->Correo,
+                "idParentescoTutor"=>$cedula->idParentescoTutor ? $cedula->idParentescoTutor : null,
+                "NombreTutor"=>$cedula->NombreTutor ? $cedula->NombreTutor : null,
+                "PaternoTutor"=>$cedula->PaternoTutor ? $cedula->PaternoTutor : null,
+                "MaternoTutor"=>$cedula->MaternoTutor ? $cedula->MaternoTutor : null,
+                "FechaNacimientoTutor"=>$cedula->FechaNacimientoTutor ? $cedula->FechaNacimientoTutor : null,
+                "EdadTutor"=>$cedula->EdadTutor ? $cedula->EdadTutor : null,
+                "SexoTutor"=>$cedula->SexoTutor ? $cedula->SexoTutor : null,
+                "idEntidadNacimientoTutor"=>$cedula->idEntidadNacimientoTutor ? $cedula->idEntidadNacimientoTutor : null,
+                "CURPTutor"=>$cedula->CURPTutor ? $cedula->CURPTutor : null,
+                "TelefonoTutor"=>$cedula->TelefonoTutor ? $cedula->TelefonoTutor : null,
+                "CorreoTutor"=>$cedula->CorreoTutor ? $cedula->CorreoTutor : null,
+                "NecesidadSolicitante"=>$cedula->NecesidadSolicitante,
+                "CostoNecesidad"=>$cedula->CostoNecesidad,
+                "idEntidadVive"=>$cedula->idEntidadVive,
+                "MunicipioVive"=>$cedula->MunicipioVive,
+                "LocalidadVive"=>$cedula->LocalidadVive,
+                "CPVive"=>$cedula->CPVive,
+                "ColoniaVive"=>$cedula->ColoniaVive,
+                "CalleVive"=>$cedula->CalleVive,
+                "NoExtVive"=>$cedula->NoExtVive,
+                "NoIntVive"=>$cedula->NoIntVive,
+                "Referencias"=>$cedula->Referencias,
+                "idUsuarioActualizo"=>$user->id,
+                "FechaActualizo"=> date("Y-m-d")
+            ];
+
+            DB::table("cedulas_solicitudes")
+            ->where("id", $cedula->idSolicitud)
+            ->update($params);
     }
 }
