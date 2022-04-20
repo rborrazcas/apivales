@@ -1,0 +1,20 @@
+<?php
+
+namespace App;
+
+use Illuminate\Database\Eloquent\Model;
+
+class CatCie10 extends Model
+{
+    protected $table = 'cat_cie10';
+    protected $fillable = [
+    'id', 'LETRA', 'CATALOG_KEY', 'ASTERISCO', 'NOMBRE', 'LSEX', 'LINF', 'LSUP', 'TRIVIAL',
+    'ERRADICADO', 'N_INTER', 'NIN', 'NINMTOBS', 'NO_CBD', 'NO_APH', 'FETAL', 'CLAVE_CAPITULO_TYPE',
+    'CAPITULO_TYPE', 'RUBRICA_TYPE', 'YEAR_MODIFI', 'YEAR_APLICACION', 'NOTDIARIA', 'NOTSEMANAL',
+    'SISTEMA_ESPECIAL', 'BIRMM', 'CVE_CAUSA_TYPE', 'CAUSA_TYPE', 'EPI_MORTA', 'EPI_MORTA_M5', 
+    'EDAS_E_IRAS_EN_M5', 'LISTA1', 'LISTA5', 'PRINMORTA', 'PRINMORBI', 'LM_MORBI', 'LM_MORTA',
+    'LGBD165', 'LOMSBECK', 'LGBD190', 'ES_CAUSES', 'NUM_CAUSES', 'ES_SUIVE_MORTA', 'DAGA', 'EPI_CLAVE',
+    'EPI_CLAVE_DESC', 'ES_SUIVE_MORB', 'ES_SUIVE_NOTIN', 'ES_SUIVE_EST_EPI', 'ES_SUIVE_EST_BROTE', 
+    'SINAC', 'CODIGOX', 'COD_SIT_LESION'
+    ];
+}
