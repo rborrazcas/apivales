@@ -508,6 +508,9 @@ class CedulasController extends Controller
             ->select("id AS value", "Periodicidad AS label")
             ->get();
 
+            $archivos_clasificacion = DB::table("cedula_archivos_clasificacion")
+            ->select("id AS value", "Clasificacion AS label")
+            ->get();
 
             $catalogs  = [
                 "entidades" => $entidades,
@@ -531,7 +534,8 @@ class CedulasController extends Controller
                 "cat_tipos_techos" => $cat_tipos_techos,
                 "cat_tipos_viviendas" => $cat_tipos_viviendas,
                 "cat_tipos_agua" => $cat_tipos_agua,
-                "cat_periodicidad"=>$cat_periodicidad
+                "cat_periodicidad"=> $cat_periodicidad,
+                "archivos_clasificacion" => $archivos_clasificacion
             ];
 
 
@@ -541,6 +545,31 @@ class CedulasController extends Controller
                 'data' => $catalogs
             ];
             return  response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success'=>false,
+                'results'=>false, 
+                'total'=>0,
+                'errors'=>$errors, 
+                'message' =>'Ha ocurrido un error, consulte al administrador'];
+    
+                return  response()->json($response, 200);
+        }
+    }
+
+    function getClasificacionArchivos(Request $request){
+        try {
+            $archivos_clasificacion = DB::table("cedula_archivos_clasificacion")
+            ->select("id AS value", "Clasificacion AS label")
+            ->get();
+
+            $response = [
+                'success'=>true,
+                'results'=>true,
+                'data' => $archivos_clasificacion
+            ];
+            return  response()->json($response, 200);
+
         } catch (\Throwable $errors) {
             $response = [
                 'success'=>false,
@@ -674,12 +703,14 @@ class CedulasController extends Controller
             $prestaciones = $params["Prestaciones"];
             $enfermedades = $params["Enfermedades"];
             $atencionesMedicas = $params["AtencionesMedicas"];
+            $newClasificacion = isset($params["NewClasificacion"]) ? $params["NewClasificacion"] : [];
             $user = auth()->user();
             $params['idUsuarioCreo'] =  $user->id;
             $params['FechaCreo'] = date("Y-m-d");
             unset($params["Prestaciones"]);
             unset($params["Enfermedades"]);
             unset($params["AtencionesMedicas"]);
+            unset($params["NewClasificacion"]);
 
             $id =   DB::table("cedulas")
                     ->insertGetId($params);
@@ -716,6 +747,10 @@ class CedulasController extends Controller
             }
             DB::table("cedulas_atenciones_medicas")
             ->insert($formatedAtencionesMedicas);
+
+            if(isset($request->NewFiles)){
+                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
+            }
 
             DB::commit();
 
@@ -787,9 +822,16 @@ class CedulasController extends Controller
                             ->where("idCedula", $id)
                             ->get();
 
+            $archivos = DB::table("cedula_archivos")
+                        ->select("id", "idClasificacion", "NombreOriginal AS name", "NombreSistema", "Tipo AS type")
+                        ->where("idCedula", $id)
+                        ->whereRaw("FechaElimino IS NULL")
+                        ->get();
             $cedula->Prestaciones = array_map(function($o) { return $o->idPrestacion;}, $prestaciones->toArray());
             $cedula->Enfermedades = array_map(function($o) { return $o->idEnfermedad;}, $enfermedades->toArray());
             $cedula->AtencionesMedicas = array_map(function($o) { return $o->idAtencionMedica;}, $atencionesMedicas->toArray());
+            $cedula->Files = $archivos;
+            $cedula->ArchivosClasificacion = array_map(function($o) { return $o->idClasificacion;}, $archivos->toArray());
 
             $response = [
                 "success" => true,
@@ -799,6 +841,36 @@ class CedulasController extends Controller
             ];
             return  response()->json($response, 200);
                         
+        } catch (\Throwable $errors) {
+            $response = [
+                'success'=>false,
+                'results'=>false, 
+                'total'=>0,
+                'errors'=>$errors, 
+                'message' =>'Ha ocurrido un error, consulte al administrador'];
+    
+                return  response()->json($response, 200);
+        }
+    }
+
+    function getFilesById(Request $request, $id){
+        try {
+            $archivos = DB::table("cedula_archivos")
+                        ->select("id", "idClasificacion", "NombreOriginal AS name", "NombreSistema", "Tipo AS type")
+                        ->where("idCedula", $id)
+                        ->whereRaw("FechaElimino IS NULL")
+                        ->get();
+            $archivosClasificacion = array_map(function($o) { return $o->idClasificacion;}, $archivos->toArray());
+            $response = [
+                "success" => true,
+                "results" => true,
+                "message" => "éxito",
+                "data" => [
+                    "Archivos" =>$archivos, 
+                    "ArchivosClasificacion"=>$archivosClasificacion
+                ]
+            ];
+            return  response()->json($response, 200);
         } catch (\Throwable $errors) {
             $response = [
                 'success'=>false,
@@ -957,11 +1029,17 @@ class CedulasController extends Controller
             $prestaciones = $params["Prestaciones"];
             $enfermedades = $params["Enfermedades"];
             $atencionesMedicas = $params["AtencionesMedicas"];
+            $oldClasificacion = isset($params["OldClasificacion"]) ? $params["OldClasificacion"] : [];
+            $newClasificacion = isset($params["NewClasificacion"]) ? $params["NewClasificacion"]: [] ;
             $params['idUsuarioActualizo'] =  $user->id;
             $params['FechaActualizo'] = date("Y-m-d");
             unset($params["Prestaciones"]);
             unset($params["Enfermedades"]);
             unset($params["AtencionesMedicas"]);
+            unset($params["OldFiles"]);
+            unset($params["OldClasificacion"]);
+            unset($params["NewFiles"]);
+            unset($params["NewClasificacion"]);
 
             DB::table("cedulas")
             ->where("id", $id)
@@ -1006,6 +1084,28 @@ class CedulasController extends Controller
             DB::table("cedulas_atenciones_medicas")
             ->insert($formatedAtencionesMedicas);
 
+            $oldFiles = DB::table("cedula_archivos")
+            ->select("id", "idClasificacion")
+            ->where("idCedula", $id)
+            ->whereRaw("FechaElimino IS NULL")
+            ->get();
+            $oldFilesIds = array_map(function($o) { return $o->id;}, $oldFiles->toArray());
+            if(isset($request->NewFiles)){
+                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
+            }
+            if(isset($request->OldFiles)){
+               $oldFilesIds = $this->updateCedulaFiles($id, $request->OldFiles, $oldClasificacion, $user->id, $oldFilesIds, $oldFiles);
+            }
+
+            if(count($oldFilesIds) > 0){
+                DB::table("cedula_archivos")
+                ->whereIn("id", $oldFilesIds)
+                ->update([
+                    'idUsuarioElimino'=>$user->id,
+                    'FechaElimino'=>date("Y-m-d H:i:s")
+                ]);
+            }
+
             DB::commit();
 
             $response = [
@@ -1015,7 +1115,69 @@ class CedulasController extends Controller
                 "data" => []
             ];
             return  response()->json($response, 200);
-        } catch (\Throwable $errors) {
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success'=>false,
+                'results'=>false, 
+                'total'=>0,
+                'errors'=>$errors, 
+                'message' =>'Ha ocurrido un error, consulte al administrador'];
+    
+                return  response()->json($response, 200);
+        }
+    }
+
+    function updateArchivosCedula(Request $request){
+        try {
+            $v = Validator::make($request->all(), [
+                'id' => 'required',
+            ]);
+            if ($v->fails()){
+                $response =  [
+                    'success'=>true,
+                    'results'=>false,
+                    'errors'=>$v->errors()
+                ];
+                return response()->json($response,200);
+            }
+            $params = $request->all();
+            $oldClasificacion = isset($params["OldClasificacion"]) ? $params["OldClasificacion"] : [];
+            $newClasificacion = isset($params["NewClasificacion"]) ? $params["NewClasificacion"] : [];
+            $id = $params["id"];
+            $user = auth()->user();
+
+            DB::beginTransaction();
+            $oldFiles = DB::table("cedula_archivos")
+            ->select("id", "idClasificacion")
+            ->where("idCedula", $id)
+            ->whereRaw("FechaElimino IS NULL")
+            ->get();
+            $oldFilesIds = array_map(function($o) { return $o->id;}, $oldFiles->toArray());
+            if(isset($request->NewFiles)){
+                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
+            }
+            if(isset($request->OldFiles)){
+               $oldFilesIds = $this->updateCedulaFiles($id, $request->OldFiles, $oldClasificacion, $user->id, $oldFilesIds, $oldFiles);
+            }
+
+            if(count($oldFilesIds) > 0){
+                DB::table("cedula_archivos")
+                ->whereIn("id", $oldFilesIds)
+                ->update([
+                    'idUsuarioElimino'=>$user->id,
+                    'FechaElimino'=>date("Y-m-d H:i:s")
+                ]);
+            }
+            DB::commit();
+            $response = [
+                "success" => true,
+                "results" => true,
+                "message" => "Editada con éxito",
+                "data" => []
+            ];
+            return  response()->json($response, 200);
+        } catch (QueryException $errors) {
             DB::rollBack();
             $response = [
                 'success'=>false,
@@ -1165,5 +1327,62 @@ class CedulasController extends Controller
             DB::table("cedulas_solicitudes")
             ->where("id", $cedula->idSolicitud)
             ->update($params);
+    }
+
+    private function getFileType($extension){
+        if(in_array($extension, ["png", "jpg", "jpeg"]))
+            return "image";
+        if(in_array($extension, ["xlsx", "xls", "numbers"]))
+            return "sheet";
+        if(in_array($extension, ["doc", "docx"]))
+            return "document";
+        if($extension == "pdf")
+            return "pdf";
+        return "other";
+    }
+
+    private function createCedulaFiles($id, $files, $clasificationArray, $userId){
+        foreach($files as $key=>$file){
+            $originalName = $file->getClientOriginalName();
+            $extension = explode('.', $originalName);
+            $extension = $extension[count($extension) - 1];
+            $uniqueName = uniqid().".".$extension;
+            $size = $file->getSize();
+            $clasification = $clasificationArray[$key];
+            $fileObject = [
+                "idCedula"=>intval($id),
+                "idClasificacion"=>intval($clasification),
+                "NombreOriginal"=>$originalName,
+                "NombreSistema"=>$uniqueName,
+                "Extension"=>$extension,
+                "Tipo"=>$this->getFileType($extension),
+                "Tamanio"=>$size,
+                "idUsuarioCreo"=>$userId,
+                "FechaCreo"=>date("Y-m-d H:i:s")
+            ];
+            $file->move("subidos", $uniqueName);
+            DB::table("cedula_archivos")
+            ->insert($fileObject);
+        }
+    }
+
+    private function updateCedulaFiles($id, $files, $clasificationArray, $userId, $oldFilesIds, $oldFiles){
+        foreach($files as $key=>$file){
+            $fileAux = json_decode($file);
+            $encontrado = array_search($fileAux->id, $oldFilesIds);
+            if($encontrado !== false){
+                if($oldFiles[$encontrado]->idClasificacion != $clasificationArray[$key]){
+                    DB::table("cedula_archivos")
+                    ->where("id", $fileAux->id)
+                    ->update([
+                        "idClasificacion"=>$clasificationArray[$key],
+                        "idUsuarioActualizo"=>$userId,
+                        "FechaActualizo"=>date("Y-m-d H:i:s")
+                    ]);
+                }
+                unset($oldFilesIds[$encontrado]);
+            }
+        }
+        return $oldFilesIds;
     }
 }

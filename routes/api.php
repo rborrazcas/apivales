@@ -244,8 +244,11 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::get('/getCatalogsCedulaCompletos','CedulasController@getCatalogsCedulaCompletos');
         Route::post('/create','CedulasController@create');
         Route::get('/getById/{id}','CedulasController@getById');
+        Route::get('/getArchivosById/{id}','CedulasController@getFilesById');
+        Route::get('/getClasificacionArchivos','CedulasController@getClasificacionArchivos');
         Route::post('/update','CedulasController@update');
         Route::post('/delete','CedulasController@delete');
+        Route::post('/updateArchivosCedula','CedulasController@updateArchivosCedula');
      });
 
      
