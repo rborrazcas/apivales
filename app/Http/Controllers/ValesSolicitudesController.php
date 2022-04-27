@@ -278,19 +278,21 @@ class ValesSolicitudesController extends Controller
             // ->get();
 
             $valesSolicitudes = DB::table('vales_solicitudes')
-            ->where('Ejercicio', 2021)
+            ->where('Ejercicio', '>=', 2021)
             // ->take(10)
             ->get();
 
             foreach($valesSolicitudes as $vale){
-                DB::table('vales_series')
+                DB::table('vales_series_modificada')
                 ->where('Serie', '>=', $vale->SerieInicial)
                 ->where('Serie', '<=', $vale->SerieFinal)
                 ->where('Ejercicio', 2021)
                 ->update([
                     'Remesa' => $vale->Remesa,
                     'CURP' => $vale->CURP,
-                    'idSolicitud' => $vale->idSolicitud
+                    'idSolicitud' => $vale->idSolicitud,
+                    'SerieInicial' =>$vale->SerieInicial,
+                    'SerieFinal' =>$vale->SerieFinal,
                 ]);
             }
 
@@ -308,6 +310,24 @@ class ValesSolicitudesController extends Controller
 
             return  response()->json($response, 200);
         }
+
+    }
+
+    function actualizarFechas(Request $request){
+        $params = $request->all();
+        $vales = DB::table($params['fecha'])
+            // ->take(10)
+            ->get();
+
+        foreach($vales as $vale){
+            dump(date("Y-m-d", strtotime($vale->FechaNacimiento),  $vale->FechaNacimiento));
+            // $fechaFormateada = "";
+            // DB::table('vales_series_modificada')
+            // ->where('id', '=', $vale->id)
+            // ->update(['FechaNacimiento' => $fechaFormateada])
+        }
+
+        return ['success'=>true, 'message'=>"Actualizados con exito"];
 
     }
 }
