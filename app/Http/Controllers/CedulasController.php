@@ -383,7 +383,7 @@ class CedulasController extends Controller
                             ->leftJoin("cedulas", "cedulas.idSolicitud", "cedulas_solicitudes.id")
                             ->where("cedulas_solicitudes.id", $params["id"])
                             ->first();
-            if($solicitud->idEstatus != 1 || !isset($solicitud->idCedula)){
+            if($solicitud->idEstatus != 1 || isset($solicitud->idCedula)){
                 $response =  [
                     'success'=>true,
                     'results'=>false,
