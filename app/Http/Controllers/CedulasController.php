@@ -1426,6 +1426,12 @@ class CedulasController extends Controller
                         ->get();
         $prestaciones = array_map(function($o) { return $o->idPrestacion;}, $prestaciones->toArray());
 
+        $files =    DB::table("cedula_archivos")
+                    ->select("cedula_archivos.*", "cedula_archivos_clasificacion.Clasificacion")
+                    ->join("cedula_archivos_clasificacion", "cedula_archivos_clasificacion.id", "cedula_archivos.idClasificacion")
+                    ->where("idCedula", $params["id"])
+                    ->get();
+
         $solicitudJson = $this->formatSolicitudIGTOJson($cedula);
         if(!$solicitudJson["success"]){
             $response = [
@@ -1443,8 +1449,9 @@ class CedulasController extends Controller
             "enfermedades" => $enfermedades,
             "prestaciones" => $prestaciones
         ];
+        $cedulaJson = $this->formatCedulaIGTOJson($cedula, $catalogs);
         
-        dd($this->formatCedulaIGTOJson($cedula, $catalogs));
+        $formatedFiles = $this->formatArchivos($files);
         $data = [
             $solicitudJson,
             "dependencia" => [
@@ -1463,6 +1470,40 @@ class CedulasController extends Controller
                     [
                         "clave" => "Q3450-01-01",
                         "nombre" => "Vales Grandeza"
+                    ]
+                ],
+                "documentos" => [
+                    "estandar" => $formatedFiles
+                ],
+                "authUsuario" => [
+                    [ 
+                        "uid"=> "6197eb799c1fce80af39a6d1",
+                        "name"=>"Daniela Isabel Hernandez Villafuerte (RESPONSABLE Q)", //Cambiar a sedeshu
+                        "email"=>"dihernandezv@guanajuato.gob.mx", 
+                        "role"=>
+                        [  
+                            "key"=> "RESPONSABLE_Q_ROL", 
+                            "name"=> "ol Responsable Programa VIM" 
+                        ], 
+                        "dependency"=> 
+                        [ 
+                            "name"=> "Secretaría de Medio Ambiente y Ordenamiento Territorial", 
+                            "acronym"=> "SMAOT", 
+                            "office"=> 
+                            [ 
+                                "address"=> "BLVD. JUAN ALONSO DE TORRES 1315 LOCAL 20 PREDIO SAN JOSÉ DEL CONSULEO C.P.37200 LEON", 
+                                "name"=> "San José de Cervera", 
+                                "georef"=> 
+                                [ 
+                                    "type"=> "Point", 
+                                    "coordinates"=> 
+                                    [ 
+                                        21.146803, 
+                                        -101.647187 
+                                    ] 
+                                ] 
+                            ] 
+                        ]
                     ]
                 ]
             ]
@@ -1945,6 +1986,22 @@ class CedulasController extends Controller
             ], 
             "percepcionSeguridad"=> $cedula->ColoniaSegura == 1 
         ];
+    }
+
+    private function formatArchivos($archivos){
+        $files = [];
+        foreach($archivos as $file){
+            $fileConverted = fopen("subidos/".$file->NombreSistema, 'r');
+            $formatedFile = [
+                "fileList"=>[$fileConverted],
+                "habilitado"=> true, 
+                "nombre"=> $file->Clasificacion, 
+                "uid"=> "", 
+                "vigencia"=> "" 
+            ];
+            array_push($files, $formatedFile);
+        }
+        return $files;
     }
 
     private function updateSolicitudFromCedula($cedula, $user){
