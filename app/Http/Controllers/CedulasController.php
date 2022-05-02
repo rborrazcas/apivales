@@ -1509,6 +1509,14 @@ class CedulasController extends Controller
             ]
         ];
         dd($data);
+        // $client = new Client();
+        // $url = "https://qa-api-portal-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register"
+        // $response = $client->request('POST', $url, [
+        //     'verify'  => false,
+        //     "body" => $data
+        // ]);
+        // $responseBody = json_decode($response->getBody());
+        
     }
 
     private function formatSolicitudIGTOJson($solicitud){
