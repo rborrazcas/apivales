@@ -496,6 +496,8 @@ class CalentadoresController extends Controller
             unset($params["Enfermedades"]);
             unset($params["AtencionesMedicas"]);
             unset($params["NewClasificacion"]);
+            unset($params["NewFiles"]);
+            unset($params["idCedula"]);
 
             $id =   DB::table("calentadores_cedulas")
                     ->insertGetId($params);
@@ -825,10 +827,13 @@ class CalentadoresController extends Controller
             unset($params["OldClasificacion"]);
             unset($params["NewFiles"]);
             unset($params["NewClasificacion"]);
+            unset($params["idCedula"]);
 
             DB::table("calentadores_cedulas")
             ->where("id", $id)
             ->update($params);
+
+            $this->updateSolicitudFromCedula($params, $user);
 
             DB::table("calentadores_prestaciones")
             ->where("idCedula", $id)
@@ -1067,61 +1072,61 @@ class CalentadoresController extends Controller
     }
 
     private function updateSolicitudFromCedula($cedula, $user){
-            $params = [
-                "FechaSolicitud"=>$cedula->FechaSolicitud,
-                "FolioTarjetaImpulso"=>$cedula->FolioTarjetaImpulso,
-                "Nombre"=>$cedula->Nombre,
-                "Paterno"=>$cedula->Paterno,
-                "Materno"=>$cedula->Materno,
-                "FechaNacimiento"=>$cedula->FechaNacimiento,
-                "Edad"=>$cedula->Edad,
-                "Sexo"=>$cedula->Sexo,
-                "idEntidadNacimiento"=>$cedula->idEntidadNacimiento,
-                "CURP"=>$cedula->CURP,
-                "RFC"=>$cedula->RFC ? $cedula->RFC : null,
-                "idEstadoCivil"=>$cedula->idEstadoCivil,
-                "idParentescoJefeHogar"=>$cedula->idParentescoJefeHogar,
-                "NumHijos"=>$cedula->NumHijos,
-                "NumHijas"=>$cedula->NumHijas,
-                "ComunidadIndigena"=>$cedula->ComunidadIndigena ? $cedula->ComunidadIndigena : null,
-                "Dialecto"=>$cedula->Dialecto ? $cedula->Dialecto : null,
-                "Afromexicano"=>$cedula->Afromexicano,
-                "idSituacionActual"=>$cedula->idSituacionActual,
-                "TarjetaImpulso"=>$cedula->TarjetaImpulso,
-                "ContactoTarjetaImpulso"=>$cedula->ContactoTarjetaImpulso,
-                "Celular"=>$cedula->Celular,
-                "Telefono"=>$cedula->Telefono ? $cedula->Telefono : null,
-                "TelRecados"=>$cedula->TelRecados ? $cedula->TelRecados : null,
-                "Correo"=>$cedula->Correo,
-                "idParentescoTutor"=>$cedula->idParentescoTutor ? $cedula->idParentescoTutor : null,
-                "NombreTutor"=>$cedula->NombreTutor ? $cedula->NombreTutor : null,
-                "PaternoTutor"=>$cedula->PaternoTutor ? $cedula->PaternoTutor : null,
-                "MaternoTutor"=>$cedula->MaternoTutor ? $cedula->MaternoTutor : null,
-                "FechaNacimientoTutor"=>$cedula->FechaNacimientoTutor ? $cedula->FechaNacimientoTutor : null,
-                "EdadTutor"=>$cedula->EdadTutor ? $cedula->EdadTutor : null,
-                "SexoTutor"=>$cedula->SexoTutor ? $cedula->SexoTutor : null,
-                "idEntidadNacimientoTutor"=>$cedula->idEntidadNacimientoTutor ? $cedula->idEntidadNacimientoTutor : null,
-                "CURPTutor"=>$cedula->CURPTutor ? $cedula->CURPTutor : null,
-                "TelefonoTutor"=>$cedula->TelefonoTutor ? $cedula->TelefonoTutor : null,
-                "CorreoTutor"=>$cedula->CorreoTutor ? $cedula->CorreoTutor : null,
-                "NecesidadSolicitante"=>$cedula->NecesidadSolicitante,
-                "CostoNecesidad"=>$cedula->CostoNecesidad,
-                "idEntidadVive"=>$cedula->idEntidadVive,
-                "MunicipioVive"=>$cedula->MunicipioVive,
-                "LocalidadVive"=>$cedula->LocalidadVive,
-                "CPVive"=>$cedula->CPVive,
-                "ColoniaVive"=>$cedula->ColoniaVive,
-                "CalleVive"=>$cedula->CalleVive,
-                "NoExtVive"=>$cedula->NoExtVive,
-                "NoIntVive"=>$cedula->NoIntVive,
-                "Referencias"=>$cedula->Referencias,
-                "idUsuarioActualizo"=>$user->id,
-                "FechaActualizo"=> date("Y-m-d")
-            ];
+        $params = [
+            "FechaSolicitud"=>$cedula["FechaSolicitud"],
+            "FolioTarjetaImpulso"=>$cedula["FolioTarjetaImpulso"],
+            "Nombre"=>$cedula["Nombre"],
+            "Paterno"=>$cedula["Paterno"],
+            "Materno"=>$cedula["Materno"],
+            "FechaNacimiento"=>$cedula["FechaNacimiento"],
+            "Edad"=>$cedula["Edad"],
+            "Sexo"=>$cedula["Sexo"],
+            "idEntidadNacimiento"=>$cedula["idEntidadNacimiento"],
+            "CURP"=>$cedula["CURP"],
+            "RFC"=>$cedula["RFC"] ? $cedula["RFC"] : null,
+            "idEstadoCivil"=>$cedula["idEstadoCivil"],
+            "idParentescoJefeHogar"=>$cedula["idParentescoJefeHogar"],
+            "NumHijos"=>$cedula["NumHijos"],
+            "NumHijas"=>$cedula["NumHijas"],
+            "ComunidadIndigena"=>$cedula["ComunidadIndigena"] ? $cedula["ComunidadIndigena"] : null,
+            "Dialecto"=>$cedula["Dialecto"] ? $cedula["Dialecto"] : null,
+            "Afromexicano"=>$cedula["Afromexicano"],
+            "idSituacionActual"=>$cedula["idSituacionActual"],
+            "TarjetaImpulso"=>$cedula["TarjetaImpulso"],
+            "ContactoTarjetaImpulso"=>$cedula["ContactoTarjetaImpulso"],
+            "Celular"=>$cedula["Celular"],
+            "Telefono"=>$cedula["Telefono"] ? $cedula["Telefono"] : null,
+            "TelRecados"=>$cedula["TelRecados"] ? $cedula["TelRecados"] : null,
+            "Correo"=>$cedula["Correo"],
+            "idParentescoTutor"=>$cedula["idParentescoTutor"] ? $cedula["idParentescoTutor"] : null,
+            "NombreTutor"=>$cedula["NombreTutor"] ? $cedula["NombreTutor"] : null,
+            "PaternoTutor"=>$cedula["PaternoTutor"] ? $cedula["PaternoTutor"] : null,
+            "MaternoTutor"=>$cedula["MaternoTutor"] ? $cedula["MaternoTutor"] : null,
+            "FechaNacimientoTutor"=>$cedula["FechaNacimientoTutor"] ? $cedula["FechaNacimientoTutor"] : null,
+            "EdadTutor"=>$cedula["EdadTutor"] ? $cedula["EdadTutor"] : null,
+            "SexoTutor"=>$cedula["SexoTutor"] ? $cedula["SexoTutor"] : null,
+            "idEntidadNacimientoTutor"=>$cedula["idEntidadNacimientoTutor"] ? $cedula["idEntidadNacimientoTutor"] : null,
+            "CURPTutor"=>$cedula["CURPTutor"] ? $cedula["CURPTutor"] : null,
+            "TelefonoTutor"=>$cedula["TelefonoTutor"] ? $cedula["TelefonoTutor"] : null,
+            "CorreoTutor"=>$cedula["CorreoTutor"] ? $cedula["CorreoTutor"] : null,
+            "NecesidadSolicitante"=>$cedula["NecesidadSolicitante"],
+            "CostoNecesidad"=>$cedula["CostoNecesidad"],
+            "idEntidadVive"=>$cedula["idEntidadVive"],
+            "MunicipioVive"=>$cedula["MunicipioVive"],
+            "LocalidadVive"=>$cedula["LocalidadVive"],
+            "CPVive"=>$cedula["CPVive"],
+            "ColoniaVive"=>$cedula["ColoniaVive"],
+            "CalleVive"=>$cedula["CalleVive"],
+            "NoExtVive"=>$cedula["NoExtVive"],
+            "NoIntVive"=>$cedula["NoIntVive"],
+            "Referencias"=>$cedula["Referencias"],
+            "idUsuarioActualizo"=>$user->id,
+            "FechaActualizo"=> date("Y-m-d")
+        ];
 
-            DB::table("calentadores_solicitudes")
-            ->where("id", $cedula->idSolicitud)
-            ->update($params);
+        DB::table("calentadores_solicitudes")
+        ->where("id", $cedula["idSolicitud"])
+        ->update($params);
     }
 
     private function getFileType($extension){
@@ -1156,7 +1161,7 @@ class CalentadoresController extends Controller
                 "FechaCreo"=>date("Y-m-d H:i:s")
             ];
             $file->move("subidos", $uniqueName);
-            DB::table("cedula_archivos")
+            DB::table("calentadores_cedula_archivos")
             ->insert($fileObject);
         }
     }
@@ -1167,7 +1172,7 @@ class CalentadoresController extends Controller
             $encontrado = array_search($fileAux->id, $oldFilesIds);
             if($encontrado !== false){
                 if($oldFiles[$encontrado]->idClasificacion != $clasificationArray[$key]){
-                    DB::table("cedula_archivos")
+                    DB::table("calentadores_cedula_archivos")
                     ->where("id", $fileAux->id)
                     ->update([
                         "idClasificacion"=>$clasificationArray[$key],

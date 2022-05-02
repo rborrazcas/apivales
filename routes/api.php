@@ -251,17 +251,20 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('/create','CedulasController@create');
         Route::get('/getById/{id}','CedulasController@getById');
         Route::get('/getArchivosById/{id}','CedulasController@getFilesById');
+        Route::get('/getLocalidadesByMunicipio/{id}','CedulasController@getLocalidadesByMunicipio');
+        Route::get('/getAgebsManzanasByLocalidad/{id}','CedulasController@getAgebsManzanasByLocalidad');
         Route::get('/getClasificacionArchivos','CedulasController@getClasificacionArchivos');
         Route::post('/update','CedulasController@update');
         Route::post('/delete','CedulasController@delete');
         Route::post('/updateArchivosCedula','CedulasController@updateArchivosCedula');
+        Route::post('/enviarIGTO','CedulasController@enviarIGTO');
      });
 
      Route::group(['prefix' =>'calentadores'], function($route){
         Route::post('/create','CalentadoresController@create');
         Route::get('/getById/{id}','CalentadoresController@getById');
         Route::get('/getArchivosById/{id}','CalentadoresController@getFilesById');
-        Route::get('/getClasificacionArchivos','CalentadoresController@getClasificacionArchivos');
+        Route::get('/getClasificacionArchivos','CedulasController@getClasificacionArchivos');
         Route::post('/update','CalentadoresController@update');
         Route::post('/delete','CalentadoresController@delete');
         Route::post('/updateArchivosCedula','CalentadoresController@updateArchivosCedula');
