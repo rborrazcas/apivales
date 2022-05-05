@@ -158,12 +158,12 @@ class CedulasController extends Controller
                             CONCAT_WS(' ', creadores.Nombre, creadores.Paterno, creadores.Materno) AS CreadoPor,
                             CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor,
                             cedulas.id AS idCedula, cedulas.ListaParaEnviar")
-                            ->join("cat_entidad AS entidadesNacimiento", "entidadesNacimiento.id", "cedulas_solicitudes.idEntidadNacimiento")
-                            ->join("cat_estado_civil", "cat_estado_civil.id", "cedulas_solicitudes.idEstadoCivil")
-                            ->join("cat_parentesco_jefe_hogar", "cat_parentesco_jefe_hogar.id", "cedulas_solicitudes.idParentescoJefeHogar")
+                            ->leftJoin("cat_entidad AS entidadesNacimiento", "entidadesNacimiento.id", "cedulas_solicitudes.idEntidadNacimiento")
+                            ->leftJoin("cat_estado_civil", "cat_estado_civil.id", "cedulas_solicitudes.idEstadoCivil")
+                            ->leftJoin("cat_parentesco_jefe_hogar", "cat_parentesco_jefe_hogar.id", "cedulas_solicitudes.idParentescoJefeHogar")
                             ->leftJoin("cat_parentesco_tutor", "cat_parentesco_tutor.id", "cedulas_solicitudes.idParentescoTutor")
-                            ->join("cat_entidad AS entidadesVive", "entidadesVive.id", "cedulas_solicitudes.idEntidadVive")
-                            ->join("users AS creadores", "creadores.id", "cedulas_solicitudes.idUsuarioCreo")
+                            ->leftJoin("cat_entidad AS entidadesVive", "entidadesVive.id", "cedulas_solicitudes.idEntidadVive")
+                            ->leftJoin("users AS creadores", "creadores.id", "cedulas_solicitudes.idUsuarioCreo")
                             ->leftJoin("users AS editores", "editores.id", "cedulas_solicitudes.idUsuarioActualizo")
                             ->leftJoin("cedulas", "cedulas.idSolicitud", "cedulas_solicitudes.id");
             $filterQuery = "";
@@ -250,44 +250,44 @@ class CedulasController extends Controller
                 'Referencias' => 'required',
             ]); 
 
-            if ($v->fails()){
-                $response =  [
-                    'success'=>true,
-                    'results'=>false,
-                    'errors'=>$v->errors()
-                ];
-                return response()->json($response,200);
-            }
+            // if ($v->fails()){
+            //     $response =  [
+            //         'success'=>true,
+            //         'results'=>false,
+            //         'errors'=>$v->errors()
+            //     ];
+            //     return response()->json($response,200);
+            // }
 
             $params = $request->all();
 
-            if(
-                !isset($params['Celular']) && !isset($params['Telefono']) && 
-                !isset($params['Correo']) && !isset($params['TelRecados'])
-            ){
-                $response =  [
-                    'success'=>true,
-                    'results'=>false,
-                    'errors'=>"Agregue al menos un método de contacto"
-                ];
-                return response()->json($response,200);
-            }
+            // if(
+            //     !isset($params['Celular']) && !isset($params['Telefono']) && 
+            //     !isset($params['Correo']) && !isset($params['TelRecados'])
+            // ){
+            //     $response =  [
+            //         'success'=>true,
+            //         'results'=>false,
+            //         'errors'=>"Agregue al menos un método de contacto"
+            //     ];
+            //     return response()->json($response,200);
+            // }
 
-            if($params['Edad'] < 18){
-                if(
-                    !isset($params['idParentescoTutor']) &&
-                    !isset($params['NombreTutor']) && !isset($params['PaternoTutor']) && 
-                    !isset($params['MaternoTutor']) && !isset($params['FechaNacimientoTutor']) &&
-                    !isset($params['EdadTutor']) && !isset($params['CURPTutor'])
-                ){
-                    $response =  [
-                        'success'=>true,
-                        'results'=>false,
-                        'errors'=>"Información de tutor incompleta"
-                    ];
-                    return response()->json($response,200);
-                }
-            }
+            // if($params['Edad'] < 18){
+            //     if(
+            //         !isset($params['idParentescoTutor']) &&
+            //         !isset($params['NombreTutor']) && !isset($params['PaternoTutor']) && 
+            //         !isset($params['MaternoTutor']) && !isset($params['FechaNacimientoTutor']) &&
+            //         !isset($params['EdadTutor']) && !isset($params['CURPTutor'])
+            //     ){
+            //         $response =  [
+            //             'success'=>true,
+            //             'results'=>false,
+            //             'errors'=>"Información de tutor incompleta"
+            //         ];
+            //         return response()->json($response,200);
+            //     }
+            // }
             $cedulaModel = new Cedula;
             $user = auth()->user();
             $params["idUsuarioCreo"] = $user->id;
@@ -350,14 +350,14 @@ class CedulasController extends Controller
                 'Referencias' => 'required',
             ]); 
 
-            if ($v->fails()){
-                $response =  [
-                    'success'=>true,
-                    'results'=>false,
-                    'errors'=>$v->errors()
-                ];
-                return response()->json($response,200);
-            }
+            // if ($v->fails()){
+            //     $response =  [
+            //         'success'=>true,
+            //         'results'=>false,
+            //         'errors'=>$v->errors()
+            //     ];
+            //     return response()->json($response,200);
+            // }
 
             $params = $request->all();
 
@@ -375,33 +375,33 @@ class CedulasController extends Controller
                 return response()->json($response,200);
             }
 
-            if(
-                !isset($params['Celular']) && !isset($params['Telefono']) && 
-                !isset($params['Correo']) && !isset($params['TelRecados'])
-            ){
-                $response =  [
-                    'success'=>true,
-                    'results'=>false,
-                    'errors'=>"Agregue al menos un método de contacto"
-                ];
-                return response()->json($response,200);
-            }
+            // if(
+            //     !isset($params['Celular']) && !isset($params['Telefono']) && 
+            //     !isset($params['Correo']) && !isset($params['TelRecados'])
+            // ){
+            //     $response =  [
+            //         'success'=>true,
+            //         'results'=>false,
+            //         'errors'=>"Agregue al menos un método de contacto"
+            //     ];
+            //     return response()->json($response,200);
+            // }
 
-            if($params['Edad'] < 18){
-                if(
-                    !isset($params['idParentescoTutor']) &&
-                    !isset($params['NombreTutor']) && !isset($params['PaternoTutor']) && 
-                    !isset($params['MaternoTutor']) && !isset($params['FechaNacimientoTutor']) &&
-                    !isset($params['EdadTutor']) && !isset($params['CURPTutor'])
-                ){
-                    $response =  [
-                        'success'=>true,
-                        'results'=>false,
-                        'errors'=>"Información de tutor incompleta"
-                    ];
-                    return response()->json($response,200);
-                }
-            }
+            // if($params['Edad'] < 18){
+            //     if(
+            //         !isset($params['idParentescoTutor']) &&
+            //         !isset($params['NombreTutor']) && !isset($params['PaternoTutor']) && 
+            //         !isset($params['MaternoTutor']) && !isset($params['FechaNacimientoTutor']) &&
+            //         !isset($params['EdadTutor']) && !isset($params['CURPTutor'])
+            //     ){
+            //         $response =  [
+            //             'success'=>true,
+            //             'results'=>false,
+            //             'errors'=>"Información de tutor incompleta"
+            //         ];
+            //         return response()->json($response,200);
+            //     }
+            // }
 
             $user = auth()->user();
             $id = $params["id"];
@@ -760,21 +760,21 @@ class CedulasController extends Controller
                 'Enfermedades'  => 'required|array',
                 'AtencionesMedicas'  => 'required|array',
             ]); 
-            if ($v->fails()){
-                $response =  [
-                    'success'=>true,
-                    'results'=>false,
-                    'errors'=>$v->errors()
-                ];
-                return response()->json($response,200);
-            }
+            // if ($v->fails()){
+            //     $response =  [
+            //         'success'=>true,
+            //         'results'=>false,
+            //         'errors'=>$v->errors()
+            //     ];
+            //     return response()->json($response,200);
+            // }
             $params = $request->all();
 
             DB::beginTransaction();
 
-            $prestaciones = $params["Prestaciones"];
-            $enfermedades = $params["Enfermedades"];
-            $atencionesMedicas = $params["AtencionesMedicas"];
+            $prestaciones = isset($params["Prestaciones"]) ? $params["Prestaciones"] : [];
+            $enfermedades = isset($params["Enfermedades"]) ? $params["Enfermedades"] : [];
+            $atencionesMedicas = isset($params["AtencionesMedicas"]) ? $params["AtencionesMedicas"] : [];
             $newClasificacion = isset($params["NewClasificacion"]) ? $params["NewClasificacion"] : [];
             $user = auth()->user();
             $params['idUsuarioCreo'] =  $user->id;
@@ -1062,14 +1062,14 @@ class CedulasController extends Controller
                 'Enfermedades'  => 'required|array',
                 'AtencionesMedicas'  => 'required|array',
             ]); 
-            if ($v->fails()){
-                $response =  [
-                    'success'=>true,
-                    'results'=>false,
-                    'errors'=>$v->errors()
-                ];
-                return response()->json($response,200);
-            }
+            // if ($v->fails()){
+            //     $response =  [
+            //         'success'=>true,
+            //         'results'=>false,
+            //         'errors'=>$v->errors()
+            //     ];
+            //     return response()->json($response,200);
+            // }
             $params = $request->all();
             $user = auth()->user();
             $id = $params["id"];
@@ -1098,9 +1098,9 @@ class CedulasController extends Controller
             }
 
             DB::beginTransaction();
-            $prestaciones = $params["Prestaciones"];
-            $enfermedades = $params["Enfermedades"];
-            $atencionesMedicas = $params["AtencionesMedicas"];
+            $prestaciones = isset($params["Prestaciones"]) ? $params["Prestaciones"] : [] ;
+            $enfermedades = isset($params["Enfermedades"]) ? $params["Enfermedades"] : [];
+            $atencionesMedicas = isset($params["AtencionesMedicas"]) ? $params["AtencionesMedicas"] : [];
             $oldClasificacion = isset($params["OldClasificacion"]) ? $params["OldClasificacion"] : [];
             $newClasificacion = isset($params["NewClasificacion"]) ? $params["NewClasificacion"]: [] ;
             $params['idUsuarioActualizo'] =  $user->id;
@@ -2014,31 +2014,31 @@ class CedulasController extends Controller
 
     private function updateSolicitudFromCedula($cedula, $user){
             $params = [
-                "FechaSolicitud"=>$cedula["FechaSolicitud"],
-                "FolioTarjetaImpulso"=>$cedula["FolioTarjetaImpulso"],
-                "Nombre"=>$cedula["Nombre"],
-                "Paterno"=>$cedula["Paterno"],
-                "Materno"=>$cedula["Materno"],
-                "FechaNacimiento"=>$cedula["FechaNacimiento"],
-                "Edad"=>$cedula["Edad"],
-                "Sexo"=>$cedula["Sexo"],
-                "idEntidadNacimiento"=>$cedula["idEntidadNacimiento"],
-                "CURP"=>$cedula["CURP"],
+                "FechaSolicitud"=>$cedula["FechaSolicitud"] ? $cedula["FechaSolicitud"] : null,
+                "FolioTarjetaImpulso"=>$cedula["FolioTarjetaImpulso"] ? $cedula["FolioTarjetaImpulso"] : null,
+                "Nombre"=>$cedula["Nombre"] ? $cedula["Nombre"] : null,
+                "Paterno"=>$cedula["Paterno"] ? $cedula["Paterno"] : null,
+                "Materno"=>$cedula["Materno"] ? $cedula["Materno"] : null,
+                "FechaNacimiento"=>$cedula["FechaNacimiento"] ? $cedula["FechaNacimiento"] : null,
+                "Edad"=>$cedula["Edad"]? $cedula["Edad"] : null,
+                "Sexo"=>$cedula["Sexo"]? $cedula["Sexo"] : null,
+                "idEntidadNacimiento"=>$cedula["idEntidadNacimiento"] ? $cedula["idEntidadNacimiento"] : null,
+                "CURP"=>$cedula["CURP"] ? $cedula["CURP"] : null,
                 "RFC"=>$cedula["RFC"] ? $cedula["RFC"] : null,
-                "idEstadoCivil"=>$cedula["idEstadoCivil"],
-                "idParentescoJefeHogar"=>$cedula["idParentescoJefeHogar"],
-                "NumHijos"=>$cedula["NumHijos"],
-                "NumHijas"=>$cedula["NumHijas"],
+                "idEstadoCivil"=>$cedula["idEstadoCivil"] ? $cedula["idEstadoCivil"] : null,
+                "idParentescoJefeHogar"=>$cedula["idParentescoJefeHogar"] ? $cedula["idParentescoJefeHogar"] : null,
+                "NumHijos"=>$cedula["NumHijos"] ? $cedula["NumHijos"] : null,
+                "NumHijas"=>$cedula["NumHijas"] ? $cedula["NumHijas"] : null,
                 "ComunidadIndigena"=>$cedula["ComunidadIndigena"] ? $cedula["ComunidadIndigena"] : null,
                 "Dialecto"=>$cedula["Dialecto"] ? $cedula["Dialecto"] : null,
-                "Afromexicano"=>$cedula["Afromexicano"],
-                "idSituacionActual"=>$cedula["idSituacionActual"],
-                "TarjetaImpulso"=>$cedula["TarjetaImpulso"],
-                "ContactoTarjetaImpulso"=>$cedula["ContactoTarjetaImpulso"],
-                "Celular"=>$cedula["Celular"],
+                "Afromexicano"=>$cedula["Afromexicano"]? : null,
+                "idSituacionActual"=>$cedula["idSituacionActual"]? : null,
+                "TarjetaImpulso"=>$cedula["TarjetaImpulso"]? : null,
+                "ContactoTarjetaImpulso"=>$cedula["ContactoTarjetaImpulso"]? : null,
+                "Celular"=>$cedula["Celular"]? : null,
                 "Telefono"=>$cedula["Telefono"] ? $cedula["Telefono"] : null,
                 "TelRecados"=>$cedula["TelRecados"] ? $cedula["TelRecados"] : null,
-                "Correo"=>$cedula["Correo"],
+                "Correo"=>$cedula["Correo"]? : null,
                 "idParentescoTutor"=>$cedula["idParentescoTutor"] ? $cedula["idParentescoTutor"] : null,
                 "NombreTutor"=>$cedula["NombreTutor"] ? $cedula["NombreTutor"] : null,
                 "PaternoTutor"=>$cedula["PaternoTutor"] ? $cedula["PaternoTutor"] : null,
@@ -2051,16 +2051,16 @@ class CedulasController extends Controller
                 "TelefonoTutor"=>$cedula["TelefonoTutor"] ? $cedula["TelefonoTutor"] : null,
                 "CorreoTutor"=>$cedula["CorreoTutor"] ? $cedula["CorreoTutor"] : null,
                 "NecesidadSolicitante"=>$cedula["NecesidadSolicitante"],
-                "CostoNecesidad"=>$cedula["CostoNecesidad"],
-                "idEntidadVive"=>$cedula["idEntidadVive"],
-                "MunicipioVive"=>$cedula["MunicipioVive"],
-                "LocalidadVive"=>$cedula["LocalidadVive"],
-                "CPVive"=>$cedula["CPVive"],
-                "ColoniaVive"=>$cedula["ColoniaVive"],
-                "CalleVive"=>$cedula["CalleVive"],
-                "NoExtVive"=>$cedula["NoExtVive"],
-                "NoIntVive"=>$cedula["NoIntVive"],
-                "Referencias"=>$cedula["Referencias"],
+                "CostoNecesidad"=>$cedula["CostoNecesidad"]? : null,
+                "idEntidadVive"=>$cedula["idEntidadVive"]? : null,
+                "MunicipioVive"=>$cedula["MunicipioVive"]? : null,
+                "LocalidadVive"=>$cedula["LocalidadVive"]? : null,
+                "CPVive"=>$cedula["CPVive"]? : null,
+                "ColoniaVive"=>$cedula["ColoniaVive"]? : null,
+                "CalleVive"=>$cedula["CalleVive"]? : null,
+                "NoExtVive"=>$cedula["NoExtVive"]? : null,
+                "NoIntVive"=>$cedula["NoIntVive"]? : null,
+                "Referencias"=>$cedula["Referencias"]? : null,
                 "idUsuarioActualizo"=>$user->id,
                 "FechaActualizo"=> date("Y-m-d")
             ];
