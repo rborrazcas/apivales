@@ -58,6 +58,8 @@ Route::post(
     '/getResponsablesMovil',
     'ControllersPulseras\InvitadoController@getResponsables'
 );
+
+Route::get('/hashPassword', 'ZisController@hashPassword');
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
 
 // estas rutas requiren de un token válido para poder accederse.
@@ -67,6 +69,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/me', 'AuthController@getAuthenticatedUser');
     Route::post('/updateUser', 'AuthController@updateUser');
     Route::post('/getUsersApp', 'AuthController@getUsersApp');
+    Route::post('/getRegionUser', 'AuthController@getRegionUser');
     Route::post('/getTipoUsuarios', 'TipoUsuarioController@getTipoUsuarios');
     Route::post('/setTipoUsuario', 'TipoUsuarioController@setTipoUsuario');
     Route::post('/getClues', 'CluesController@getClues');
