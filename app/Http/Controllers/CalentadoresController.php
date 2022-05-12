@@ -337,7 +337,7 @@ class CalentadoresController extends Controller
                     'calentadores_cedulas.ListaParaEnviar'
                 )
                 ->leftJoin(
-                    $tableCedulas,
+                    DB::raw($tableCedulas),
                     'calentadores_cedulas.idSolicitud',
                     'calentadores_solicitudes.id'
                 )
@@ -389,6 +389,9 @@ class CalentadoresController extends Controller
             $user = auth()->user();
             $id = $params['id'];
             unset($params['id']);
+            unset($params['Files']);
+            unset($params['ArchivosClasificacion']);
+            unset($params['ListaParaEnviar']);
             $params['idUsuarioActualizo'] = $user->id;
             $params['FechaActualizo'] = date('Y-m-d');
             $params['idEstatus'] = 1;
@@ -1417,7 +1420,7 @@ class CalentadoresController extends Controller
             ];
             return response()->json($response, 200);
         } catch (\Throwable $errors) {
-            dd($errors);
+            //dd($errors);
             DB::rollBack();
             $response = [
                 'success' => false,

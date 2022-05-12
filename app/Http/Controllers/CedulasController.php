@@ -186,6 +186,63 @@ class CedulasController extends Controller
                 $tableName = 'cedulas';
             }
 
+            $user = auth()->user();
+
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '13'])
+                ->get()
+                ->first();
+
+            $seguimiento = $permisos->Seguimiento;
+            $viewall = $permisos->ViewAll;
+            $filtroCapturo = '';
+
+            if ($viewall < 1 && $seguimiento < 1) {
+                $filtroCapturo =
+                    '(' .
+                    $tableSol .
+                    ".idUsuarioCreo = '" .
+                    $user->id .
+                    "' OR " .
+                    $tableSol .
+                    ".idUsuarioActualizo = '" .
+                    $user->id .
+                    "')";
+            } elseif ($viewall < 1) {
+                $idsApi = DB::table('users_roles_ventanilla')
+                    ->select('idUser')
+                    ->where('users_roles_ventanilla.idUserOwner', $user->id)
+                    ->get();
+
+                $idsApiArray = array_map(function ($o) {
+                    return "'" . $o->idUser . "'";
+                }, $idsApi->toArray());
+
+                $res = implode(', ', $idsApiArray);
+
+                $usersAplicativo = DB::table('users_aplicativo')
+                    ->select('UserName')
+                    ->where('idUserOwner', $user->id)
+                    ->get();
+
+                $idsAplicativoArray = array_map(function ($o) {
+                    return "'" . $o->UserName . "'";
+                }, $usersAplicativo->toArray());
+
+                $res2 = implode(', ', $idsAplicativoArray);
+
+                $filtroCapturo =
+                    '(' .
+                    $tableSol .
+                    '.idUsuarioCreo IN (' .
+                    $res .
+                    ') OR ' .
+                    $tableSol .
+                    '.UsuarioAplicativo IN (' .
+                    $res2 .
+                    '))';
+            }
+
             $solicitudes = DB::table($tableSol)
                 // ->selectRaw(
                 //     $tableSol .
@@ -203,11 +260,20 @@ class CedulasController extends Controller
                 ->selectRaw(
                     $tableSol .
                         ".*, 
-                            entidadesNacimiento.Entidad AS EntidadNacimiento, cat_estado_civil.EstadoCivil, 
-                            cat_parentesco_jefe_hogar.Parentesco, cat_parentesco_tutor.Parentesco, 
-                            entidadesVive.Entidad AS EntidadVive, 
-                            CONCAT_WS(' ', creadores.Nombre, creadores.Paterno, creadores.Materno) AS CreadoPor,
-                            CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor," .
+                            entidadesNacimiento.Entidad AS EntidadNacimiento, " .
+                        'cat_estado_civil.EstadoCivil, ' .
+                        'cat_parentesco_jefe_hogar.Parentesco, ' .
+                        'cat_parentesco_tutor.Parentesco, ' .
+                        'entidadesVive.Entidad AS EntidadVive, ' .
+                        'CASE ' .
+                        'WHEN ' .
+                        'cedulas_solicitudes.idUsuarioCreo = 1312 ' .
+                        'THEN ' .
+                        'ap.Nombre ' .
+                        'ELSE ' .
+                        "CONCAT_WS( ' ', creadores.Nombre, creadores.Paterno, creadores.Materno ) " .
+                        'END AS CreadoPor, ' .
+                        "CONCAT_WS( ' ', editores.Nombre, editores.Paterno, editores.Materno ) AS ActualizadoPor, " .
                         $tableSol .
                         '.ListaParaEnviar'
                 )
@@ -251,6 +317,11 @@ class CedulasController extends Controller
                     $tableName . '.idSolicitud',
                     $tableSol . '.id'
                 )
+                ->leftJoin(
+                    'users_aplicativo as ap',
+                    'ap.UserName',
+                    $tableSol . '.UsuarioAplicativo'
+                )
                 ->whereNull($tableSol . '.FechaElimino');
             // ->whereNull($tableCedulas.'.FechaElimino');
             $filterQuery = '';
@@ -293,7 +364,18 @@ class CedulasController extends Controller
             if ($filterQuery != '') {
                 $solicitudes->whereRaw($filterQuery);
             }
-            // dd(str_replace_array('?', $solicitudes->getBindings(), $solicitudes->toSql()));
+
+            if ($filtroCapturo !== '') {
+                $solicitudes->whereRaw($filtroCapturo);
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
 
             $solicitudes = $solicitudes->paginate($params['pageSize']);
 
@@ -1977,7 +2059,7 @@ class CedulasController extends Controller
             ];
             return response()->json($response, 200);
         } catch (\Throwable $errors) {
-            dd($errors);
+            //dd($errors);
             DB::rollBack();
             $response = [
                 'success' => false,
@@ -2008,126 +2090,49 @@ class CedulasController extends Controller
         $params = $request->all();
 
         $solicitud = DB::table('cedulas_solicitudes')
-            ->where('id', $params['id'])
+            ->selectRaw(
+                "
+                            cedulas_solicitudes.*, 
+                            cat_estado_civil.EstadoCivil,
+                            cat_parentesco_jefe_hogar.Parentesco AS ParentescoJefeHogar,
+                            cat_situacion_actual.Situacion AS SituacionActual,
+                            entidadNacimiento.Entidad AS EntidadNacimiento,
+                            entidadVive.Entidad AS EntidadVive,
+                            cat_parentesco_tutor.Parentesco AS ParentescoTutor
+                "
+            )
+            ->leftjoin(
+                'cat_estado_civil',
+                'cat_estado_civil.id',
+                'cedulas_solicitudes.idEstadoCivil'
+            )
+            ->leftjoin(
+                'cat_parentesco_jefe_hogar',
+                'cat_parentesco_jefe_hogar.id',
+                'cedulas_solicitudes.idParentescoJefeHogar'
+            )
+            ->leftjoin(
+                'cat_situacion_actual',
+                'cat_situacion_actual.id',
+                'cedulas_solicitudes.idSituacionActual'
+            )
+            ->leftJoin(
+                'cat_parentesco_tutor',
+                'cat_parentesco_tutor.id',
+                'cedulas_solicitudes.idParentescoTutor'
+            )
+            ->leftjoin(
+                'cat_entidad AS entidadNacimiento',
+                'entidadNacimiento.id',
+                'cedulas_solicitudes.idEntidadNacimiento'
+            )
+            ->leftjoin(
+                'cat_entidad AS entidadVive',
+                'entidadVive.id',
+                'cedulas_solicitudes.idEntidadVive'
+            )
+            ->where('cedulas_solicitudes.id', $params['id'])
             ->first();
-        // $cedula = DB::table('cedulas')
-        //     ->selectRaw(
-        //         "
-        //                 cedulas.*, cat_estado_civil.EstadoCivil,
-        //                 cat_parentesco_jefe_hogar.Parentesco AS ParentescoJefeHogar,
-        //                 cat_situacion_actual.Situacion AS SituacionActual,
-        //                 entidadNacimiento.Entidad AS EntidadNacimiento,
-        //                 entidadVive.Entidad AS EntidadVive,
-        //                 cat_parentesco_tutor.Parentesco AS ParentescoTutor,
-        //                 gradoEducacion.Grado AS GradoEducacion,
-        //                 nivelesEducacion.Nivel AS NivelEducacion,
-        //                 actividades.Actividad,
-        //                 viviendas.Tipo AS TipoVivienda,
-        //                 pisos.Piso,
-        //                 muros.Muro,
-        //                 techos.Techo,
-        //                 aguas.Agua,
-        //                 drenajes.Drenaje,
-        //                 luz.Luz,
-        //                 combustibles.Combustible
-        //             "
-        //     )
-        //     ->join(
-        //         'cat_estado_civil',
-        //         'cat_estado_civil.id',
-        //         'cedulas.idEstadoCivil'
-        //     )
-        //     ->join(
-        //         'cat_parentesco_jefe_hogar',
-        //         'cat_parentesco_jefe_hogar.id',
-        //         'cedulas.idParentescoJefeHogar'
-        //     )
-        //     ->join(
-        //         'cat_situacion_actual',
-        //         'cat_situacion_actual.id',
-        //         'cedulas.idSituacionActual'
-        //     )
-        //     ->leftJoin(
-        //         'cat_parentesco_tutor',
-        //         'cat_parentesco_tutor.id',
-        //         'cedulas.idParentescoTutor'
-        //     )
-        //     ->join(
-        //         'cat_entidad AS entidadNacimiento',
-        //         'entidadNacimiento.id',
-        //         'cedulas.idEntidadNacimiento'
-        //     )
-        //     ->join(
-        //         'cat_entidad AS entidadVive',
-        //         'entidadVive.id',
-        //         'cedulas.idEntidadVive'
-        //     )
-        //     ->join(
-        //         'cat_grados_educacion AS gradoEducacion',
-        //         'gradoEducacion.id',
-        //         'cedulas.idGradoEscuela'
-        //     )
-        //     ->join(
-        //         'cat_niveles_educacion AS nivelesEducacion',
-        //         'nivelesEducacion.id',
-        //         'cedulas.idNivelEscuela'
-        //     )
-        //     ->join(
-        //         'cat_actividades AS actividades',
-        //         'actividades.id',
-        //         'cedulas.idActividades'
-        //     )
-        //     ->join(
-        //         'cat_tipos_viviendas AS viviendas',
-        //         'viviendas.id',
-        //         'cedulas.idTipoVivienda'
-        //     )
-        //     ->join('cat_tipos_pisos AS pisos', 'pisos.id', 'cedulas.idTipoPiso')
-        //     ->join(
-        //         'cat_tipos_muros AS muros',
-        //         'muros.id',
-        //         'cedulas.idTipoParedes'
-        //     )
-        //     ->join(
-        //         'cat_tipos_techos AS techos',
-        //         'techos.id',
-        //         'cedulas.idTipoTecho'
-        //     )
-        //     ->join('cat_tipos_agua AS aguas', 'aguas.id', 'cedulas.idTipoAgua')
-        //     ->join(
-        //         'cat_tipos_drenajes AS drenajes',
-        //         'drenajes.id',
-        //         'cedulas.idTipoDrenaje'
-        //     )
-        //     ->join('cat_tipos_luz AS luz', 'luz.id', 'cedulas.idTipoLuz')
-        //     ->join(
-        //         'cat_tipos_combustibles AS combustibles',
-        //         'combustibles.id',
-        //         'cedulas.idTipoCombustible'
-        //     )
-        //     ->where('cedulas.id', $params['id'])
-        //     ->first();
-
-        // $seguros = DB::table('cedulas_atenciones_medicas')
-        //     ->where('idCedula', $params['id'])
-        //     ->get();
-        // $seguros = array_map(function ($o) {
-        //     return $o->idAtencionMedica;
-        // }, $seguros->toArray());
-
-        // $enfermedades = DB::table('cedulas_enfermedades')
-        //     ->where('idCedula', $params['id'])
-        //     ->get();
-        // $enfermedades = array_map(function ($o) {
-        //     return $o->idEnfermedad;
-        // }, $enfermedades->toArray());
-
-        // $prestaciones = DB::table('cedulas_prestaciones')
-        //     ->where('idCedula', $params['id'])
-        //     ->get();
-        // $prestaciones = array_map(function ($o) {
-        //     return $o->idPrestacion;
-        // }, $prestaciones->toArray());
 
         $files = DB::table('solicitud_archivos')
             ->select(
@@ -2142,7 +2147,7 @@ class CedulasController extends Controller
             ->where('idSolicitud', $params['id'])
             ->get();
 
-        $solicitudJson = $this->formatSolicitudIGTOJson($cedula);
+        $solicitudJson = $this->formatSolicitudIGTOJson($solicitud);
         if (!$solicitudJson['success']) {
             $response = [
                 'success' => true,
@@ -2155,13 +2160,15 @@ class CedulasController extends Controller
 
         $solicitudJson = $solicitudJson['data'];
         $catalogs = [
-            'seguros' => $seguros,
-            'enfermedades' => $enfermedades,
-            'prestaciones' => $prestaciones,
+            'seguros' => [],
+            'enfermedades' => [],
+            'prestaciones' => [],
         ];
-        $cedulaJson = $this->formatCedulaIGTOJson($cedula, $catalogs);
+
+        $cedulaJson = $this->formatCedulaIGTOJson($solicitud, $catalogs);
 
         $formatedFiles = $this->formatArchivos($files);
+
         $data = [
             $solicitudJson,
             'dependencia' => [
@@ -2180,6 +2187,7 @@ class CedulasController extends Controller
                         'nombre' => 'Vales Grandeza',
                     ],
                 ],
+                $cedulaJson,
                 'documentos' => [
                     'estandar' => $formatedFiles,
                 ],
@@ -2219,6 +2227,22 @@ class CedulasController extends Controller
         //     "body" => $data
         // ]);
         // $responseBody = json_decode($response->getBody());
+        if ($responseBody !== null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'Enviado con exito',
+            ];
+        } else {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $solicitudJson['error'],
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+        }
+
+        return response()->json($response, 200);
     }
 
     private function formatSolicitudIGTOJson($solicitud)
@@ -2270,7 +2294,10 @@ class CedulasController extends Controller
                     'descripcion' => $solicitud->ParentescoJefeHogar,
                 ],
                 'migrante' => [
-                    'respuesta' => $solicitud->idSituacionActual !== 5,
+                    'respuesta' =>
+                        $solicitud->idSituacionActual !== 5 &&
+                        $solicitud->idSituacionActual !== null &&
+                        $solicitud->idSituacionActual !== 0,
                     'codigo' =>
                         $solicitud->idSituacionActual !== 5
                             ? $solicitud->idSituacionActual
@@ -2380,61 +2407,69 @@ class CedulasController extends Controller
         return [
             'solicitudImpulso' => true,
             'cedulaImpulso' => true,
+            // 'datosHogar' => [
+            //     'numeroHogares' => $cedula->TotalHogares,
+            //     'integrantesMujer' => $cedula->NumeroMujeresHogar,
+            //     'integrantesHombre' => $cedula->NumeroHombresHogar,
+            //     'menores18' => $cedula->PersonasMayoresEdad > 0,
+            //     'mayores65' => $cedula->PersonasTerceraEdad > 0,
+            //     'hombreJefeFamilia' => $cedula->PersonaJefaFamilia == 'H',
+            // ],
             'datosHogar' => [
-                'numeroHogares' => $cedula->TotalHogares,
-                'integrantesMujer' => $cedula->NumeroMujeresHogar,
-                'integrantesHombre' => $cedula->NumeroHombresHogar,
-                'menores18' => $cedula->PersonasMayoresEdad > 0,
-                'mayores65' => $cedula->PersonasTerceraEdad > 0,
-                'hombreJefeFamilia' => $cedula->PersonaJefaFamilia == 'H',
+                'numeroHogares' => 0,
+                'integrantesMujer' => 0,
+                'integrantesHombre' => 0,
+                'menores18' => false,
+                'mayores65' => false,
+                'hombreJefeFamilia' => false,
             ],
             'datosSalud' => [
-                'limitacionMental' => $cedula->DificultadMental == 1,
+                'limitacionMental' => false,
                 'servicioMedico' => [
                     [
                         [
-                            'respuesta' => in_array(1, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 1,
                             'descripcion' => 'Seguro Social IMSS',
                         ],
                         [
-                            'respuesta' => in_array(2, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 2,
                             'descripcion' =>
                                 'IMSS facultativo para estudiantes',
                         ],
                         [
-                            'respuesta' => in_array(3, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 3,
                             'descripcion' => 'ISSSTE',
                         ],
                         [
-                            'respuesta' => in_array(4, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 4,
                             'descripcion' => 'ISSSTE Estatal',
                         ],
                         [
-                            'respuesta' => in_array(5, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 5,
                             'descripcion' => 'PEMEX, Defensa o Marina',
                         ],
                         [
-                            'respuesta' => in_array(6, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 6,
                             'descripcion' => 'INSABI (antes Seguro Popular)',
                         ],
                         [
-                            'respuesta' => in_array(7, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 7,
                             'descripcion' => 'Seguro Privado',
                         ],
                         [
-                            'respuesta' => in_array(8, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 8,
                             'descripcion' => 'En otra institución',
                         ],
                         [
-                            'respuesta' => in_array(9, $catalogs['seguros']),
+                            'respuesta' => false,
                             'codigo' => 9,
                             'descripcion' =>
                                 'No tienen derecho a servicios médicos',
@@ -2443,295 +2478,273 @@ class CedulasController extends Controller
                 ],
                 'enfermedadCronica' => [
                     [
-                        'respuesta' => in_array(1, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 1,
                         'descripcion' => 'Artritis Reumatoide',
                     ],
                     [
-                        'respuesta' => in_array(2, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 2,
                         'descripcion' => 'Cáncer',
                     ],
                     [
-                        'respuesta' => in_array(3, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 3,
                         'descripcion' => 'Cirrosis Hepática',
                     ],
                     [
-                        'respuesta' => in_array(4, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 4,
                         'descripcion' => 'Insuficiencia Renal',
                     ],
                     [
-                        'respuesta' => in_array(5, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 5,
                         'descripcion' => 'Diabetes Mellitus',
                     ],
                     [
-                        'respuesta' => in_array(6, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 6,
                         'descripcion' => 'Cardiopatías',
                     ],
                     [
-                        'respuesta' => in_array(7, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 7,
                         'descripcion' => 'Enfermedad Pulmonar Crónica',
                     ],
                     [
-                        'respuesta' => in_array(8, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 8,
                         'descripcion' =>
                             'Deficiencia nutricional (Desnutrición)',
                     ],
                     [
-                        'respuesta' => in_array(9, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 9,
                         'descripcion' => 'Hipertensión Arterial',
                     ],
                     [
-                        'respuesta' => in_array(10, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 10,
                         'descripcion' => 'Obesidad',
                     ],
                     [
-                        'respuesta' => in_array(11, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 11,
                         'descripcion' =>
                             'Adicción a la Ingestión de Sustancias (Drogas)',
                     ],
                     [
-                        'respuesta' => in_array(12, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 12,
                         'descripcion' =>
                             'Adicciones de la conducta (Juego, internet)',
                     ],
                     [
-                        'respuesta' => in_array(13, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 13,
                         'descripcion' => 'Depresión',
                     ],
                     [
-                        'respuesta' => in_array(14, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 14,
                         'descripcion' => 'Ansiedad',
                     ],
                     [
-                        'respuesta' => in_array(15, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 15,
                         'descripcion' => 'Trasplante de Órganos',
                     ],
                     [
-                        'respuesta' => in_array(16, $catalogs['enfermedades']),
+                        'respuesta' => false,
                         'codigo' => 16,
                         'descripcion' => 'Ninguna',
                     ],
                 ],
             ],
             'datosEducacion' => [
-                'estudiante' => $cedula->AsisteEscuela == 1,
+                'estudiante' => false,
                 'ultimoNivel' => [
-                    'codigo' => $cedula->idNivelEscuela,
-                    'descripcion' => $cedula->NivelEducacion,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'grado' => [
-                    'codigo' =>
-                        $cedula->idGradoEscuela == 7
-                            ? 0
-                            : $cedula->idGradoEscuela,
-                    'descripcion' => $cedula->GradoEducacion,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
             ],
             'datosIngreso' => [
                 'situacionEmpleo' => [
-                    'codigo' => $cedula->idActividades,
-                    'descripcion' => $cedula->Actividad,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'prestacionesTrabajo' => [
                     [
-                        'respuesta' => in_array(1, $catalogs['prestaciones']),
+                        'respuesta' => false,
                         'codigo' => 1,
                         'descripcion' =>
                             'Incapacidad en caso de enfermedad, accidente o maternidad',
                     ],
                     [
-                        'respuesta' => in_array(2, $catalogs['prestaciones']),
+                        'respuesta' => false,
                         'codigo' => 2,
                         'descripcion' => 'Aguinaldo',
                     ],
                     [
-                        'respuesta' => in_array(3, $catalogs['prestaciones']),
+                        'respuesta' => false,
                         'codigo' => 3,
                         'descripcion' => 'Crédito de vivienda',
                     ],
                     [
-                        'respuesta' => in_array(4, $catalogs['prestaciones']),
+                        'respuesta' => false,
                         'codigo' => 4,
                         'descripcion' => 'Guarderías y estancias infantiles',
                     ],
                     [
-                        'respuesta' => in_array(5, $catalogs['prestaciones']),
+                        'respuesta' => false,
                         'codigo' => 5,
                         'descripcion' => 'SAR o AFORE',
                     ],
                     [
-                        'respuesta' => in_array(6, $catalogs['prestaciones']),
+                        'respuesta' => false,
                         'codigo' => 6,
                         'descripcion' => 'Seguro de vida',
                     ],
                     [
-                        'respuesta' => in_array(7, $catalogs['prestaciones']),
+                        'respuesta' => false,
                         'codigo' => 7,
                         'descripcion' =>
                             'No tienen prestaciones provenientes de su trabajo',
                     ],
                 ],
-                'totalIngreso' => $cedula->IngresoTotalMesPasado,
-                'totalPension' => $cedula->PensionMensual,
-                'totalRemesa' => $cedula->IngresoOtrosPaises,
+                'totalIngreso' => 0,
+                'totalPension' => 0,
+                'totalRemesa' => 0,
             ],
             'datosAlimentacion' => [
-                'pocaVariedadAlimento' => $cedula->AlimentacionPocoVariada,
-                'comioMenos' => $cedula->ComioMenos,
-                'disminuyoCantidad' => $cedula->DisminucionComida,
-                'tuvoHambreNoComio' => $cedula->NoComio,
-                'durmioConHambre' => $cedula->DurmioHambre,
-                'comioUnaVezoNo' => $cedula->DejoComer,
+                'pocaVariedadAlimento' => false,
+                'comioMenos' => false,
+                'disminuyoCantidad' => false,
+                'tuvoHambreNoComio' => false,
+                'durmioConHambre' => false,
+                'comioUnaVezoNo' => false,
             ],
             'discapacidad' => [
-                'movilidadInferior' => $cedula->DificultadMovilidad,
-                'visual' => $cedula->DificultadVer,
-                'habla' => $cedula->DificultadHablar,
-                'auditivo' => $cedula->DificultadOir,
-                'valerse' => $cedula->DificultadVestirse,
-                'memoria' => $cedula->DificultadRecordar,
-                'movilidadSuperior' => $cedula->DificultadBrazos,
+                'movilidadInferior' => 0,
+                'visual' => 0,
+                'habla' => 0,
+                'auditivo' => 0,
+                'valerse' => 0,
+                'memoria' => 0,
+                'movilidadSuperior' => 0,
             ],
             'datosGasto' => [
                 'comida' => [
-                    'gasto' => $cedula->GastoAlimentos,
+                    'gasto' => 0,
                     'periodo' => [
-                        'codigo' => $cedula->PeriodicidadAlimentos,
-                        'descripcion' => $periodicidades
-                            ->where('id', $cedula->PeriodicidadAlimentos)
-                            ->first()->Periodicidad,
+                        'codigo' => 0,
+                        'descripcion' => '',
                     ],
                 ],
                 'ropa' => [
-                    'gasto' => $cedula->GastoVestido,
+                    'gasto' => 0,
                     'periodo' => [
-                        'codigo' => $cedula->PeriodicidadVestido,
-                        'descripcion' => $periodicidades
-                            ->where('id', $cedula->PeriodicidadVestido)
-                            ->first()->Periodicidad,
+                        'codigo' => 0,
+                        'descripcion' => '',
                     ],
                 ],
                 'educacion' => [
-                    'gasto' => $cedula->GastoEducacion,
+                    'gasto' => 0,
                     'periodo' => [
-                        'codigo' => $cedula->PeriodicidadEducacion,
-                        'descripcion' => $periodicidades
-                            ->where('id', $cedula->PeriodicidadEducacion)
-                            ->first()->Periodicidad,
+                        'codigo' => 0,
+                        'descripcion' => '',
                     ],
                 ],
                 'medicina' => [
-                    'gasto' => $cedula->GastoMedicinas,
+                    'gasto' => 0,
                     'periodo' => [
-                        'codigo' => $cedula->PeriodicidadMedicinas,
-                        'descripcion' => $periodicidades
-                            ->where('id', $cedula->PeriodicidadMedicinas)
-                            ->first()->Periodicidad,
+                        'codigo' => 0,
+                        'descripcion' => '',
                     ],
                 ],
                 'consultas' => [
-                    'gasto' => $cedula->GastosConsultas,
+                    'gasto' => 0,
                     'periodo' => [
-                        'codigo' => $cedula->PeriodicidadConsultas,
-                        'descripcion' => $periodicidades
-                            ->where('id', $cedula->PeriodicidadConsultas)
-                            ->first()->Periodicidad,
+                        'codigo' => 0,
+                        'descripcion' => '',
                     ],
                 ],
                 'combustible' => [
-                    'gasto' => $cedula->GastosCombustibles,
+                    'gasto' => 0,
                     'periodo' => [
-                        'codigo' => $cedula->PeriodicidadCombustibles,
-                        'descripcion' => $periodicidades
-                            ->where('id', $cedula->PeriodicidadCombustibles)
-                            ->first()->Periodicidad,
+                        'codigo' => 0,
+                        'descripcion' => '',
                     ],
                 ],
                 'serviciosBasicos' => [
-                    'gasto' => $cedula->GastosServiciosBasicos,
+                    'gasto' => 0,
                     'periodo' => [
-                        'codigo' => $cedula->PeriodicidadServiciosBasicos,
-                        'descripcion' => $periodicidades
-                            ->where('id', $cedula->PeriodicidadServiciosBasicos)
-                            ->first()->Periodicidad,
+                        'codigo' => 0,
+                        'descripcion' => '',
                     ],
                 ],
                 'recreacion' => [
-                    'gasto' => $cedula->GastosServiciosRecreacion,
+                    'gasto' => 0,
                     'periodo' => [
-                        'codigo' => $cedula->PeriodicidadServiciosRecreacion,
-                        'descripcion' => $periodicidades
-                            ->where(
-                                'id',
-                                $cedula->PeriodicidadServiciosRecreacion
-                            )
-                            ->first()->Periodicidad,
+                        'codigo' => 0,
+                        'descripcion' => '',
                     ],
                 ],
             ],
             'datosVivienda' => [
                 'estatusVivienda' => [
-                    'codigo' => $cedula->idTipoVivienda,
-                    'descripcion' => $cedula->TipoVivienda,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'materialPiso' => [
-                    'codigo' => $cedula->idTipoPiso,
-                    'descripcion' => $cedula->Piso,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'materialPared' => [
-                    'codigo' => $cedula->idTipoParedes,
-                    'descripcion' => $cedula->Muro,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'materialTecho' => [
-                    'codigo' => $cedula->idTipoTecho,
-                    'descripcion' => $cedula->Techo,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'fuenteAgua' => [
-                    'codigo' => $cedula->idTipoAgua,
-                    'descripcion' => $cedula->Agua,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'drenaje' => [
-                    'codigo' => $cedula->idTipoDrenaje,
-                    'descripcion' => $cedula->Drenaje,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'fuenteLuzElectrica' => [
-                    'codigo' => $cedula->idTipoLuz,
-                    'descripcion' => $cedula->Luz,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
                 'combustibleCocina' => [
-                    'codigo' => $cedula->idTipoCombustible,
-                    'descripcion' => $cedula->Combustible,
+                    'codigo' => 0,
+                    'descripcion' => '',
                 ],
-                'numeroCuartos' => $cedula->CuartosHogar,
-                'numeroPersonaHabitantes' => $cedula->PersonasHogar,
+                'numeroCuartos' => 0,
+                'numeroPersonaHabitantes' => 0,
             ],
             'datosEnseres' => [
-                'refrigerador' => $cedula->Refrigerador == 1,
-                'lavadora' => $cedula->Lavadora == 1,
-                'computadora' => $cedula->Computadora == 1,
-                'estufa' => $cedula->Estufa == 1,
-                'boiler' => $cedula->Calentador == 1,
-                'calentadorSolar' => $cedula->CalentadorSolar == 1,
-                'tv' => $cedula->Television == 1,
-                'internet' => $cedula->Internet == 1,
-                'celular' => $cedula->TieneTelefono == 1,
-                'tinaco' => $cedula->Tinaco == 1,
+                'refrigerador' => false,
+                'lavadora' => false,
+                'computadora' => false,
+                'estufa' => false,
+                'boiler' => false,
+                'calentadorSolar' => false,
+                'tv' => false,
+                'internet' => false,
+                'celular' => false,
+                'tinaco' => false,
             ],
-            'percepcionSeguridad' => $cedula->ColoniaSegura == 1,
+            'percepcionSeguridad' => false,
         ];
     }
 
