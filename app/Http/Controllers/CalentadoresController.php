@@ -43,9 +43,80 @@ class CalentadoresController extends Controller
                 ];
                 return response()->json($response, 200);
             }
-
+            $tableSol = 'calentadores_solicitudes';
             $tableCedulas =
                 '(SELECT * FROM calentadores_cedulas WHERE FechaElimino IS NULL) AS calentadores_cedulas';
+
+            $user = auth()->user();
+
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '14'])
+                ->get()
+                ->first();
+
+            $seguimiento = $permisos->Seguimiento;
+            $viewall = $permisos->ViewAll;
+            $filtroCapturo = '';
+
+            if ($viewall < 1 && $seguimiento < 1) {
+                $usuarioApp = DB::table('users_aplicativo_web')
+                    ->where('idUser', $user->id)
+                    ->get()
+                    ->first();
+                $filtroCapturo =
+                    '(' .
+                    $tableSol .
+                    ".idUsuarioCreo = '" .
+                    $user->id .
+                    "' OR " .
+                    $tableSol .
+                    ".idUsuarioActualizo = '" .
+                    $user->id .
+                    "' OR " .
+                    $tableSol .
+                    ".UsuarioAplicativo = '" .
+                    $usuarioApp->UserName .
+                    "')";
+            } elseif ($viewall < 1) {
+                $idUserOwner = DB::table('users_aplicativo_web')
+                    ->selectRaw('idUserOwner,Region')
+                    ->where('idUser', $user->id)
+                    ->get()
+                    ->first();
+
+                $idsApi = DB::table('users_aplicativo_web')
+                    ->selectRaw('idUser')
+                    ->where('idUserOwner', $idUserOwner->idUserOwner)
+                    ->get();
+
+                $idsApiArray = array_map(function ($o) {
+                    return "'" . $o->idUser . "'";
+                }, $idsApi->toArray());
+
+                $res = implode(', ', $idsApiArray);
+
+                $usersAplicativo = DB::table('users_aplicativo_web')
+                    ->select('UserName')
+                    ->where('idUserOwner', $idUserOwner->idUserOwner)
+                    ->get();
+
+                $idsAplicativoArray = array_map(function ($o) {
+                    return "'" . $o->UserName . "'";
+                }, $usersAplicativo->toArray());
+
+                $res2 = implode(', ', $idsAplicativoArray);
+
+                $filtroCapturo =
+                    '(' .
+                    $tableSol .
+                    '.idUsuarioCreo IN (' .
+                    $res .
+                    ') OR ' .
+                    $tableSol .
+                    '.UsuarioAplicativo IN (' .
+                    $res2 .
+                    '))';
+            }
 
             $params = $request->all();
             $solicitudes = DB::table('calentadores_solicitudes')
@@ -139,6 +210,10 @@ class CalentadoresController extends Controller
 
             if ($filterQuery != '') {
                 $solicitudes->whereRaw($filterQuery);
+            }
+
+            if ($filtroCapturo !== '') {
+                $solicitudes->whereRaw($filtroCapturo);
             }
 
             $solicitudes = $solicitudes->paginate($params['pageSize']);

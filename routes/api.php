@@ -54,6 +54,7 @@ Route::post(
     '/getListadoResponsablesMovil',
     'ControllersPulseras\InvitadoController@getListadoResponsables'
 ); //PENDIENTE
+
 Route::post(
     '/getResponsablesMovil',
     'ControllersPulseras\InvitadoController@getResponsables'
@@ -473,6 +474,16 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post(
         '/deleteSolicitudCalentador',
         'CalentadoresController@deleteSolicitud'
+    );
+
+    Route::post(
+        '/getEstatusGlobalVentanillaVales',
+        'CedulasController@getEstatusGlobal'
+    );
+
+    Route::post(
+        '/uploadFilesSolicitud',
+        'CedulasController@uploadFilesSolicitud'
     );
 
     Route::group(['prefix' => 'cedula'], function ($route) {

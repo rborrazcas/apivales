@@ -12,6 +12,7 @@ use App\Cedula;
 use Arr;
 use Carbon\Carbon as time;
 use GuzzleHttp\Client;
+use File;
 
 class CedulasController extends Controller
 {
@@ -27,6 +28,67 @@ class CedulasController extends Controller
         } else {
             return 0;
         } //No existe folio
+    }
+
+    function getEstatusGlobal(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+
+        $permisos = DB::table('users_menus')
+            ->where(['idUser' => $user->id, 'idMenu' => '13'])
+            ->get()
+            ->first();
+
+        $seguimiento = $permisos->Seguimiento;
+        $viewall = $permisos->ViewAll;
+        $procedimiento = '';
+
+        if ($viewall < 1 && $seguimiento < 1) {
+            $usuarioApp = DB::table('users_aplicativo_web')
+                ->select('UserName')
+                ->where('idUser', $user->id)
+                ->get()
+                ->first();
+            $procedimiento =
+                "call getEstatusGlobalVentanillaVales('" .
+                $usuarioApp->UserName .
+                "','" .
+                $user->id .
+                "')";
+        } elseif ($viewall < 1) {
+            $idUserOwner = DB::table('users_aplicativo_web')
+                ->selectRaw('idUserOwner,Region')
+                ->where('idUser', $user->id)
+                ->get()
+                ->first();
+            $procedimiento =
+                " call getEstatusGlobalVentanillaValesRegional('" .
+                $idUserOwner->idUserOwner .
+                "')";
+        }
+
+        if ($procedimiento === '') {
+            $procedimiento = 'call getEstatusGlobalVentanillaValesGeneral';
+        }
+
+        try {
+            $res = DB::select($procedimiento);
+            return ['success' => true, 'results' => true, 'data' => $res];
+        } catch (QueryException $e) {
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'errors' => $e,
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
     }
 
     function getCatalogsCedula(Request $request)
@@ -198,6 +260,10 @@ class CedulasController extends Controller
             $filtroCapturo = '';
 
             if ($viewall < 1 && $seguimiento < 1) {
+                $usuarioApp = DB::table('users_aplicativo_web')
+                    ->where('idUser', $user->id)
+                    ->get()
+                    ->first();
                 $filtroCapturo =
                     '(' .
                     $tableSol .
@@ -207,11 +273,21 @@ class CedulasController extends Controller
                     $tableSol .
                     ".idUsuarioActualizo = '" .
                     $user->id .
+                    "' OR " .
+                    $tableSol .
+                    ".UsuarioAplicativo = '" .
+                    $usuarioApp->UserName .
                     "')";
             } elseif ($viewall < 1) {
-                $idsApi = DB::table('users_roles_ventanilla')
-                    ->select('idUser')
-                    ->where('users_roles_ventanilla.idUserOwner', $user->id)
+                $idUserOwner = DB::table('users_aplicativo_web')
+                    ->selectRaw('idUserOwner,Region')
+                    ->where('idUser', $user->id)
+                    ->get()
+                    ->first();
+
+                $idsApi = DB::table('users_aplicativo_web')
+                    ->selectRaw('idUser')
+                    ->where('idUserOwner', $idUserOwner->idUserOwner)
                     ->get();
 
                 $idsApiArray = array_map(function ($o) {
@@ -220,9 +296,9 @@ class CedulasController extends Controller
 
                 $res = implode(', ', $idsApiArray);
 
-                $usersAplicativo = DB::table('users_aplicativo')
+                $usersAplicativo = DB::table('users_aplicativo_web')
                     ->select('UserName')
-                    ->where('idUserOwner', $user->id)
+                    ->where('idUserOwner', $idUserOwner->idUserOwner)
                     ->get();
 
                 $idsAplicativoArray = array_map(function ($o) {
@@ -442,6 +518,7 @@ class CedulasController extends Controller
             //     return response()->json($response,200);
             // }
             $params = $request->all();
+            $idAplicativo = '';
 
             if (!isset($params['Folio'])) {
                 $program = 1;
@@ -453,6 +530,10 @@ class CedulasController extends Controller
                 $tableSol = 'calentadores_solicitudes';
             } else {
                 $tableSol = 'cedulas_solicitudes';
+            }
+
+            if (isset($params['idSolicitudAplicativo'])) {
+                $idAplicativo = $params['idSolicitudAplicativo'];
             }
             // if(
             //     !isset($params['Celular']) && !isset($params['Telefono']) &&
@@ -490,28 +571,52 @@ class CedulasController extends Controller
             unset($params['NewFiles']);
 
             $user = auth()->user();
-            $params['idUsuarioCreo'] = $user->id;
-            $params['FechaCreo'] = date('Y-m-d');
             $params['idEstatus'] = 1;
-            DB::beginTransaction();
 
-            $id = DB::table($tableSol)->insertGetId($params);
+            $idSol = null;
 
-            if (isset($request->NewFiles) && $program === 1) {
-                $this->createSolicitudFiles(
-                    $id,
-                    $request->NewFiles,
-                    $newClasificacion,
-                    $user->id
-                );
+            if ($idAplicativo !== '') {
+                $idSol = DB::table($tableSol)
+                    ->selectRaw('id')
+                    ->where('idSolicitudAplicativo', $idAplicativo)
+                    ->first();
             }
 
-            DB::commit();
+            if ($idSol === null) {
+                $params['idUsuarioCreo'] = $user->id;
+                $params['FechaCreo'] = date('Y-m-d');
+                DB::beginTransaction();
 
+                $id = DB::table($tableSol)->insertGetId($params);
+
+                if (isset($request->NewFiles) && $program === 1) {
+                    $this->createSolicitudFiles(
+                        $id,
+                        $request->NewFiles,
+                        $newClasificacion,
+                        $user->id
+                    );
+                }
+                DB::commit();
+            } else {
+                $id = $idSol->id;
+                DB::table($tableSol)
+                    ->where('id', $id)
+                    ->update($params);
+
+                if (isset($request->NewFiles) && $program === 1) {
+                    $this->createSolicitudFiles(
+                        $id,
+                        $request->NewFiles,
+                        $newClasificacion,
+                        $user->id
+                    );
+                }
+            }
             $response = [
                 'success' => true,
                 'results' => true,
-                'message' => 'Solicitud creada con éxito',
+                'message' => 'Solicitud creada con exito',
                 'data' => $id,
             ];
 
@@ -677,8 +782,7 @@ class CedulasController extends Controller
                     $id,
                     $request->NewFiles,
                     $newClasificacion,
-                    $user->id,
-                    $programa
+                    $user->id
                 );
             }
 
@@ -689,8 +793,7 @@ class CedulasController extends Controller
                     $oldClasificacion,
                     $user->id,
                     $oldFilesIds,
-                    $oldFiles,
-                    $program
+                    $oldFiles
                 );
             }
 
@@ -1423,7 +1526,7 @@ class CedulasController extends Controller
     function getFilesByIdV(Request $request, $id)
     {
         try {
-            $archivos = DB::table('solicitud_archivos')
+            $archivos2 = DB::table('solicitud_archivos')
                 ->select(
                     'id',
                     'idClasificacion',
@@ -1436,7 +1539,16 @@ class CedulasController extends Controller
                 ->get();
             $archivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;
-            }, $archivos->toArray());
+            }, $archivos2->toArray());
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/subidos/' .
+                    $o->NombreSistema;
+                // '/var/www/html/plataforma/apivales/public/subidos/' .
+                // $o->NombreSistema;
+                return $o;
+            }, $archivos2->toArray());
+
             $response = [
                 'success' => true,
                 'results' => true,
@@ -1444,6 +1556,7 @@ class CedulasController extends Controller
                 'data' => [
                     'Archivos' => $archivos,
                     'ArchivosClasificacion' => $archivosClasificacion,
+                    'RutasArchivos',
                 ],
             ];
             return response()->json($response, 200);
@@ -1463,7 +1576,7 @@ class CedulasController extends Controller
     function getFilesByIdC(Request $request, $id)
     {
         try {
-            $archivos = DB::table('calentadores_cedula_archivos')
+            $archivos2 = DB::table('calentadores_cedula_archivos')
                 ->select(
                     'id',
                     'idClasificacion',
@@ -1476,7 +1589,17 @@ class CedulasController extends Controller
                 ->get();
             $archivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;
-            }, $archivos->toArray());
+            }, $archivos2->toArray());
+
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/subidos/' .
+                    $o->NombreSistema;
+                // '/var/www/html/plataforma/apivales/public/subidos/' .
+                // $o->NombreSistema;
+                return $o;
+            }, $archivos2->toArray());
+
             $response = [
                 'success' => true,
                 'results' => true,
@@ -1925,8 +2048,7 @@ class CedulasController extends Controller
                     $id,
                     $request->NewFiles,
                     $newClasificacion,
-                    $user->id,
-                    $programa
+                    $user->id
                 );
             }
             if (isset($request->OldFiles)) {
@@ -2089,6 +2211,26 @@ class CedulasController extends Controller
 
         $params = $request->all();
 
+        // if (isset($params['Folio'])) {
+        //     $urlValidacionFolio =
+        //         'https://qa-api-portal-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+        //         $params['Folio'];
+        //     $client = new Client();
+        //     $response = $client->request('GET', $url, [
+        //         'verify' => false,
+        //         'body' => $data,
+        //     ]);
+        //     $responseBody = json_decode($response->getBody());
+        // } else {
+        //     $response = [
+        //         'success' => true,
+        //         'results' => false,
+        //         'errors' =>
+        //             'La solicitud no cuenta con folio, revise su información',
+        //     ];
+        //     return response()->json($response, 200);
+        // }
+
         $solicitud = DB::table('cedulas_solicitudes')
             ->selectRaw(
                 "
@@ -2219,15 +2361,46 @@ class CedulasController extends Controller
                 ],
             ],
         ];
-        dd($data);
+
+        //dd($data);
+
+        $client = new Client();
+        $url =
+            'https://qa-api-portal-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register';
+        $response = $client->request('POST', $url, [
+            'verify' => false,
+            'headers' => [
+                'Content-Type' => 'multipart/form-data',
+                'api_key' => 'key',
+                'Authorization' => '616c818fe33268648502g834',
+            ],
+            'form_data' => $data,
+        ]);
+
+        $responseBody = json_decode($response->getBody());
+
+        //dd($data);
+        // $apikey = ['api_key' => '616c818fe33268648502g834'];
+        // array_push($data, $apikey);
+        // //dd($data);
         // $client = new Client();
-        // $url = "https://qa-api-portal-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register"
+        // $url =
+        //     'https://qa-api-portal-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register';
         // $response = $client->request('POST', $url, [
-        //     'verify'  => false,
-        //     "body" => $data
+        //     'verify' => false,
+        //     'headers' => [
+        //         'Content-Type' => 'multipart/form-data',
+        //     ],
+        //     'form_data' => $data,
         // ]);
+
         // $responseBody = json_decode($response->getBody());
+
         if ($responseBody !== null) {
+            DB::table('cedulas_solicitudes')
+                ->where('id', $params['id'])
+                ->update('idEstatus', '8');
+
             $response = [
                 'success' => true,
                 'results' => false,
@@ -2400,7 +2573,7 @@ class CedulasController extends Controller
         }
     }
 
-    private function formatCedulaIGTOJson($cedula, $catalogs)
+    private function formatCedulaIGTOJson($solicitud, $catalogs)
     {
         $periodicidades = DB::table('cat_periodicidad')->get();
 
@@ -2617,7 +2790,10 @@ class CedulasController extends Controller
                             'No tienen prestaciones provenientes de su trabajo',
                     ],
                 ],
-                'totalIngreso' => 0,
+                'totalIngreso' =>
+                    $solicitud->TotalIngreso != null
+                        ? $solicitud->TotalIngreso
+                        : 0,
                 'totalPension' => 0,
                 'totalRemesa' => 0,
             ],
@@ -3027,5 +3203,108 @@ class CedulasController extends Controller
             }
         }
         return $oldFilesIds;
+    }
+
+    public function uploadFilesSolicitud(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'id' => 'required',
+            'NewFiles' => 'required',
+            'NamesFiles' => 'required',
+            'ArrayClasificacion' => 'required',
+            'ArrayExtension' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $id = $params['id'];
+        $files = $params['NewFiles'];
+        $arrayClasifiacion = $params['ArrayClasificacion'];
+        $fullPath = public_path('/subidos/');
+        $extension = $params['ArrayExtension'];
+        $names = $params['NamesFiles'];
+        try {
+            $solicitud = DB::table('cedulas_solicitudes')
+                ->select('idUsuarioCreo')
+                ->where('cedulas_solicitudes.id', $id)
+                ->first();
+            if ($solicitud == null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No se encuentra la solicitud',
+                ];
+                return response()->json($response, 200);
+            }
+
+            foreach ($files as $key => $file) {
+                $imageContent = $this->imageBase64Content($file);
+                $uniqueName = uniqid() . '.' . $extension[$key];
+                $clasification = $arrayClasifiacion[$key];
+                $originalName = $names[$key];
+
+                File::put($fullPath . $uniqueName, $imageContent);
+
+                // $extension = explode('.', $originalName);
+                // $extension = $extension[count($extension) - 1];
+
+                // $size = $file->getSize();
+                // $clasification = $clasificationArray[$key];
+                $fileObject = [
+                    'idSolicitud' => intval($id),
+                    'idClasificacion' => intval($clasification),
+                    'NombreOriginal' => $originalName,
+                    'NombreSistema' => $uniqueName,
+                    'Extension' => $extension[$key],
+                    'Tipo' => $this->getFileType($extension),
+                    'Tamanio' => '',
+                    'idUsuarioCreo' => $solicitud->idUsuarioCreo,
+                    'FechaCreo' => date('Y-m-d H:i:s'),
+                ];
+                // $file->move('subidos', $uniqueName);
+
+                $tableArchivos = 'solicitud_archivos';
+                // if($program>1){
+                //     $tableArchivos = 'solicitud_archivos';
+                // }else{
+                //     $tableArchivos = 'cedula_archivos';
+                // }
+
+                DB::table($tableArchivos)->insert($fileObject);
+
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'errors' => 'Archivos cargados con exito',
+                ];
+                return response()->json($response, 200);
+            }
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function imageBase64Content($image)
+    {
+        $image = str_replace('data:image/png;base64,', '', $image);
+        $image = str_replace(' ', '+', $image);
+        return base64_decode($image);
     }
 }

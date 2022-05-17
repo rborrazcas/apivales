@@ -245,9 +245,9 @@ class ZisController extends Controller
 
     public function hashPassword()
     {
-        $data = DB::table('users_roles_ventanilla')
-            ->selectRaw('ID,CELULAR')
-            ->whereNotNull('CELULAR')
+        $data = DB::table('users_aplicativo_web')
+            ->selectRaw('id,UserName')
+            ->whereNull('Celular')
             ->get();
 
         if (count($data) == 0) {
@@ -268,16 +268,11 @@ class ZisController extends Controller
 
         foreach (array_chunk($res, 500) as $chunk) {
             foreach ($chunk as $r) {
-                $data2 = DB::table('users')
-                    ->selectRaw('id')
-                    ->where('email', $r['CELULAR'])
-                    ->get();
-
-                $password = Hash::make($r['CELULAR'] . '-' . $data2[0]->id);
+                $password = Hash::make($r['UserName']);
                 if (!is_null($password)) {
-                    DB::table('users_roles_ventanilla')
-                        ->where('id', $r['ID'])
-                        ->update(['UsuarioAplicativo' => $password]);
+                    DB::table('users_aplicativo_web')
+                        ->where('id', $r['id'])
+                        ->update(['Celular' => $password]);
                 }
             }
         }
