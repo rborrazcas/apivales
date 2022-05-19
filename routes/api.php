@@ -61,6 +61,11 @@ Route::post(
 );
 
 Route::get('/hashPassword', 'ZisController@hashPassword');
+
+Route::post(
+    '/envioMasivoVentanilla',
+    'CedulasController@envioMasivoVentanilla'
+);
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
 
 // estas rutas requiren de un token válido para poder accederse.
