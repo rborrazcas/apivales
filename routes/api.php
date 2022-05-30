@@ -393,6 +393,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getRemesasGruposAvance',
         'ReportesController@getRemesasGruposAvance'
     );
+
     Route::post('/getCatGrupos', 'ReportesController@getCatGrupos');
 
     //APIS PULSERAS GTO 30 SEPTIEMBRE
@@ -512,6 +513,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             '/getClasificacionArchivos',
             'CedulasController@getClasificacionArchivos'
         );
+        Route::post(
+            '/getMunicipiosVales',
+            'CedulasController@getMunicipiosVales'
+        );
         Route::post('/update', 'CedulasController@update');
         Route::post('/delete', 'CedulasController@delete');
         Route::post(
@@ -519,6 +524,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'CedulasController@updateArchivosSolicitud'
         );
         Route::post('/enviarIGTO', 'CedulasController@enviarIGTO');
+
+        Route::post('/setVales', 'CedulasController@setVales');
     });
 
     Route::group(['prefix' => 'calentadores'], function ($route) {
@@ -535,5 +542,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             '/updateArchivosCedula',
             'CalentadoresController@updateArchivosCedula'
         );
+        Route::post('/enviarIGTO', 'CalentadoresController@enviarIGTO');
     });
 });

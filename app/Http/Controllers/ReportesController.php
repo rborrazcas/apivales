@@ -326,8 +326,6 @@ class ReportesController extends Controller
     {
         $parameters = $request->all();
 
-        //$user = auth()->user();
-
         try {
             $catRemesas = DB::table('vales_grupos_totales')
                 ->select('Remesa')
@@ -6285,8 +6283,8 @@ class ReportesController extends Controller
                 break;
             case '4':
                 //$Regional="OMAR GREGORIO MENDOZA FLORES";
-                $Regional = 'ALEJANDRA ZARAGOZA MORALES';
-                $CARGOREGIONAL = 'ENCARGADO DE DESPACHO';
+                $Regional = 'JOSE LUIS OROZCO NAVA';
+                $CARGOREGIONAL = 'DIRECTOR REGIONAL';
                 break;
             case '5':
                 $Regional = 'ARTURO DONACIANO SALAZAR SOTO';
@@ -6299,8 +6297,8 @@ class ReportesController extends Controller
             case '7':
                 //$Regional="SILVIA DE ANDA CAMPOS";
                 //$Regional="ELIZABETH RAMIREZ BÁRCENAS";
-                $Regional = 'PILAR ANAI PAZ CARABEZ';
-                $CARGOREGIONAL = 'ENCARGADO DE DESPACHO';
+                $Regional = 'ARACELI CABRERA ALCARAZ';
+                $CARGOREGIONAL = 'DIRECTOR REGIONAL';
                 break;
         }
 
