@@ -32,7 +32,8 @@ class CedulasController extends Controller
     {
         if (!is_null($folio)) {
             $q = str_contains($folio, 'Q3450');
-            if ($q) {
+            $q2 = str_contains($folio, 'q3450');
+            if ($q || $q2) {
                 return 1; //1 para vales
             } else {
                 return 2;
@@ -1399,6 +1400,22 @@ class CedulasController extends Controller
             unset($params['NewFiles']);
             unset($params['idCedula']);
 
+            if (isset($params['idSolicitud'])) {
+                $cedula = DB::table($tableCedulas)
+                    ->where('idSolicitud', $params['id'])
+                    ->whereRaw('FechaElimino IS NULL');
+
+                if ($cedula != null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'Esta solicitud ya cuenta con una cedula activa',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
+
             $id = DB::table($tableCedulas)->insertGetId($params);
             $programa = $this->getPrograma($params['Folio']);
 
@@ -1896,6 +1913,7 @@ class CedulasController extends Controller
 
             $cedula = DB::table($tableCedulas)
                 ->where('id', $id)
+                ->WhereRaw('FechaElimino IS NULL')
                 ->first();
 
             if ($cedula == null) {

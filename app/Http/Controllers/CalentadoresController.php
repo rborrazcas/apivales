@@ -233,7 +233,7 @@ class CalentadoresController extends Controller
             $mun = [];
 
             if (isset($params['filtered']) && count($params['filtered']) > 0) {
-                $filtersCedulas = ['.id', '.ListaParaEnviar'];
+                $filtersCedulas = ['.id', '.ListaParaEnviar', '.MunicipioVive'];
                 foreach ($params['filtered'] as $filtro) {
                     if ($filterQuery != '') {
                         $filterQuery .= ' AND ';
@@ -267,7 +267,7 @@ class CalentadoresController extends Controller
                     }
 
                     if (in_array($id, $filtersCedulas)) {
-                        $id = 'calentadores_cedulas' . $id;
+                        $id = 'calentadores_solicitudes' . $id;
                     } else {
                         $id = 'calentadores_solicitudes' . $id;
                     }
@@ -279,6 +279,7 @@ class CalentadoresController extends Controller
                         case 'array':
                             $colonDividedValue = implode(', ', $value);
                             $filterQuery .= " $id IN ($colonDividedValue) ";
+                            break;
                         default:
                             if ($value === -1) {
                                 $filterQuery .= " $id IS NOT NULL ";
@@ -1171,6 +1172,85 @@ class CalentadoresController extends Controller
         }
     }
 
+    function getFilesByIdSolicitud(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'id' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+            $params = $request->all();
+            $idSolicitud = $params['id'];
+            $cedula = DB::table('cedulas_calentadores')
+                ->select('id')
+                ->where('idSolicitud', $idSolicitud)
+                ->whereRaw('FechaElimino IS NULL')
+                ->get()
+                ->first();
+
+            if ($cedula == null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No fue posible encontrar la cédula',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $archivos2 = DB::table('calentadores_cedula_archivos')
+                ->select(
+                    'id',
+                    'idClasificacion',
+                    'NombreOriginal AS name',
+                    'NombreSistema',
+                    'Tipo AS type'
+                )
+                ->where('idCedula', $cedula->id)
+                ->whereRaw('FechaElimino IS NULL')
+                ->get();
+            $archivosClasificacion = array_map(function ($o) {
+                return $o->idClasificacion;
+            }, $archivos2->toArray());
+
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/subidos/' .
+                    $o->NombreSistema;
+                // '/var/www/html/plataforma/apivales/public/subidos/' .
+                // $o->NombreSistema;
+                return $o;
+            }, $archivos2->toArray());
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'éxito',
+                'data' => [
+                    'Archivos' => $archivos,
+                    'ArchivosClasificacion' => $archivosClasificacion,
+                ],
+            ];
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function update(Request $request)
     {
         try {
@@ -2011,6 +2091,7 @@ class CalentadoresController extends Controller
                 'calentadores_cedula_archivos.idClasificacion'
             )
             ->where('idCedula', $id)
+            ->whereIn('cedula_archivos_clasificacion.id', [3, 6, 4, 7])
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
 
@@ -2025,7 +2106,7 @@ class CalentadoresController extends Controller
                 'calentadores_cedula_archivos.idClasificacion'
             )
             ->where('idCedula', $id)
-            //->where('cedula_archivos_clasificacion.id', '2')
+            ->where('cedula_archivos_clasificacion.id', '10')
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
 
@@ -2940,9 +3021,9 @@ class CalentadoresController extends Controller
         $extension = $params['ArrayExtension'];
         $names = $params['NamesFiles'];
         try {
-            $solicitud = DB::table('calentadores_solicitudes')
-                ->select('idUsuarioCreo')
-                ->where('calentadores_solicitudes.id', $id)
+            $solicitud = DB::table('calentadores_cedulas')
+                ->select('idUsuarioCreo', 'id')
+                ->where('calentadores_cedulas.idSolicitud', $id)
                 ->first();
             if ($solicitud == null) {
                 $response = [
@@ -2960,7 +3041,7 @@ class CalentadoresController extends Controller
 
                 File::put($fullPath . $uniqueName, $imageContent);
                 $fileObject = [
-                    'idCedula' => intval($id),
+                    'idCedula' => intval($solicitud->id),
                     'idClasificacion' => intval($clasification),
                     'NombreOriginal' => $originalName,
                     'NombreSistema' => $uniqueName,

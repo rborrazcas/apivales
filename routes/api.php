@@ -492,6 +492,16 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@uploadFilesSolicitud'
     );
 
+    Route::post(
+        '/uploadFilesCalentadores',
+        'CalentadoresController@uploadFilesCalentadores'
+    );
+
+    Route::post(
+        '/getFilesByIdSolicitud',
+        'CalentadoresController@getFilesByIdSolicitud'
+    );
+
     Route::group(['prefix' => 'cedula'], function ($route) {
         Route::get(
             '/getCatalogsCedulaCompletos',
@@ -543,5 +553,9 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'CalentadoresController@updateArchivosCedula'
         );
         Route::post('/enviarIGTO', 'CalentadoresController@enviarIGTO');
+        Route::post(
+            '/getEstatusGlobalVentanillaCalentadores',
+            'CalentadoresController@getEstatusGlobal'
+        );
     });
 });
