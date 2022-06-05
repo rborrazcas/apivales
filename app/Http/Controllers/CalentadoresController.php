@@ -3,17 +3,27 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Illuminate\Database\QueryException;
-use DB;
-use JWTAuth;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use Illuminate\Contracts\Validation\ValidationException;
-use Validator;
+
 use App\Cedula;
-use Arr;
-use Carbon\Carbon as time;
 use GuzzleHttp\Client;
-use HTTP_Request2;
+use App\VNegociosFiltros;
+use Carbon\Carbon as time;
+
+use DB;
+use Arr;
 use File;
+use Zipper;
+use JWTAuth;
+use Validator;
+use HTTP_Request2;
 
 class CalentadoresController extends Controller
 {
@@ -120,6 +130,24 @@ class CalentadoresController extends Controller
 
             $params = $request->all();
             $user = auth()->user();
+
+            $userId = JWTAuth::parseToken()->toUser()->id;
+
+            DB::table('users_filtros')
+                ->where('UserCreated', $userId)
+                ->where('api', 'getCalentadoresVentanilla')
+                ->delete();
+
+            $parameters_serializado = serialize($params);
+
+            //Insertamos los filtros
+            DB::table('users_filtros')->insert([
+                'UserCreated' => $userId,
+                'Api' => 'getCalentadoresVentanilla',
+                'Consulta' => $parameters_serializado,
+                'created_at' => date('Y-m-d h-m-s'),
+            ]);
+
             $tableSol = 'calentadores_solicitudes';
             $tableCedulas =
                 '(SELECT * FROM calentadores_cedulas WHERE FechaElimino IS NULL) AS calentadores_cedulas';
@@ -173,13 +201,24 @@ class CalentadoresController extends Controller
 
             $solicitudes = DB::table('calentadores_solicitudes')
                 ->selectRaw(
-                    "calentadores_solicitudes.*, 
-                            entidadesNacimiento.Entidad AS EntidadNacimiento, cat_estado_civil.EstadoCivil, 
-                            cat_parentesco_jefe_hogar.Parentesco, cat_parentesco_tutor.Parentesco, 
-                            entidadesVive.Entidad AS EntidadVive,m.Region AS RegionM,
-                            CONCAT_WS(' ', creadores.Nombre, creadores.Paterno, creadores.Materno) AS CreadoPor,
-                            CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor,
-                            calentadores_cedulas.id AS idCedula, calentadores_cedulas.ListaParaEnviar as ListaParaEnviarC"
+                    'calentadores_solicitudes.*,' .
+                        ' entidadesNacimiento.Entidad AS EntidadNacimiento, ' .
+                        ' cat_estado_civil.EstadoCivil, ' .
+                        ' cat_parentesco_jefe_hogar.Parentesco, ' .
+                        ' cat_parentesco_tutor.Parentesco, ' .
+                        ' entidadesVive.Entidad AS EntidadVive, ' .
+                        ' m.Region AS RegionM, ' .
+                        'CASE ' .
+                        'WHEN ' .
+                        'calentadores_solicitudes.idUsuarioCreo = 1312 ' .
+                        'THEN ' .
+                        'ap.Nombre ' .
+                        'ELSE ' .
+                        "CONCAT_WS( ' ', creadores.Nombre, creadores.Paterno, creadores.Materno ) " .
+                        'END AS CreadoPor, ' .
+                        " CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor, " .
+                        ' calentadores_cedulas.id AS idCedula, ' .
+                        ' calentadores_cedulas.ListaParaEnviar as ListaParaEnviarC'
                 )
                 ->join(
                     'cat_entidad AS entidadesNacimiento',
@@ -225,6 +264,11 @@ class CalentadoresController extends Controller
                     'et_cat_municipio as m',
                     'm.Nombre',
                     'calentadores_solicitudes.MunicipioVive'
+                )
+                ->leftJoin(
+                    'users_aplicativo_web as ap',
+                    'ap.UserName',
+                    'calentadores_solicitudes.UsuarioAplicativo'
                 )
                 ->whereNull('calentadores_solicitudes.FechaElimino');
 
@@ -305,16 +349,148 @@ class CalentadoresController extends Controller
             //         $solicitudes->toSql()
             //     )
             // );
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
 
+            $startIndex = $page * $pageSize;
+
+            $total = $solicitudes->count();
             $solicitudes = $solicitudes
-                ->orderByDesc('FechaCreo')
-                ->paginate($params['pageSize']);
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
+                ->where('api', '=', 'getCalentadoresVentanilla')
+                ->first();
+
+            if ($filtro_usuario) {
+                $filtro_usuario->parameters = $parameters_serializado;
+                $filtro_usuario->updated_at = time::now();
+                $filtro_usuario->update();
+            } else {
+                $objeto_nuevo = new VNegociosFiltros();
+                $objeto_nuevo->api = 'getCalentadoresVentanilla';
+                $objeto_nuevo->idUser = $user->id;
+                $objeto_nuevo->parameters = $parameters_serializado;
+                $objeto_nuevo->save();
+            }
+
+            // $solicitudes = $solicitudes
+            //     ->orderByDesc('FechaCreo')
+            //     ->paginate($params['pageSize']);
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'filtros' => $params['filtered'],
+                    'data' => $array_res,
+                ];
+            }
+
+            $temp = [];
+            foreach ($solicitudes as $data) {
+                $temp = [
+                    'id' => $data->id,
+                    'FechaSolicitud' => $data->FechaSolicitud,
+                    'FolioTarjetaImpulso' => $data->FolioTarjetaImpulso,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'FechaNacimiento' => $data->FechaNacimiento,
+                    'Edad' => $data->Edad,
+                    'Sexo' => $data->Sexo,
+                    'idEntidadNacimiento' => $data->idEntidadNacimiento,
+                    'CURP' => $data->CURP,
+                    'RFC' => $data->RFC,
+                    'idEstadoCivil' => $data->idEstadoCivil,
+                    'idParentescoJefeHogar' => $data->idParentescoJefeHogar,
+                    'NumHijos' => $data->NumHijos,
+                    'NumHijas' => $data->NumHijas,
+                    'ComunidadIndigena' => $data->ComunidadIndigena,
+                    'Dialecto' => $data->Dialecto,
+                    'Afromexicano' => $data->Afromexicano,
+                    'idSituacionActual' => $data->idSituacionActual,
+                    'TarjetaImpulso' => $data->TarjetaImpulso,
+                    'ContactoTarjetaImpulso' => $data->ContactoTarjetaImpulso,
+                    'Celular' => $data->Celular,
+                    'Telefono' => $data->Telefono,
+                    'TelRecados' => $data->TelRecados,
+                    'Correo' => $data->Correo,
+                    'idParentescoTutor' => $data->idParentescoTutor,
+                    'NombreTutor' => $data->NombreTutor,
+                    'PaternoTutor' => $data->PaternoTutor,
+                    'MaternoTutor' => $data->MaternoTutor,
+                    'FechaNacimientoTutor' => $data->FechaNacimientoTutor,
+                    'EdadTutor' => $data->EdadTutor,
+                    'CURPTutor' => $data->CURPTutor,
+                    'TelefonoTutor' => $data->TelefonoTutor,
+                    'CorreoTutor' => $data->CorreoTutor,
+                    'NecesidadSolicitante' => $data->NecesidadSolicitante,
+                    'CostoNecesidad' => $data->CostoNecesidad,
+                    'idEntidadVive' => $data->idEntidadVive,
+                    'MunicipioVive' => $data->MunicipioVive,
+                    'LocalidadVive' => $data->LocalidadVive,
+                    'CPVive' => $data->CPVive,
+                    'ColoniaVive' => $data->ColoniaVive,
+                    'CalleVive' => $data->CalleVive,
+                    'NoExtVive' => $data->NoExtVive,
+                    'NoIntVive' => $data->NoIntVive,
+                    'Referencias' => $data->Referencias,
+                    'idEstatus' => $data->idEstatus,
+                    'idUsuarioCreo' => $data->idUsuarioCreo,
+                    'FechaCreo' => $data->FechaCreo,
+                    'idUsuarioActualizo' => $data->idUsuarioActualizo,
+                    'FechaActualizo' => $data->FechaActualizo,
+                    'SexoTutor' => $data->SexoTutor,
+                    'idEntidadNacimientoTutor' =>
+                        $data->idEntidadNacimientoTutor,
+                    'Folio' => $data->Folio,
+                    'ListaParaEnviar' => $data->ListaParaEnviar,
+                    'idUsuarioElimino' => $data->idUsuarioElimino,
+                    'FechaElimino' => $data->FechaElimino,
+                    'UsuarioAplicativo' => $data->UsuarioAplicativo,
+                    'Region' => $data->Region,
+                    'Enlace' => $data->Enlace,
+                    'idSolicitudAplicativo' => $data->idSolicitudAplicativo,
+                    'Latitud' => $data->Latitud,
+                    'Longitud' => $data->Longitud,
+                    'EntidadNacimiento' => $data->EntidadNacimiento,
+                    'EstadoCivil' => $data->EstadoCivil,
+                    'Parentesco' => $data->Parentesco,
+                    'EntidadVive' => $data->EntidadVive,
+                    'RegionM' => $data->RegionM,
+                    'CreadoPor' => $data->CreadoPor,
+                    'ActualizadoPor' => $data->ActualizadoPor,
+                    'idCedula' => $data->idCedula,
+                    'ListaParaEnviarC' => $data->ListaParaEnviarC,
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            $filtros = '';
+            if (isset($params['filtered'])) {
+                $filtros = $params['filtered'];
+            }
+
+            // $response = [
+            //     'success' => true,
+            //     'results' => true,
+            //     'data' => $solicitudes->items(),
+            //     'total' => $solicitudes->total(),
+            // ];
 
             $response = [
                 'success' => true,
                 'results' => true,
-                'data' => $solicitudes->items(),
-                'total' => $solicitudes->total(),
+                'data' => $array_res,
+                'total' => $total,
+                'filtros' => $filtros,
             ];
             return response()->json($response, 200);
         } catch (QueryException $errors) {
@@ -1188,7 +1364,7 @@ class CalentadoresController extends Controller
             }
             $params = $request->all();
             $idSolicitud = $params['id'];
-            $cedula = DB::table('cedulas_calentadores')
+            $cedula = DB::table('calentadores_cedulas')
                 ->select('id')
                 ->where('idSolicitud', $idSolicitud)
                 ->whereRaw('FechaElimino IS NULL')
@@ -2048,6 +2224,7 @@ class CalentadoresController extends Controller
             )
             ->where('cedulas.id', $id)
             ->first();
+        //dd(str_replace_array('?', $cedula->getBindings(), $cedula->toSql()));
 
         if (!isset($cedula->MunicipioVive) || !isset($cedula->LocalidadVive)) {
             $response = [
@@ -2083,26 +2260,41 @@ class CalentadoresController extends Controller
         $files = DB::table('calentadores_cedula_archivos')
             ->select(
                 'calentadores_cedula_archivos.*',
-                'calentadores_cedula_archivos.Clasificacion'
+                'cedula_archivos_clasificacion.Clasificacion'
             )
             ->join(
-                'calentadores_cedula_archivos',
-                'calentadores_cedula_archivos.id',
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
                 'calentadores_cedula_archivos.idClasificacion'
             )
             ->where('idCedula', $id)
-            ->whereIn('cedula_archivos_clasificacion.id', [3, 6, 4, 7])
+            ->whereIn('cedula_archivos_clasificacion.id', [3, 6, 4])
+            ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
+            ->get();
+
+        $filesEvidencias = DB::table('calentadores_cedula_archivos')
+            ->select(
+                'calentadores_cedula_archivos.*',
+                'cedula_archivos_clasificacion.Clasificacion'
+            )
+            ->join(
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
+                'calentadores_cedula_archivos.idClasificacion'
+            )
+            ->where('idCedula', $id)
+            ->whereIn('cedula_archivos_clasificacion.id', [7])
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
 
         $filesEspecifico = DB::table('calentadores_cedula_archivos')
             ->select(
                 'calentadores_cedula_archivos.*',
-                'calentadores_cedula_archivos.Clasificacion'
+                'cedula_archivos_clasificacion.Clasificacion'
             )
             ->join(
-                'calentadores_cedula_archivos',
-                'calentadores_cedula_archivos.id',
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
                 'calentadores_cedula_archivos.idClasificacion'
             )
             ->where('idCedula', $id)
@@ -2127,6 +2319,14 @@ class CalentadoresController extends Controller
             'enfermedades' => $enfermedades,
             'prestaciones' => $prestaciones,
         ];
+
+        $infoFilesEvidencias = $this->getInfoArchivos($filesEvidencias, 1);
+        $fileEvidenciaZip = $this->createZipEvidencia(
+            $infoFilesEvidencias,
+            $id,
+            $cedula->idSolicitud
+        );
+
         $cedulaJson = $this->formatCedulaIGTOJson($cedula, $catalogs);
         $formatedFiles = $this->formatArchivos($files, 1);
         $infoFiles = $this->getInfoArchivos($files, 1);
@@ -2134,6 +2334,17 @@ class CalentadoresController extends Controller
         $infoFilesEspecifico = $this->getInfoArchivos($filesEspecifico, 2);
 
         $infoFiles = array_merge($infoFiles, $infoFilesEspecifico);
+
+        if ($fileEvidenciaZip != []) {
+            $formtatedFilesEvidencias = [
+                'llave' => 'estandar_Evidencia Fotográfica',
+                'nombre' => 'Evidencia Fotográfica',
+                'uid' => '',
+                'vigencia' => '',
+            ];
+            $formatedFiles[] = $formtatedFilesEvidencias;
+            $infoFiles[] = $fileEvidenciaZip;
+        }
 
         $programa = json_encode(
             [
@@ -2216,7 +2427,7 @@ class CalentadoresController extends Controller
             'authUsuario' => $authUsuario,
             'campoUsuario' => $cUsuario,
         ];
-        //dd($dataCompleted);
+
         $request2 = new HTTP_Request2();
         $request2->setUrl(
             'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
@@ -2240,10 +2451,11 @@ class CalentadoresController extends Controller
                 $file['header']
             );
         }
-
+        dd($request2);
         try {
             $response = $request2->send();
             $message = json_decode($response->getBody());
+            //dd($response->getReasonPhrase());
             if ($response->getStatus() == 200) {
                 try {
                     DB::table('calentadores_solicitudes')
@@ -2287,7 +2499,7 @@ class CalentadoresController extends Controller
             $response2 = [
                 'success' => true,
                 'results' => false,
-                'errors' => $message,
+                'errors' => $e,
                 'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
             return response()->json($response2, 200);
@@ -2977,13 +3189,13 @@ class CalentadoresController extends Controller
             $formato = 'especifico';
         }
         foreach ($archivos as $file) {
-            $fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
+            //$fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
             $formatedFile = [
                 'llave' =>
                     $formato . '_' . str_replace('.', '', $file->Clasificacion),
                 'ruta' =>
-                    '/var/www/html/plataforma/apivales/public/subidos/' .
-                    //'/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                    //'/var/www/html/plataforma/apivales/public/subidos/' .
+                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
                     $file->NombreSistema,
                 //'content' => $fileContent,
                 'nombre' => str_replace('.', '', $file->Clasificacion),
@@ -2992,6 +3204,34 @@ class CalentadoresController extends Controller
             array_push($files, $formatedFile);
         }
         return $files;
+    }
+
+    private function createZipEvidencia($archivos, $idCedula, $idSolicitud)
+    {
+        $formatedFile = [];
+        try {
+            $files = [];
+            $fileName = $idCedula . '-' . $idSolicitud . '.zip';
+            foreach ($archivos as $file) {
+                $files[] = $file['ruta'];
+            }
+            Zipper::make(public_path('subidos/' . $fileName))
+                ->add($files)
+                ->close();
+
+            $formatedFile = [
+                'llave' => 'estandar_Evidencia Fotográfica',
+                'ruta' =>
+                    //'/var/www/html/plataforma/apivales/public/subidos/' .
+                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                    $fileName,
+                'nombre' => 'Evidencia Fotográfica',
+                'header' => '<Content-Type Header>',
+            ];
+            return $formatedFile;
+        } catch (Exception $e) {
+            return $formatedFile;
+        }
     }
 
     public function uploadFilesCalentadores(Request $request)
@@ -3081,5 +3321,520 @@ class CalentadoresController extends Controller
         $image = str_replace('data:image/png;base64,', '', $image);
         $image = str_replace(' ', '+', $image);
         return base64_decode($image);
+    }
+
+    public function getAuthUsuario($idUser, $index)
+    {
+        $flag = false;
+        if ($idUser != null && $idUser != '') {
+            $filtro = '';
+            if ($index == 1) {
+                $filtro = "UserName = '" . $idUser . "'";
+            } else {
+                $filtro = "idUser = '" . $idUser . "'";
+            }
+            $idRegional = DB::table('users_aplicativo_web')
+                ->select('idUserOwner')
+                ->whereRaw($filtro)
+                ->get()
+                ->first();
+            if ($idRegional != null) {
+                $datosRegional = DB::table('cuentas_regionales_ventanilla')
+                    ->selectRaw('uId,Nombre,correoCuenta,rol')
+                    ->where('idRegional', $idRegional->idUserOwner)
+                    ->get()
+                    ->first();
+                if ($datosRegional != null) {
+                    $json = json_encode(
+                        [
+                            'uid' => $datosRegional->uId,
+                            'name' => $datosRegional->Nombre, //Cambiar a sedeshu
+                            'email' => $datosRegional->correoCuenta,
+                            'role' => [
+                                'key' => $datosRegional->rol,
+                                'name' => 'Rol Responsable Programa',
+                            ],
+                            'dependency' => [
+                                'name' =>
+                                    'Secretaría de Desarrollo Social y Humano',
+                                'acronym' => 'SDSH',
+                                'office' => [
+                                    'address' =>
+                                        'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
+                                    'name' =>
+                                        'Dirección de Articulación Regional IV',
+                                    'georef' => [
+                                        'type' => 'Point',
+                                        'coordinates' => [
+                                            21.1378241,
+                                            -101.6541802,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        JSON_UNESCAPED_UNICODE
+                    );
+                } else {
+                    $flag = true;
+                }
+            } else {
+                $flag = true;
+            }
+        } else {
+            $flag = true;
+        }
+
+        if ($flag) {
+            $json = json_encode(
+                [
+                    'uid' => '626c06d49c1fce80afa1faa6',
+                    'name' => 'ALEJANDRA CAUDILLO OLMOS (RESPONSABLE Q)', //Cambiar a sedeshu
+                    'email' => 'acaudilloo@guanajuato.gob.mx',
+                    'role' => [
+                        'key' => 'RESPONSABLE_Q_ROL',
+                        'name' => 'Rol Responsable Programa VIM',
+                    ],
+                    'dependency' => [
+                        'name' => 'Secretaría de Desarrollo Social y Humano',
+                        'acronym' => 'SDSH',
+                        'office' => [
+                            'address' =>
+                                'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
+                            'name' => 'Dirección de Articulación Regional IV',
+                            'georef' => [
+                                'type' => 'Point',
+                                'coordinates' => [21.1378241, -101.6541802],
+                            ],
+                        ],
+                    ],
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+        return $json;
+    }
+
+    public function getReporteSolicitudVentanillaCalentadores(Request $request)
+    {
+        $user = auth()->user();
+        $parameters['UserCreated'] = $user->id;
+        $tableSol = 'vales';
+        $res = DB::table('calentadores_solicitudes as vales')
+            ->select(
+                'et_cat_municipio.SubRegion AS Region',
+                //DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
+                'vales.Folio AS Folio',
+                'vales.FechaSolicitud',
+                'vales.CURP',
+                DB::raw(
+                    "concat_ws(' ',vales.Nombre, vales.Paterno, vales.Materno) as NombreCompleto"
+                ),
+                'vales.Sexo',
+                'vales.FechaNacimiento',
+                DB::raw(
+                    "concat_ws(' ',vales.CalleVive, concat('Num. ', vales.NoExtVive), if(vales.NoIntVive is not null,concat('NumInt. ',vales.NoIntVive), ''), concat('Col. ',vales.ColoniaVive)) as Direccion"
+                ),
+                'calentadores_cedulas.AGEBVive AS ClaveAGEB',
+                'calentadores_cedulas.ManzanaVive AS Manzana',
+                'vales.CPVive',
+                'vales.MunicipioVive AS Municipio',
+                'vales.LocalidadVive AS Localidad',
+                'vales.Telefono',
+                'vales.Celular',
+                'vales.TelRecados',
+                'vales.Correo',
+                'calentadores_cedulas.TotalHogares AS PersonasGastosSeparados',
+                DB::raw("
+                    CASE
+                        WHEN
+                        calentadores_cedulas.ListaParaEnviar = 1
+                        THEN
+                            'SI'
+                        ELSE
+                            'NO'
+                        END
+                    AS ListaParaEnviar
+                    "),
+                'calentadores_cedulas.NumeroMujeresHogar',
+                'calentadores_cedulas.NumeroHombresHogar',
+                DB::raw("
+                    CASE
+                        WHEN
+                        calentadores_cedulas.PersonasMayoresEdad = 1
+                        THEN
+                            'SI'
+                        ELSE
+                            'NO'
+                        END
+                    AS MayoresEdad
+                    "),
+                DB::raw("
+                    CASE
+                        WHEN
+                        calentadores_cedulas.PersonasTerceraEdad = 1
+                        THEN
+                            'SI'
+                        ELSE
+                            'NO'
+                        END
+                    AS TerceraEdad
+                    "),
+                'calentadores_cedulas.PersonaJefaFamilia',
+                'vales_status.Estatus',
+                DB::raw(
+                    "CASE 
+                        WHEN 
+                            vales.idUsuarioCreo = 1312 
+                        THEN 
+                            users_aplicativo_web.Nombre 
+                        ELSE 
+                            CONCAT_WS( ' ', users.Nombre, users.Paterno, users.Materno ) 
+                        END 
+                    AS UserInfoCapturo"
+                ),
+                'vales.Enlace AS Enlace'
+            )
+            ->leftJoin('vales_status', 'vales_status.id', '=', 'idEstatus')
+            ->leftJoin('users', 'users.id', '=', 'vales.idUsuarioCreo')
+            ->leftJoin(
+                'et_cat_municipio',
+                'et_cat_municipio.Nombre',
+                '=',
+                'vales.MunicipioVive'
+            )
+            ->leftJoin(
+                'users_aplicativo_web',
+                'users_aplicativo_web.UserName',
+                'vales.UsuarioAplicativo'
+            )
+            ->leftJoin(
+                DB::raw(
+                    '(SELECT * FROM calentadores_cedulas WHERE calentadores_cedulas.FechaElimino IS NULL) AS calentadores_cedulas'
+                ),
+                'calentadores_cedulas.idSolicitud',
+                'vales.id'
+            )
+            ->whereRaw('vales.FechaElimino IS NULL');
+
+        //dd($res->toSql());
+
+        //Agregando Filtros por permisos
+        $permisos = $this->getPermisos();
+
+        $seguimiento = $permisos->Seguimiento;
+        $viewall = $permisos->ViewAll;
+        $filtroCapturo = '';
+
+        if ($viewall < 1 && $seguimiento < 1) {
+            $usuarioApp = DB::table('users_aplicativo_web')
+                ->where('idUser', $user->id)
+                ->get()
+                ->first();
+            $filtroCapturo =
+                '(' .
+                $tableSol .
+                ".idUsuarioCreo = '" .
+                $user->id .
+                "' OR " .
+                $tableSol .
+                ".idUsuarioActualizo = '" .
+                $user->id .
+                "' OR " .
+                $tableSol .
+                ".UsuarioAplicativo = '" .
+                $usuarioApp->UserName .
+                "')";
+        } elseif ($viewall < 1) {
+            $idUserOwner = DB::table('users_aplicativo_web')
+                ->selectRaw('idUserOwner')
+                ->where('idUser', $user->id)
+                ->get()
+                ->first();
+
+            $filtroCapturo =
+                '(' .
+                $tableSol .
+                '.idUsuarioCreo IN (' .
+                'SELECT idUser FROM users_aplicativo_web WHERE idUserOwner = ' .
+                $idUserOwner->idUserOwner .
+                ') OR ' .
+                $tableSol .
+                '.UsuarioAplicativo IN (' .
+                'SELECT UserName FROM users_aplicativo_web WHERE idUserOwner = ' .
+                $idUserOwner->idUserOwner .
+                ')' .
+                ')';
+        }
+
+        //agregando los filtros seleccionados
+        $filterQuery = '';
+        $municipioRegion = [];
+        $mun = [];
+        $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
+            ->where('api', '=', 'getCalentadoresVentanilla')
+            ->first();
+        if ($filtro_usuario) {
+            $hoy = date('Y-m-d H:i:s');
+            $intervalo = $filtro_usuario->updated_at->diff($hoy);
+            if ($intervalo->h === 0) {
+                //Si es 0 es porque no ha pasado una hora.
+                $params = unserialize($filtro_usuario->parameters);
+
+                if (
+                    isset($params['filtered']) &&
+                    count($params['filtered']) > 0
+                ) {
+                    //dd($params['filtered']);
+                    $filtersCedulas = ['.id'];
+                    foreach ($params['filtered'] as $filtro) {
+                        if ($filterQuery != '') {
+                            $filterQuery .= ' AND ';
+                        }
+                        $id = $filtro['id'];
+                        $value = $filtro['value'];
+
+                        if ($id == '.FechaSolicitud') {
+                            $timestamp = strtotime($value);
+                            $value = date('Y-m-d', $timestamp);
+                        }
+
+                        if ($id == '.FechaCreo') {
+                            $timestamp = strtotime($value);
+                            $value = date('Y-m-d', $timestamp);
+                        }
+
+                        if ($id == '.MunicipioVive') {
+                            foreach ($value as $m) {
+                                $mun[] = "'" . $m . "'";
+                            }
+                            $value = $mun;
+                        }
+
+                        if ($id == 'region') {
+                            $municipios = DB::table('et_cat_municipio')
+                                ->select('Nombre')
+                                ->whereIN('SubRegion', $value)
+                                ->get();
+                            foreach ($municipios as $m) {
+                                $municipioRegion[] = "'" . $m->Nombre . "'";
+                            }
+
+                            $id = '.MunicipioVive';
+                            $value = $municipioRegion;
+                        }
+
+                        if (in_array($id, $filtersCedulas)) {
+                            $id = 'vales' . $id;
+                        } else {
+                            $id = 'vales' . $id;
+                        }
+
+                        switch (gettype($value)) {
+                            case 'string':
+                                $filterQuery .= " $id LIKE '%$value%' ";
+                                break;
+                            case 'array':
+                                $colonDividedValue = implode(', ', $value);
+                                $filterQuery .= " $id IN ($colonDividedValue) ";
+                                break;
+                            default:
+                                //dd($value);
+                                if ($value === -1) {
+                                    $filterQuery .= " $id IS NOT NULL ";
+                                } else {
+                                    $filterQuery .= " $id = $value ";
+                                }
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($filterQuery != '') {
+            $res->whereRaw($filterQuery);
+        }
+
+        if ($filtroCapturo !== '') {
+            $res->whereRaw($filtroCapturo);
+        }
+
+        $data = $res
+            ->orderBy('vales.Paterno', 'asc')
+            ->orderBy('vales.Materno', 'asc')
+            ->orderBy('vales.Nombre', 'asc')
+            ->get();
+        //$data2 = $resGrupo->first();
+
+        //dd($data);
+
+        if (count($data) == 0) {
+            //return response()->json(['success'=>false,'results'=>false,'message'=>$res->toSql()]);
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoReporteSolicitudValesV3.xlsx'
+            );
+            $writer = new Xlsx($spreadsheet);
+            $writer->save(
+                'archivos/' . $user->email . 'reporteComercioVales.xlsx'
+            );
+            $file =
+                public_path() .
+                '/archivos/' .
+                $user->email .
+                'reporteComercioVales.xlsx';
+
+            return response()->download(
+                $file,
+                'SolicitudesCalentadores' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        //Mapeamos el resultado como un array
+        $res = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+
+        //------------------------------------------------- Para generar el archivo excel ----------------------------------------------------------------
+        // $spreadsheet = new Spreadsheet();
+        // $sheet = $spreadsheet->getActiveSheet();
+
+        //Para los titulos del excel
+        // $titulos = ['Grupo','Folio','Nombre','Paterno','Materno','Fecha de Nacimiento','Sexo','Calle','Numero','Colonia','Municipio','Localidad','CP','Terminación'];
+        // $sheet->fromArray($titulos,null,'A1');
+        // $sheet->getStyle('A1:N1')->getFont()->getColor()->applyFromArray(['rgb' => '808080']);
+
+        $reader = IOFactory::createReader('Xlsx');
+        $spreadsheet = $reader->load(
+            public_path() . '/archivos/formatoReporteSolicitudValesV6.xlsx'
+        );
+        $sheet = $spreadsheet->getActiveSheet();
+        $largo = count($res);
+        $impresion = $largo + 10;
+        $sheet->getPageSetup()->setPrintArea('A1:V' . $impresion);
+        $sheet
+            ->getPageSetup()
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+
+        $largo = count($res);
+        //colocar los bordes
+        // self::crearBordes($largo, 'B', $sheet);
+        // self::crearBordes($largo, 'C', $sheet);
+        // self::crearBordes($largo, 'D', $sheet);
+        // self::crearBordes($largo, 'E', $sheet);
+        // self::crearBordes($largo, 'F', $sheet);
+        // self::crearBordes($largo, 'G', $sheet);
+        // self::crearBordes($largo, 'H', $sheet);
+        // self::crearBordes($largo, 'I', $sheet);
+        // self::crearBordes($largo, 'J', $sheet);
+        // self::crearBordes($largo, 'K', $sheet);
+        // self::crearBordes($largo, 'L', $sheet);
+        // self::crearBordes($largo, 'M', $sheet);
+        // self::crearBordes($largo, 'N', $sheet);
+        // self::crearBordes($largo, 'O', $sheet);
+        // self::crearBordes($largo, 'P', $sheet);
+        // self::crearBordes($largo, 'Q', $sheet);
+        // self::crearBordes($largo, 'R', $sheet);
+        // self::crearBordes($largo, 'S', $sheet);
+        // self::crearBordes($largo, 'T', $sheet);
+        // self::crearBordes($largo, 'U', $sheet);
+        // self::crearBordes($largo, 'V', $sheet);
+        // self::crearBordes($largo, 'W', $sheet);
+        // self::crearBordes($largo, 'X', $sheet);
+        // self::crearBordes($largo, 'Y', $sheet);
+        // self::crearBordes($largo, 'Z', $sheet);
+        // self::crearBordes($largo, 'AA', $sheet);
+        // self::crearBordes($largo, 'AB', $sheet);
+        // self::crearBordes($largo, 'AC', $sheet);
+        // self::crearBordes($largo, 'AD', $sheet);
+        // self::crearBordes($largo, 'AE', $sheet);
+        // self::crearBordes($largo, 'AF', $sheet);
+        // self::crearBordes($largo, 'AG', $sheet);
+
+        //Llenar excel con el resultado del query
+        $sheet->fromArray($res, null, 'C11');
+        //Agregamos la fecha
+        $sheet->setCellValue('U6', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+
+        //Agregar el indice autonumerico
+
+        for ($i = 1; $i <= $largo; $i++) {
+            $inicio = 10 + $i;
+            $sheet->setCellValue('B' . $inicio, $i);
+        }
+
+        if ($largo > 75) {
+            //     //dd('Se agrega lineBreak');
+            for ($lb = 70; $lb < $largo; $lb += 70) {
+                //         $veces++;
+                //         //dd($largo);
+                $sheet->setBreak(
+                    'B' . ($lb + 10),
+                    \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
+                );
+            }
+        }
+
+        $sheet->getDefaultRowDimension()->setRowHeight(-1);
+
+        //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+        $writer = new Xlsx($spreadsheet);
+        $writer->save(
+            'archivos/' . $user->email . 'SolicitudesValesGrandeza.xlsx'
+        );
+        $file =
+            public_path() .
+            '/archivos/' .
+            $user->email .
+            'SolicitudesValesGrandeza.xlsx';
+
+        return response()->download(
+            $file,
+            $user->email .
+                'SolicitudesCalentadores' .
+                date('Y-m-d H:i:s') .
+                '.xlsx'
+        );
+    }
+
+    //funcion para generar bordes en el excel.
+    public static function crearBordes($largo, $columna, &$sheet)
+    {
+        for ($i = 0; $i < $largo; $i++) {
+            $inicio = 11 + $i;
+
+            $sheet
+                ->getStyle($columna . $inicio)
+                ->getBorders()
+                ->getTop()
+                ->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                );
+            $sheet
+                ->getStyle($columna . $inicio)
+                ->getBorders()
+                ->getBottom()
+                ->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                );
+            $sheet
+                ->getStyle($columna . $inicio)
+                ->getBorders()
+                ->getLeft()
+                ->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                );
+            $sheet
+                ->getStyle($columna . $inicio)
+                ->getBorders()
+                ->getRight()
+                ->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                );
+        }
     }
 }

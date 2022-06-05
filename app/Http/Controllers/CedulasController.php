@@ -7,8 +7,15 @@ use Illuminate\Database\QueryException;
 use DB;
 use JWTAuth;
 use Illuminate\Contracts\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use Validator;
 use App\Cedula;
+use App\VNegociosFiltros;
 use Arr;
 use Carbon\Carbon as time;
 use GuzzleHttp\Client;
@@ -316,6 +323,23 @@ class CedulasController extends Controller
             $params = $request->all();
             $programa = $params['programa'];
 
+            $userId = JWTAuth::parseToken()->toUser()->id;
+
+            DB::table('users_filtros')
+                ->where('UserCreated', $userId)
+                ->where('api', 'getValesVentanilla')
+                ->delete();
+
+            $parameters_serializado = serialize($params);
+
+            //Insertamos los filtros
+            DB::table('users_filtros')->insert([
+                'UserCreated' => $userId,
+                'Api' => 'getValesVentanilla',
+                'Consulta' => $parameters_serializado,
+                'created_at' => date('Y-m-d h-m-s'),
+            ]);
+
             if ($programa > 1) {
                 $tableSol = 'calentadores_solicitudes';
                 $tableCedulas =
@@ -534,13 +558,142 @@ class CedulasController extends Controller
             //     )
             // );
 
-            $solicitudes = $solicitudes->paginate($params['pageSize']);
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
+
+            $startIndex = $page * $pageSize;
+
+            $total = $solicitudes->count();
+            $solicitudes = $solicitudes
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
+                ->where('api', '=', 'getValesVentanilla')
+                ->first();
+
+            if ($filtro_usuario) {
+                $filtro_usuario->parameters = $parameters_serializado;
+                $filtro_usuario->updated_at = time::now();
+                $filtro_usuario->update();
+            } else {
+                $objeto_nuevo = new VNegociosFiltros();
+                $objeto_nuevo->api = 'getValesVentanilla';
+                $objeto_nuevo->idUser = $user->id;
+                $objeto_nuevo->parameters = $parameters_serializado;
+                $objeto_nuevo->save();
+            }
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'filtros' => $params['filtered'],
+                    'data' => $array_res,
+                ];
+            }
+
+            $temp = [];
+            foreach ($solicitudes as $data) {
+                $temp = [
+                    'id' => $data->id,
+                    'FechaSolicitud' => $data->FechaSolicitud,
+                    'FolioTarjetaImpulso' => $data->FolioTarjetaImpulso,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'FechaNacimiento' => $data->FechaNacimiento,
+                    'Edad' => $data->Edad,
+                    'Sexo' => $data->Sexo,
+                    'idEntidadNacimiento' => $data->idEntidadNacimiento,
+                    'CURP' => $data->CURP,
+                    'RFC' => $data->RFC,
+                    'idEstadoCivil' => $data->idEstadoCivil,
+                    'idParentescoJefeHogar' => $data->idParentescoJefeHogar,
+                    'NumHijos' => $data->NumHijos,
+                    'NumHijas' => $data->NumHijas,
+                    'ComunidadIndigena' => $data->ComunidadIndigena,
+                    'Dialecto' => $data->Dialecto,
+                    'Afromexicano' => $data->Afromexicano,
+                    'idSituacionActual' => $data->idSituacionActual,
+                    'TarjetaImpulso' => $data->TarjetaImpulso,
+                    'ContactoTarjetaImpulso' => $data->ContactoTarjetaImpulso,
+                    'Celular' => $data->Celular,
+                    'Telefono' => $data->Telefono,
+                    'TelRecados' => $data->TelRecados,
+                    'Correo' => $data->Correo,
+                    'idParentescoTutor' => $data->idParentescoTutor,
+                    'NombreTutor' => $data->NombreTutor,
+                    'PaternoTutor' => $data->PaternoTutor,
+                    'MaternoTutor' => $data->MaternoTutor,
+                    'FechaNacimientoTutor' => $data->FechaNacimientoTutor,
+                    'EdadTutor' => $data->EdadTutor,
+                    'CURPTutor' => $data->CURPTutor,
+                    'TelefonoTutor' => $data->TelefonoTutor,
+                    'CorreoTutor' => $data->CorreoTutor,
+                    'NecesidadSolicitante' => $data->NecesidadSolicitante,
+                    'CostoNecesidad' => $data->CostoNecesidad,
+                    'idEntidadVive' => $data->idEntidadVive,
+                    'MunicipioVive' => $data->MunicipioVive,
+                    'LocalidadVive' => $data->LocalidadVive,
+                    'CPVive' => $data->CPVive,
+                    'ColoniaVive' => $data->ColoniaVive,
+                    'CalleVive' => $data->CalleVive,
+                    'NoExtVive' => $data->NoExtVive,
+                    'NoIntVive' => $data->NoIntVive,
+                    'Referencias' => $data->Referencias,
+                    'idEstatus' => $data->idEstatus,
+                    'idUsuarioCreo' => $data->idUsuarioCreo,
+                    'FechaCreo' => $data->FechaCreo,
+                    'idUsuarioActualizo' => $data->idUsuarioActualizo,
+                    'FechaActualizo' => $data->FechaActualizo,
+                    'SexoTutor' => $data->SexoTutor,
+                    'idEntidadNacimientoTutor' =>
+                        $data->idEntidadNacimientoTutor,
+                    'Folio' => $data->Folio,
+                    'ListaParaEnviar' => $data->ListaParaEnviar,
+                    'idUsuarioElimino' => $data->idUsuarioElimino,
+                    'FechaElimino' => $data->FechaElimino,
+                    'UsuarioAplicativo' => $data->UsuarioAplicativo,
+                    'Region' => $data->Region,
+                    'Enlace' => $data->Enlace,
+                    'idSolicitudAplicativo' => $data->idSolicitudAplicativo,
+                    'Latitud' => $data->Latitud,
+                    'Longitud' => $data->Longitud,
+                    'IngresoMensual' => $data->IngresoMensual,
+                    'OtrosIngresos' => $data->OtrosIngresos,
+                    'TotalIngreso' => $data->TotalIngreso,
+                    'PersonasDependientes' => $data->PersonasDependientes,
+                    'IngresoPercapita' => $data->IngresoPercapita,
+                    'OcupacionJefeHogar' => $data->OcupacionJefeHogar,
+                    'idVale' => $data->idVale,
+                    'EntidadNacimiento' => $data->EntidadNacimiento,
+                    'EstadoCivil' => $data->EstadoCivil,
+                    'Parentesco' => $data->Parentesco,
+                    'EntidadVive' => $data->EntidadVive,
+                    'RegionM' => $data->RegionM,
+                    'CreadoPor' => $data->CreadoPor,
+                    'ActualizadoPor' => $data->ActualizadoPor,
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            $filtros = '';
+            if (isset($params['filtered'])) {
+                $filtros = $params['filtered'];
+            }
 
             $response = [
                 'success' => true,
                 'results' => true,
-                'data' => $solicitudes->items(),
-                'total' => $solicitudes->total(),
+                'data' => $array_res,
+                'total' => $total,
+                'filtros' => $filtros,
             ];
             return response()->json($response, 200);
         } catch (QueryException $errors) {
@@ -859,6 +1012,11 @@ class CedulasController extends Controller
             $params['idUsuarioActualizo'] = $user->id;
             $params['FechaActualizo'] = date('Y-m-d');
             $params['idEstatus'] = 1;
+            if (isset($params['ListaParaEnviar'])) {
+                if ($params['ListaParaEnviar'] == 1) {
+                    $params['idEstatus'] = 9;
+                }
+            }
 
             try {
                 DB::table($tableSol)
@@ -2364,6 +2522,7 @@ class CedulasController extends Controller
 
         try {
             $params = $request->all();
+            $user = auth()->user();
             $id = $params['id'];
             $folio = DB::table('cedulas_solicitudes')
                 ->select('Folio')
@@ -2572,31 +2731,40 @@ class CedulasController extends Controller
             JSON_UNESCAPED_UNICODE
         );
 
-        $authUsuario = json_encode(
-            [
-                'uid' => '626c06d49c1fce80afa1faa6',
-                'name' => 'ALEJANDRA CAUDILLO OLMOS (RESPONSABLE Q)', //Cambiar a sedeshu
-                'email' => 'acaudilloo@guanajuato.gob.mx',
-                'role' => [
-                    'key' => 'RESPONSABLE_Q_ROL',
-                    'name' => 'ol Responsable Programa VIM',
-                ],
-                'dependency' => [
-                    'name' => 'Secretaría de Desarrollo Social y Humano',
-                    'acronym' => 'SDSH',
-                    'office' => [
-                        'address' =>
-                            'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
-                        'name' => 'Dirección de Articulación Regional IV',
-                        'georef' => [
-                            'type' => 'Point',
-                            'coordinates' => [21.1378241, -101.6541802],
-                        ],
-                    ],
-                ],
-            ],
-            JSON_UNESCAPED_UNICODE
-        );
+        if ($solicitud->idUsuarioCreo == 1312) {
+            $authUsuario = $this->getAuthUsuario(
+                $solicitud->UsuarioAplicativo,
+                1
+            );
+        } else {
+            $authUsuario = $this->getAuthUsuario($solicitud->idUsuarioCreo, 2);
+        }
+        // dd($authUsuario);
+        // $authUsuario = json_encode(
+        //     [
+        //         'uid' => '626c06d49c1fce80afa1faa6',
+        //         'name' => 'ALEJANDRA CAUDILLO OLMOS (RESPONSABLE Q)', //Cambiar a sedeshu
+        //         'email' => 'acaudilloo@guanajuato.gob.mx',
+        //         'role' => [
+        //             'key' => 'RESPONSABLE_Q_ROL',
+        //             'name' => 'Rol Responsable Programa VIM',
+        //         ],
+        //         'dependency' => [
+        //             'name' => 'Secretaría de Desarrollo Social y Humano',
+        //             'acronym' => 'SDSH',
+        //             'office' => [
+        //                 'address' =>
+        //                     'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
+        //                 'name' => 'Dirección de Articulación Regional IV',
+        //                 'georef' => [
+        //                     'type' => 'Point',
+        //                     'coordinates' => [21.1378241, -101.6541802],
+        //                 ],
+        //             ],
+        //         ],
+        //     ],
+        //     JSON_UNESCAPED_UNICODE
+        // );
 
         $dataCompleted = [
             'solicitud' => $solicitudJson['solicitud'],
@@ -2608,7 +2776,10 @@ class CedulasController extends Controller
 
         $request2 = new HTTP_Request2();
         $request2->setUrl(
-            'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            //QA
+            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            //Productivo
+            'https://api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
         );
         $request2->setMethod(HTTP_Request2::METHOD_POST);
         $request2->setConfig([
@@ -2629,7 +2800,6 @@ class CedulasController extends Controller
                 $file['header']
             );
         }
-
         try {
             $response = $request2->send();
             $message = json_decode($response->getBody());
@@ -2651,6 +2821,8 @@ class CedulasController extends Controller
                         ->update([
                             'idEstatus' => '8',
                             'idVale' => $idVale,
+                            'idUsuarioActualizo' => $user->id,
+                            'FechaActualizo' => date('Y-m-d H:i:s'),
                         ]);
 
                     return [
@@ -4033,10 +4205,500 @@ class CedulasController extends Controller
             'INEVencida' => 0,
             'isDocumentacionEntrega' => 0,
             'idCedulaSolicitud' => $id,
+            'BloqueadoUser' => $user->id,
+            'BloqueadoDate' => date('Y-m-d H:i:s'),
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 
         return $dataVales;
+    }
+
+    public function getAuthUsuario($idUser, $index)
+    {
+        $flag = false;
+        if ($idUser != null && $idUser != '') {
+            $filtro = '';
+            if ($index == 1) {
+                $filtro = "UserName = '" . $idUser . "'";
+            } else {
+                $filtro = "idUser = '" . $idUser . "'";
+            }
+            $idRegional = DB::table('users_aplicativo_web')
+                ->select('idUserOwner')
+                ->whereRaw($filtro)
+                ->get()
+                ->first();
+            if ($idRegional != null) {
+                $datosRegional = DB::table('cuentas_regionales_ventanilla')
+                    ->selectRaw('uId,Nombre,correoCuenta,rol')
+                    ->where('idRegional', $idRegional->idUserOwner)
+                    ->get()
+                    ->first();
+                if ($datosRegional != null) {
+                    $json = json_encode(
+                        [
+                            'uid' => $datosRegional->uId,
+                            'name' => $datosRegional->Nombre, //Cambiar a sedeshu
+                            'email' => $datosRegional->correoCuenta,
+                            'role' => [
+                                'key' => $datosRegional->rol,
+                                'name' => 'Rol Responsable Programa',
+                            ],
+                            'dependency' => [
+                                'name' =>
+                                    'Secretaría de Desarrollo Social y Humano',
+                                'acronym' => 'SDSH',
+                                'office' => [
+                                    'address' =>
+                                        'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
+                                    'name' =>
+                                        'Dirección de Articulación Regional IV',
+                                    'georef' => [
+                                        'type' => 'Point',
+                                        'coordinates' => [
+                                            21.1378241,
+                                            -101.6541802,
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        JSON_UNESCAPED_UNICODE
+                    );
+                } else {
+                    $flag = true;
+                }
+            } else {
+                $flag = true;
+            }
+        } else {
+            $flag = true;
+        }
+
+        if ($flag) {
+            $json = json_encode(
+                [
+                    'uid' => '626c06d49c1fce80afa1faa6',
+                    'name' => 'ALEJANDRA CAUDILLO OLMOS (RESPONSABLE Q)', //Cambiar a sedeshu
+                    'email' => 'acaudilloo@guanajuato.gob.mx',
+                    'role' => [
+                        'key' => 'RESPONSABLE_Q_ROL',
+                        'name' => 'Rol Responsable Programa VIM',
+                    ],
+                    'dependency' => [
+                        'name' => 'Secretaría de Desarrollo Social y Humano',
+                        'acronym' => 'SDSH',
+                        'office' => [
+                            'address' =>
+                                'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
+                            'name' => 'Dirección de Articulación Regional IV',
+                            'georef' => [
+                                'type' => 'Point',
+                                'coordinates' => [21.1378241, -101.6541802],
+                            ],
+                        ],
+                    ],
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+        return $json;
+    }
+
+    public function getReporteSolicitudVentanillaVales(Request $request)
+    {
+        $user = auth()->user();
+        $parameters['UserCreated'] = $user->id;
+        $tableSol = 'vales';
+        $res = DB::table('cedulas_solicitudes as vales')
+            ->select(
+                'et_cat_municipio.SubRegion AS Region',
+                //DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
+                'vales.Folio AS Folio',
+                'vales.FechaSolicitud',
+                'vales.CURP',
+                DB::raw(
+                    "concat_ws(' ',vales.Nombre, vales.Paterno, vales.Materno) as NombreCompleto"
+                ),
+                'vales.Sexo',
+                'vales.FechaNacimiento',
+                'vales.OcupacionJefeHogar',
+                DB::raw(
+                    "concat_ws(' ',vales.CalleVive, concat('Num. ', vales.NoExtVive), if(vales.NoIntVive is not null,concat('NumInt. ',vales.NoIntVive), ''), concat('Col. ',vales.ColoniaVive)) as Direccion"
+                ),
+                'vales.CPVive',
+                'vales.MunicipioVive AS Municipio',
+                'vales.LocalidadVive AS Localidad',
+                'vales.Telefono',
+                'vales.Celular',
+                'vales.TelRecados',
+                'vales.Correo',
+                'vales.IngresoMensual',
+                'vales.OtrosIngresos',
+                DB::raw(
+                    '(vales.IngresoMensual + vales.OtrosIngresos) as TotalIngresos'
+                ),
+                'vales.PersonasDependientes',
+                DB::raw("'Sin Incidencia' AS Incidencia"),
+                DB::raw("
+                    CASE
+                        WHEN
+                            vales.ListaParaEnviar = 1
+                        THEN
+                            'SI'
+                        ELSE
+                            'NO'
+                        END
+                    AS ListaParaEnviar
+                    "),
+                'vales_status.Estatus',
+                DB::raw(
+                    "CASE 
+                        WHEN 
+                            vales.idUsuarioCreo = 1312 
+                        THEN 
+                            users_aplicativo_web.Nombre 
+                        ELSE 
+                            CONCAT_WS( ' ', users.Nombre, users.Paterno, users.Materno ) 
+                        END 
+                    AS UserInfoCapturo"
+                ),
+                'vales.Enlace AS Enlace'
+            )
+            ->leftJoin('vales_status', 'vales_status.id', '=', 'idEstatus')
+            ->leftJoin('users', 'users.id', '=', 'vales.idUsuarioCreo')
+            ->leftJoin(
+                'et_cat_municipio',
+                'et_cat_municipio.Nombre',
+                '=',
+                'vales.MunicipioVive'
+            )
+            ->leftJoin(
+                'users_aplicativo_web',
+                'users_aplicativo_web.UserName',
+                'vales.UsuarioAplicativo'
+            )
+            ->whereRaw('FechaElimino IS NULL');
+
+        //dd($res->toSql());
+
+        //Agregando Filtros por permisos
+        $permisos = $this->getPermisos();
+
+        $seguimiento = $permisos->Seguimiento;
+        $viewall = $permisos->ViewAll;
+        $filtroCapturo = '';
+
+        if ($viewall < 1 && $seguimiento < 1) {
+            $usuarioApp = DB::table('users_aplicativo_web')
+                ->where('idUser', $user->id)
+                ->get()
+                ->first();
+            $filtroCapturo =
+                '(' .
+                $tableSol .
+                ".idUsuarioCreo = '" .
+                $user->id .
+                "' OR " .
+                $tableSol .
+                ".idUsuarioActualizo = '" .
+                $user->id .
+                "' OR " .
+                $tableSol .
+                ".UsuarioAplicativo = '" .
+                $usuarioApp->UserName .
+                "')";
+        } elseif ($viewall < 1) {
+            $idUserOwner = DB::table('users_aplicativo_web')
+                ->selectRaw('idUserOwner')
+                ->where('idUser', $user->id)
+                ->get()
+                ->first();
+
+            $filtroCapturo =
+                '(' .
+                $tableSol .
+                '.idUsuarioCreo IN (' .
+                'SELECT idUser FROM users_aplicativo_web WHERE idUserOwner = ' .
+                $idUserOwner->idUserOwner .
+                ') OR ' .
+                $tableSol .
+                '.UsuarioAplicativo IN (' .
+                'SELECT UserName FROM users_aplicativo_web WHERE idUserOwner = ' .
+                $idUserOwner->idUserOwner .
+                ')' .
+                ')';
+        }
+
+        //agregando los filtros seleccionados
+        $filterQuery = '';
+        $municipioRegion = [];
+        $mun = [];
+        $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
+            ->where('api', '=', 'getValesVentanilla')
+            ->first();
+        if ($filtro_usuario) {
+            $hoy = date('Y-m-d H:i:s');
+            $intervalo = $filtro_usuario->updated_at->diff($hoy);
+            if ($intervalo->h === 0) {
+                //Si es 0 es porque no ha pasado una hora.
+                $params = unserialize($filtro_usuario->parameters);
+
+                if (
+                    isset($params['filtered']) &&
+                    count($params['filtered']) > 0
+                ) {
+                    //dd($params['filtered']);
+                    $filtersCedulas = ['.id'];
+                    foreach ($params['filtered'] as $filtro) {
+                        if ($filterQuery != '') {
+                            $filterQuery .= ' AND ';
+                        }
+                        $id = $filtro['id'];
+                        $value = $filtro['value'];
+
+                        if ($id == '.FechaSolicitud') {
+                            $timestamp = strtotime($value);
+                            $value = date('Y-m-d', $timestamp);
+                        }
+
+                        if ($id == '.FechaCreo') {
+                            $timestamp = strtotime($value);
+                            $value = date('Y-m-d', $timestamp);
+                        }
+
+                        if ($id == '.MunicipioVive') {
+                            foreach ($value as $m) {
+                                $mun[] = "'" . $m . "'";
+                            }
+                            $value = $mun;
+                        }
+
+                        if ($id == 'region') {
+                            $municipios = DB::table('et_cat_municipio')
+                                ->select('Nombre')
+                                ->whereIN('SubRegion', $value)
+                                ->get();
+                            foreach ($municipios as $m) {
+                                $municipioRegion[] = "'" . $m->Nombre . "'";
+                            }
+
+                            $id = '.MunicipioVive';
+                            $value = $municipioRegion;
+                        }
+
+                        if (in_array($id, $filtersCedulas)) {
+                            $id = 'vales' . $id;
+                        } else {
+                            $id = 'vales' . $id;
+                        }
+
+                        switch (gettype($value)) {
+                            case 'string':
+                                $filterQuery .= " $id LIKE '%$value%' ";
+                                break;
+                            case 'array':
+                                $colonDividedValue = implode(', ', $value);
+                                $filterQuery .= " $id IN ($colonDividedValue) ";
+                                break;
+                            default:
+                                //dd($value);
+                                if ($value === -1) {
+                                    $filterQuery .= " $id IS NOT NULL ";
+                                } else {
+                                    $filterQuery .= " $id = $value ";
+                                }
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($filterQuery != '') {
+            $res->whereRaw($filterQuery);
+        }
+
+        if ($filtroCapturo !== '') {
+            $res->whereRaw($filtroCapturo);
+        }
+
+        $data = $res
+            ->orderBy('vales.Paterno', 'asc')
+            ->orderBy('vales.Materno', 'asc')
+            ->orderBy('vales.Nombre', 'asc')
+            ->get();
+        //$data2 = $resGrupo->first();
+
+        //dd($data);
+
+        if (count($data) == 0) {
+            //return response()->json(['success'=>false,'results'=>false,'message'=>$res->toSql()]);
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoReporteSolicitudValesV3.xlsx'
+            );
+            $writer = new Xlsx($spreadsheet);
+            $writer->save(
+                'archivos/' . $user->email . 'reporteComercioVales.xlsx'
+            );
+            $file =
+                public_path() .
+                '/archivos/' .
+                $user->email .
+                'reporteComercioVales.xlsx';
+
+            return response()->download(
+                $file,
+                'SolicitudesValesGrandeza' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        //Mapeamos el resultado como un array
+        $res = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+
+        //------------------------------------------------- Para generar el archivo excel ----------------------------------------------------------------
+        // $spreadsheet = new Spreadsheet();
+        // $sheet = $spreadsheet->getActiveSheet();
+
+        //Para los titulos del excel
+        // $titulos = ['Grupo','Folio','Nombre','Paterno','Materno','Fecha de Nacimiento','Sexo','Calle','Numero','Colonia','Municipio','Localidad','CP','Terminación'];
+        // $sheet->fromArray($titulos,null,'A1');
+        // $sheet->getStyle('A1:N1')->getFont()->getColor()->applyFromArray(['rgb' => '808080']);
+
+        $reader = IOFactory::createReader('Xlsx');
+        $spreadsheet = $reader->load(
+            public_path() . '/archivos/formatoReporteSolicitudValesV5.xlsx'
+        );
+        $sheet = $spreadsheet->getActiveSheet();
+        $largo = count($res);
+        $impresion = $largo + 10;
+        $sheet->getPageSetup()->setPrintArea('A1:V' . $impresion);
+        $sheet
+            ->getPageSetup()
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+
+        $largo = count($res);
+        //colocar los bordes
+        // self::crearBordes($largo, 'B', $sheet);
+        // self::crearBordes($largo, 'C', $sheet);
+        // self::crearBordes($largo, 'D', $sheet);
+        // self::crearBordes($largo, 'E', $sheet);
+        // self::crearBordes($largo, 'F', $sheet);
+        // self::crearBordes($largo, 'G', $sheet);
+        // self::crearBordes($largo, 'H', $sheet);
+        // self::crearBordes($largo, 'I', $sheet);
+        // self::crearBordes($largo, 'J', $sheet);
+        // self::crearBordes($largo, 'K', $sheet);
+        // self::crearBordes($largo, 'L', $sheet);
+        // self::crearBordes($largo, 'M', $sheet);
+        // self::crearBordes($largo, 'N', $sheet);
+        // self::crearBordes($largo, 'O', $sheet);
+        // self::crearBordes($largo, 'P', $sheet);
+        // self::crearBordes($largo, 'Q', $sheet);
+        // self::crearBordes($largo, 'R', $sheet);
+        // self::crearBordes($largo, 'S', $sheet);
+        // self::crearBordes($largo, 'T', $sheet);
+        // self::crearBordes($largo, 'U', $sheet);
+        // self::crearBordes($largo, 'V', $sheet);
+        // self::crearBordes($largo, 'W', $sheet);
+        // self::crearBordes($largo, 'X', $sheet);
+        // self::crearBordes($largo, 'Y', $sheet);
+        // self::crearBordes($largo, 'Z', $sheet);
+        // self::crearBordes($largo, 'AA', $sheet);
+        // self::crearBordes($largo, 'AB', $sheet);
+        // self::crearBordes($largo, 'AC', $sheet);
+        // self::crearBordes($largo, 'AD', $sheet);
+        // self::crearBordes($largo, 'AE', $sheet);
+        // self::crearBordes($largo, 'AF', $sheet);
+        // self::crearBordes($largo, 'AG', $sheet);
+
+        //Llenar excel con el resultado del query
+        $sheet->fromArray($res, null, 'C11');
+        //Agregamos la fecha
+        $sheet->setCellValue('U6', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+
+        //Agregar el indice autonumerico
+
+        for ($i = 1; $i <= $largo; $i++) {
+            $inicio = 10 + $i;
+            $sheet->setCellValue('B' . $inicio, $i);
+        }
+
+        if ($largo > 75) {
+            //     //dd('Se agrega lineBreak');
+            for ($lb = 70; $lb < $largo; $lb += 70) {
+                //         $veces++;
+                //         //dd($largo);
+                $sheet->setBreak(
+                    'B' . ($lb + 10),
+                    \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
+                );
+            }
+        }
+
+        $sheet->getDefaultRowDimension()->setRowHeight(-1);
+
+        //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+        $writer = new Xlsx($spreadsheet);
+        $writer->save(
+            'archivos/' . $user->email . 'SolicitudesValesGrandeza.xlsx'
+        );
+        $file =
+            public_path() .
+            '/archivos/' .
+            $user->email .
+            'SolicitudesValesGrandeza.xlsx';
+
+        return response()->download(
+            $file,
+            $user->email .
+                'SolicitudesValesGrandeza' .
+                date('Y-m-d H:i:s') .
+                '.xlsx'
+        );
+    }
+
+    //funcion para generar bordes en el excel.
+    public static function crearBordes($largo, $columna, &$sheet)
+    {
+        for ($i = 0; $i < $largo; $i++) {
+            $inicio = 11 + $i;
+
+            $sheet
+                ->getStyle($columna . $inicio)
+                ->getBorders()
+                ->getTop()
+                ->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                );
+            $sheet
+                ->getStyle($columna . $inicio)
+                ->getBorders()
+                ->getBottom()
+                ->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                );
+            $sheet
+                ->getStyle($columna . $inicio)
+                ->getBorders()
+                ->getLeft()
+                ->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                );
+            $sheet
+                ->getStyle($columna . $inicio)
+                ->getBorders()
+                ->getRight()
+                ->setBorderStyle(
+                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+                );
+        }
     }
 }

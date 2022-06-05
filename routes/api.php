@@ -159,6 +159,14 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'ReportesController@getReportesolicitudVales'
     );
     Route::get(
+        '/getReporteSolicitudVentanillaVales',
+        'CedulasController@getReporteSolicitudVentanillaVales'
+    );
+    Route::get(
+        '/getReporteSolicitudVentanillaCalentadores',
+        'CalentadoresController@getReporteSolicitudVentanillaCalentadores'
+    );
+    Route::get(
         '/getReportesolicitudValesDesglosado',
         'ReportesController@getReportesolicitudValesDesglosado'
     );
