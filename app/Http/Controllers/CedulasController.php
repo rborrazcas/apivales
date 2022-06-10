@@ -1344,7 +1344,7 @@ class CedulasController extends Controller
                 ->get();
 
             $entidades = DB::table('cat_entidad')
-                ->select('id AS value', 'Entidad AS label')
+                ->select('id AS value', 'Entidad AS label', 'Clave_CURP')
                 ->where('id', '<>', 1)
                 ->get();
 
