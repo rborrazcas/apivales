@@ -277,59 +277,63 @@ class CalentadoresController extends Controller
             $mun = [];
 
             if (isset($params['filtered']) && count($params['filtered']) > 0) {
-                $filtersCedulas = ['.id', '.ListaParaEnviar', '.MunicipioVive'];
+                $filtersCedulas = ['.id', '.MunicipioVive'];
                 foreach ($params['filtered'] as $filtro) {
-                    if ($filterQuery != '') {
-                        $filterQuery .= ' AND ';
-                    }
-                    $id = $filtro['id'];
-                    $value = $filtro['value'];
-
-                    if ($id == '.FechaSolicitud') {
-                        $timestamp = strtotime($value);
-                        $value = date('Y-m-d', $timestamp);
-                    }
-
-                    if ($id == '.MunicipioVive') {
-                        foreach ($value as $m) {
-                            $mun[] = "'" . $m . "'";
+                    if ($filtro['id'] != '.ListaParaEnviar') {
+                        if ($filterQuery != '') {
+                            $filterQuery .= ' AND ';
                         }
-                        $value = $mun;
-                    }
+                        $id = $filtro['id'];
+                        $value = $filtro['value'];
 
-                    if ($id == 'region') {
-                        $municipios = DB::table('et_cat_municipio')
-                            ->select('Nombre')
-                            ->whereIN('SubRegion', $value)
-                            ->get();
-                        foreach ($municipios as $m) {
-                            $municipioRegion[] = "'" . $m->Nombre . "'";
+                        if ($id == '.FechaSolicitud') {
+                            $timestamp = strtotime($value);
+                            $value = date('Y-m-d', $timestamp);
                         }
 
-                        $id = '.MunicipioVive';
-                        $value = $municipioRegion;
-                    }
-
-                    if (in_array($id, $filtersCedulas)) {
-                        $id = 'calentadores_solicitudes' . $id;
-                    } else {
-                        $id = 'calentadores_solicitudes' . $id;
-                    }
-
-                    switch (gettype($value)) {
-                        case 'string':
-                            $filterQuery .= " $id LIKE '%$value%' ";
-                            break;
-                        case 'array':
-                            $colonDividedValue = implode(', ', $value);
-                            $filterQuery .= " $id IN ($colonDividedValue) ";
-                            break;
-                        default:
-                            if ($value === -1) {
-                                $filterQuery .= " $id IS NOT NULL ";
-                            } else {
-                                $filterQuery .= " $id = $value ";
+                        if ($id == '.MunicipioVive') {
+                            foreach ($value as $m) {
+                                $mun[] = "'" . $m . "'";
                             }
+                            $value = $mun;
+                        }
+
+                        if ($id == 'region') {
+                            $municipios = DB::table('et_cat_municipio')
+                                ->select('Nombre')
+                                ->whereIN('SubRegion', $value)
+                                ->get();
+                            foreach ($municipios as $m) {
+                                $municipioRegion[] = "'" . $m->Nombre . "'";
+                            }
+
+                            $id = '.MunicipioVive';
+                            $value = $municipioRegion;
+                        }
+
+                        if ($id == '.ListaParaEnviarCedula') {
+                            $id = 'calentadores_cedulas.ListaParaEnviar';
+                        } elseif (in_array($id, $filtersCedulas)) {
+                            $id = 'calentadores_solicitudes' . $id;
+                        } else {
+                            $id = 'calentadores_solicitudes' . $id;
+                        }
+
+                        switch (gettype($value)) {
+                            case 'string':
+                                $filterQuery .= " $id LIKE '%$value%' ";
+                                break;
+                            case 'array':
+                                $colonDividedValue = implode(', ', $value);
+                                $filterQuery .= " $id IN ($colonDividedValue) ";
+                                break;
+                            default:
+                                if ($value === -1) {
+                                    $filterQuery .= " $id IS NOT NULL ";
+                                } else {
+                                    $filterQuery .= " $id = $value ";
+                                }
+                        }
                     }
                 }
             }
@@ -1117,6 +1121,32 @@ class CalentadoresController extends Controller
                 ? $params['NewClasificacion']
                 : [];
 
+            //GASTOS PERIODICIDAD
+            if (!isset($params['GastoAlimentos'])) {
+                $params['GastoAlimentos'] = 0;
+            }
+            if (!isset($params['GastoVestido'])) {
+                $params['GastoVestido'] = 0;
+            }
+            if (!isset($params['GestoEducacion'])) {
+                $params['GestoEducacion'] = 0;
+            }
+            if (!isset($params['GastoMedicinas'])) {
+                $params['GastoMedicinas'] = 0;
+            }
+            if (!isset($params['GastosConsultas'])) {
+                $params['GastosConsultas'] = 0;
+            }
+            if (!isset($params['GastosCombustibles'])) {
+                $params['GastosCombustibles'] = 0;
+            }
+            if (!isset($params['GastosServiciosBasicos'])) {
+                $params['GastosServiciosBasicos'] = 0;
+            }
+            if (!isset($params['GastosServiciosRecreacion'])) {
+                $params['GastosServiciosRecreacion'] = 0;
+            }
+
             $user = auth()->user();
             $params['idUsuarioCreo'] = $user->id;
             $params['FechaCreo'] = date('Y-m-d');
@@ -1206,35 +1236,7 @@ class CalentadoresController extends Controller
     {
         try {
             $cedula = DB::table('calentadores_cedulas')
-                ->selectRaw(
-                    "
-                            calentadores_cedulas.*
-                        "
-                )
-                // ,
-                //     entidadesNacimiento.Entidad AS EntidadNacimiento, cat_estado_civil.EstadoCivil,
-                //     cat_parentesco_jefe_hogar.Parentesco, cat_parentesco_tutor.Parentesco,
-                //     entidadesVive.Entidad AS EntidadVive,
-                //     cat_niveles_educacion.Nivel, cat_grados_educacion.Grado, cat_actividades.Actividad,
-                //     cat_tipos_viviendas.Tipo, cat_tipos_pisos.Piso, cat_tipos_muros.Muro,
-                //     cat_tipos_techos.Techo, cat_tipos_agua.Agua, cat_tipos_drenajes.Drenaje,
-                //     cat_tipos_luz.Luz, cat_tipos_combustibles.Combustible
-                // ->join("cat_entidad AS entidadesNacimiento", "entidadesNacimiento.id", "cedulas.idEntidadNacimiento")
-                // ->join("cat_estado_civil", "cat_estado_civil.id", "cedulas.idEstadoCivil")
-                // ->join("cat_parentesco_jefe_hogar", "cat_parentesco_jefe_hogar.id", "cedulas.idParentescoJefeHogar")
-                // ->leftJoin("cat_parentesco_tutor", "cat_parentesco_tutor.id", "cedulas.idParentescoTutor")
-                // ->join("cat_entidad AS entidadesVive", "entidadesVive.id", "cedulas.idEntidadVive")
-                // ->leftJoin("cat_niveles_educacion", "cat_niveles_educacion.id", "cedulas.idNivelEscuela")
-                // ->leftJoin("cat_grados_educacion", "cat_grados_educacion.id", "cedulas.idGradoEscuela")
-                // ->leftJoin("cat_actividades", "cat_actividades.id", "cedulas.idActividades")
-                // ->leftJoin("cat_tipos_viviendas", "cat_tipos_viviendas.id", "cedulas.idTipoVivienda")
-                // ->leftJoin("cat_tipos_pisos", "cat_tipos_pisos.id", "cedulas.idTipoPiso")
-                // ->leftJoin("cat_tipos_muros", "cat_tipos_muros.id", "cedulas.idTipoParedes")
-                // ->leftJoin("cat_tipos_techos", "cat_tipos_techos.id", "cedulas.idTipoTecho")
-                // ->leftJoin("cat_tipos_agua", "cat_tipos_agua.id", "cedulas.idTipoAgua")
-                // ->leftJoin("cat_tipos_drenajes", "cat_tipos_drenajes.id", "cedulas.idTipoDrenaje")
-                // ->leftJoin("cat_tipos_luz", "cat_tipos_luz.id", "cedulas.idTipoLuz")
-                // ->leftJoin("cat_tipos_combustibles", "cat_tipos_combustibles.id", "cedulas.idTipoCombustible")
+                ->selectRaw('calentadores_cedulas.*')
                 ->where('calentadores_cedulas.id', $id)
                 ->whereNull('calentadores_cedulas.FechaElimino')
                 ->first();
@@ -1264,6 +1266,30 @@ class CalentadoresController extends Controller
                 ->where('idCedula', $id)
                 ->whereRaw('FechaElimino IS NULL')
                 ->get();
+
+            $archivos2 = DB::table('calentadores_cedula_archivos')
+                ->select(
+                    'id',
+                    'idClasificacion',
+                    'NombreOriginal AS name',
+                    'NombreSistema',
+                    'Tipo AS type'
+                )
+                ->where('idCedula', $id)
+                ->whereRaw('FechaElimino IS NULL')
+                ->get();
+            $archivosClasificacion = array_map(function ($o) {
+                return $o->idClasificacion;
+            }, $archivos2->toArray());
+            $archivos3 = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/subidos/' .
+                    $o->NombreSistema;
+                // '/var/www/html/plataforma/apivales/public/subidos/' .
+                // $o->NombreSistema;
+                return $o;
+            }, $archivos2->toArray());
+
             $cedula->Prestaciones = array_map(function ($o) {
                 return $o->idPrestacion;
             }, $prestaciones->toArray());
@@ -1273,7 +1299,7 @@ class CalentadoresController extends Controller
             $cedula->AtencionesMedicas = array_map(function ($o) {
                 return $o->idAtencionMedica;
             }, $atencionesMedicas->toArray());
-            $cedula->Files = $archivos;
+            $cedula->Files = $archivos3;
             $cedula->ArchivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;
             }, $archivos->toArray());
@@ -1315,7 +1341,6 @@ class CalentadoresController extends Controller
             $archivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;
             }, $archivos2->toArray());
-
             $archivos = array_map(function ($o) {
                 $o->ruta =
                     'https://apivales.apisedeshu.com/subidos/' .
@@ -2149,17 +2174,17 @@ class CalentadoresController extends Controller
                         combustibles.Combustible
                     "
             )
-            ->join(
+            ->leftjoin(
                 'cat_estado_civil',
                 'cat_estado_civil.id',
                 'cedulas.idEstadoCivil'
             )
-            ->join(
+            ->leftjoin(
                 'cat_parentesco_jefe_hogar',
                 'cat_parentesco_jefe_hogar.id',
                 'cedulas.idParentescoJefeHogar'
             )
-            ->join(
+            ->leftjoin(
                 'cat_situacion_actual',
                 'cat_situacion_actual.id',
                 'cedulas.idSituacionActual'
@@ -2169,55 +2194,63 @@ class CalentadoresController extends Controller
                 'cat_parentesco_tutor.id',
                 'cedulas.idParentescoTutor'
             )
-            ->join(
+            ->leftjoin(
                 'cat_entidad AS entidadNacimiento',
                 'entidadNacimiento.id',
                 'cedulas.idEntidadNacimiento'
             )
-            ->join(
+            ->leftjoin(
                 'cat_entidad AS entidadVive',
                 'entidadVive.id',
                 'cedulas.idEntidadVive'
             )
-            ->join(
+            ->leftjoin(
                 'cat_grados_educacion AS gradoEducacion',
                 'gradoEducacion.id',
                 'cedulas.idGradoEscuela'
             )
-            ->join(
+            ->leftjoin(
                 'cat_niveles_educacion AS nivelesEducacion',
                 'nivelesEducacion.id',
                 'cedulas.idNivelEscuela'
             )
-            ->join(
+            ->leftjoin(
                 'cat_actividades AS actividades',
                 'actividades.id',
                 'cedulas.idActividades'
             )
-            ->join(
+            ->leftjoin(
                 'cat_tipos_viviendas AS viviendas',
                 'viviendas.id',
                 'cedulas.idTipoVivienda'
             )
-            ->join('cat_tipos_pisos AS pisos', 'pisos.id', 'cedulas.idTipoPiso')
-            ->join(
+            ->leftjoin(
+                'cat_tipos_pisos AS pisos',
+                'pisos.id',
+                'cedulas.idTipoPiso'
+            )
+            ->leftjoin(
                 'cat_tipos_muros AS muros',
                 'muros.id',
                 'cedulas.idTipoParedes'
             )
-            ->join(
+            ->leftjoin(
                 'cat_tipos_techos AS techos',
                 'techos.id',
                 'cedulas.idTipoTecho'
             )
-            ->join('cat_tipos_agua AS aguas', 'aguas.id', 'cedulas.idTipoAgua')
-            ->join(
+            ->leftjoin(
+                'cat_tipos_agua AS aguas',
+                'aguas.id',
+                'cedulas.idTipoAgua'
+            )
+            ->leftjoin(
                 'cat_tipos_drenajes AS drenajes',
                 'drenajes.id',
                 'cedulas.idTipoDrenaje'
             )
-            ->join('cat_tipos_luz AS luz', 'luz.id', 'cedulas.idTipoLuz')
-            ->join(
+            ->leftjoin('cat_tipos_luz AS luz', 'luz.id', 'cedulas.idTipoLuz')
+            ->leftjoin(
                 'cat_tipos_combustibles AS combustibles',
                 'combustibles.id',
                 'cedulas.idTipoCombustible'
@@ -2225,7 +2258,6 @@ class CalentadoresController extends Controller
             ->where('cedulas.id', $id)
             ->first();
         //dd(str_replace_array('?', $cedula->getBindings(), $cedula->toSql()));
-
         if (!isset($cedula->MunicipioVive) || !isset($cedula->LocalidadVive)) {
             $response = [
                 'success' => true,
@@ -2272,6 +2304,21 @@ class CalentadoresController extends Controller
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
 
+        $filesAcuse = DB::table('calentadores_cedula_archivos')
+            ->select(
+                'calentadores_cedula_archivos.*',
+                'cedula_archivos_clasificacion.Clasificacion'
+            )
+            ->join(
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
+                'calentadores_cedula_archivos.idClasificacion'
+            )
+            ->where('idCedula', $id)
+            ->whereIn('cedula_archivos_clasificacion.id', [5])
+            ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
+            ->get();
+
         $filesEvidencias = DB::table('calentadores_cedula_archivos')
             ->select(
                 'calentadores_cedula_archivos.*',
@@ -2283,9 +2330,19 @@ class CalentadoresController extends Controller
                 'calentadores_cedula_archivos.idClasificacion'
             )
             ->where('idCedula', $id)
-            ->whereIn('cedula_archivos_clasificacion.id', [7])
+            ->whereIn('cedula_archivos_clasificacion.id', [12])
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
+
+        if ($filesEvidencias == null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'Faltan evidencias por cargar',
+                'message' => 'Faltan evidencias por cargar',
+            ];
+            return response()->json($response, 200);
+        }
 
         $filesEspecifico = DB::table('calentadores_cedula_archivos')
             ->select(
@@ -2320,31 +2377,45 @@ class CalentadoresController extends Controller
             'prestaciones' => $prestaciones,
         ];
 
-        $infoFilesEvidencias = $this->getInfoArchivos($filesEvidencias, 1);
-        $fileEvidenciaZip = $this->createZipEvidencia(
-            $infoFilesEvidencias,
-            $id,
-            $cedula->idSolicitud
-        );
+        // $fileEvidenciaZip = $this->createZipEvidencia(
+        //     $infoFilesEvidencias,
+        //     $id,
+        //     $cedula->idSolicitud
+        // );
 
         $cedulaJson = $this->formatCedulaIGTOJson($cedula, $catalogs);
         $formatedFiles = $this->formatArchivos($files, 1);
         $infoFiles = $this->getInfoArchivos($files, 1);
         $formatedFilesEspecifico = $this->formatArchivos($filesEspecifico, 2);
         $infoFilesEspecifico = $this->getInfoArchivos($filesEspecifico, 2);
+        $formatedFilesEvidencias = $this->formatArchivos($filesEvidencias, 2);
+        $infoFilesEvidencias = $this->getInfoArchivos($filesEvidencias, 2);
+        $formatedFilesAcuse = $this->formatArchivos($filesAcuse, 1);
+        $infoFilesAcuse = $this->getInfoArchivos($filesAcuse, 1);
 
-        $infoFiles = array_merge($infoFiles, $infoFilesEspecifico);
+        $infoFiles = array_merge(
+            $infoFiles,
+            $infoFilesAcuse,
+            $infoFilesEspecifico,
+            $infoFilesEvidencias
+        );
 
-        if ($fileEvidenciaZip != []) {
-            $formtatedFilesEvidencias = [
-                'llave' => 'estandar_Evidencia Fotográfica',
-                'nombre' => 'Evidencia Fotográfica',
-                'uid' => '',
-                'vigencia' => '',
-            ];
-            $formatedFiles[] = $formtatedFilesEvidencias;
-            $infoFiles[] = $fileEvidenciaZip;
-        }
+        $formatedFilesEspecifico = array_merge(
+            $formatedFilesEspecifico,
+            $formatedFilesEvidencias
+        );
+
+        $formatedFiles = array_merge($formatedFiles, $formatedFilesAcuse);
+        // if ($fileEvidenciaZip != []) {
+        //     $formtatedFilesEvidencias = [
+        //         'llave' => 'estandar_Evidencia Fotográfica',
+        //         'nombre' => 'Evidencia Fotográfica',
+        //         'uid' => '',
+        //         'vigencia' => '',
+        //     ];
+        //     $formatedFiles[] = $formtatedFilesEvidencias;
+        //     $infoFiles[] = $fileEvidenciaZip;
+        // }
 
         $programa = json_encode(
             [
@@ -2383,41 +2454,21 @@ class CalentadoresController extends Controller
             JSON_UNESCAPED_UNICODE
         );
 
-        $cUsuario = json_encode(
-            [
-                'nombre' => $cedula->Enlace == null ? '' : $cedula->Enlace,
-                'observaciones' => '',
-            ],
-            JSON_UNESCAPED_UNICODE
-        );
+        $cUsuario = $this->getCampoUsuario($cedula);
 
-        $authUsuario = json_encode(
-            [
-                'uid' => '6197eb799c1fce80af39a6d1',
-                'name' =>
-                    'Daniela Isabel Hernandez Villafuerte (RESPONSABLE Q)', //Cambiar a sedeshu
-                'email' => 'dihernandezv@guanajuato.gob.mx',
-                'role' => [
-                    'key' => 'RESPONSABLE_Q_ROL',
-                    'name' => 'Rol Responsable Programa VIM',
-                ],
-                'dependency' => [
-                    'name' =>
-                        'Secretaría de Medio Ambiente y Ordenamiento Territorial',
-                    'acronym' => 'SMAOT',
-                    'office' => [
-                        'address' =>
-                            'BLVD. JUAN ALONSO DE TORRES 1315 LOCAL 20 PREDIO SAN JOSÉ DEL CONSULEO C.P.37200 LEON',
-                        'name' => 'San José de Cervera',
-                        'georef' => [
-                            'type' => 'Point',
-                            'coordinates' => [21.146803, -101.647187],
-                        ],
-                    ],
-                ],
-            ],
-            JSON_UNESCAPED_UNICODE
-        );
+        // $cUsuario = json_encode(
+        //     [
+        //         'nombre' => $cedula->Enlace == null ? '' : $cedula->Enlace,
+        //         'observaciones' => '',
+        //     ],
+        //     JSON_UNESCAPED_UNICODE
+        // );
+
+        if ($cedula->idUsuarioCreo == 1312) {
+            $authUsuario = $this->getAuthUsuario($cedula->UsuarioAplicativo, 1);
+        } else {
+            $authUsuario = $this->getAuthUsuario($cedula->idUsuarioCreo, 2);
+        }
 
         $dataCompleted = [
             'solicitud' => $solicitudJson['solicitud'],
@@ -2427,11 +2478,13 @@ class CalentadoresController extends Controller
             'authUsuario' => $authUsuario,
             'campoUsuario' => $cUsuario,
         ];
-
+        //dd($docs, $infoFiles);
         $request2 = new HTTP_Request2();
         $request2->setUrl(
-            'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
+            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
+            'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
         );
+
         $request2->setMethod(HTTP_Request2::METHOD_POST);
         $request2->setConfig([
             'follow_redirects' => true,
@@ -2451,37 +2504,48 @@ class CalentadoresController extends Controller
                 $file['header']
             );
         }
-        dd($request2);
         try {
             $response = $request2->send();
             $message = json_decode($response->getBody());
             //dd($response->getReasonPhrase());
             if ($response->getStatus() == 200) {
-                try {
-                    DB::table('calentadores_solicitudes')
-                        ->where('id', $cedula->idSolicitud)
-                        ->update([
-                            'idEstatus' => '8',
-                        ]);
+                if ($message->success) {
+                    try {
+                        DB::table('calentadores_solicitudes')
+                            ->where('id', $cedula->idSolicitud)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                            ]);
 
-                    DB::table('calentadores_cedulas')
-                        ->where('id', $index)
-                        ->update([
-                            'idEstatus' => '8',
-                        ]);
-                    return [
-                        'success' => true,
-                        'results' => true,
-                        'message' => 'Enviada Correctamente',
-                    ];
-                    return response()->json($response2, 200);
-                } catch (Exception $e) {
+                        DB::table('calentadores_cedulas')
+                            ->where('id', $cedula->id)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                            ]);
+
+                        return [
+                            'success' => true,
+                            'results' => true,
+                            'message' => 'Enviada Correctamente',
+                        ];
+                    } catch (Exception $e) {
+                        $response2 = [
+                            'success' => true,
+                            'results' => false,
+                            'errors' => $e->errors,
+                            'message' =>
+                                'La Cedula fue enviada pero hubo un problema al actualizar el estatus',
+                        ];
+                        return response()->json($response2, 200);
+                    }
+                } else {
                     $response2 = [
-                        'success' => true,
+                        'success' => false,
                         'results' => false,
                         'errors' => $e->errors,
-                        'message' =>
-                            'La Cedula fue enviada pero hubo un problema al actualizar el estatus',
+                        'message' => 'La Cedula no fue enviada',
                     ];
                     return response()->json($response2, 200);
                 }
@@ -2536,7 +2600,7 @@ class CalentadoresController extends Controller
                     'tipoSolicitud' => 'Ciudadana',
                     'origen' => 'F',
                     'tutor' => [
-                        'respuesta' => $solicitud->idParentescoTutor != null,
+                        'respuesta' => false,
                     ],
                     'datosCurp' => [
                         'folio' => $solicitud->Folio,
@@ -2653,18 +2717,19 @@ class CalentadoresController extends Controller
                 'descripcion' => $solicitud->Telefono,
             ]);
         }
-        if ($solicitud->TelRecados != null) {
-            array_push($telefonos, [
-                'tipo' => 'Teléfono de recados',
-                'descripcion' => $solicitud->TelRecados,
-            ]);
-        }
-        if ($solicitud->TelefonoTutor != null) {
-            array_push($telefonos, [
-                'tipo' => 'Teléfono del tutor',
-                'descripcion' => $solicitud->TelefonoTutor,
-            ]);
-        }
+        // if ($solicitud->TelRecados != null) {
+        //     array_push($telefonos, [
+        //         'tipo' => 'Teléfono de recados',
+        //         'descripcion' =>
+        //             $solicitud->TelRecados == 0 ? '' : $solicitud->TelRecados,
+        //     ]);
+        // }
+        // if ($solicitud->TelefonoTutor != null) {
+        //     array_push($telefonos, [
+        //         'tipo' => 'Teléfono del tutor',
+        //         'descripcion' => $solicitud->TelefonoTutor,
+        //     ]);
+        // }
         return $telefonos;
     }
 
@@ -2688,7 +2753,6 @@ class CalentadoresController extends Controller
     private function formatCedulaIGTOJson($cedula, $catalogs)
     {
         $periodicidades = DB::table('cat_periodicidad')->get();
-
         $json = json_encode(
             [
                 'solicitudImpulso' => true,
@@ -2705,81 +2769,51 @@ class CalentadoresController extends Controller
                     'limitacionMental' => $cedula->DificultadMental == 1,
                     'servicioMedico' => [
                         [
-                            [
-                                'respuesta' => in_array(
-                                    1,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 1,
-                                'descripcion' => 'Seguro Social IMSS',
-                            ],
-                            [
-                                'respuesta' => in_array(
-                                    2,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 2,
-                                'descripcion' =>
-                                    'IMSS facultativo para estudiantes',
-                            ],
-                            [
-                                'respuesta' => in_array(
-                                    3,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 3,
-                                'descripcion' => 'ISSSTE',
-                            ],
-                            [
-                                'respuesta' => in_array(
-                                    4,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 4,
-                                'descripcion' => 'ISSSTE Estatal',
-                            ],
-                            [
-                                'respuesta' => in_array(
-                                    5,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 5,
-                                'descripcion' => 'PEMEX, Defensa o Marina',
-                            ],
-                            [
-                                'respuesta' => in_array(
-                                    6,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 6,
-                                'descripcion' =>
-                                    'INSABI (antes Seguro Popular)',
-                            ],
-                            [
-                                'respuesta' => in_array(
-                                    7,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 7,
-                                'descripcion' => 'Seguro Privado',
-                            ],
-                            [
-                                'respuesta' => in_array(
-                                    8,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 8,
-                                'descripcion' => 'En otra institución',
-                            ],
-                            [
-                                'respuesta' => in_array(
-                                    9,
-                                    $catalogs['seguros']
-                                ),
-                                'codigo' => 9,
-                                'descripcion' =>
-                                    'No tienen derecho a servicios médicos',
-                            ],
+                            'respuesta' => in_array(1, $catalogs['seguros']),
+                            'codigo' => 1,
+                            'descripcion' => 'Seguro Social IMSS',
+                        ],
+                        [
+                            'respuesta' => in_array(2, $catalogs['seguros']),
+                            'codigo' => 2,
+                            'descripcion' =>
+                                'IMSS facultativo para estudiantes',
+                        ],
+                        [
+                            'respuesta' => in_array(3, $catalogs['seguros']),
+                            'codigo' => 3,
+                            'descripcion' => 'ISSSTE',
+                        ],
+                        [
+                            'respuesta' => in_array(4, $catalogs['seguros']),
+                            'codigo' => 4,
+                            'descripcion' => 'ISSSTE Estatal',
+                        ],
+                        [
+                            'respuesta' => in_array(5, $catalogs['seguros']),
+                            'codigo' => 5,
+                            'descripcion' => 'PEMEX, Defensa o Marina',
+                        ],
+                        [
+                            'respuesta' => in_array(6, $catalogs['seguros']),
+                            'codigo' => 6,
+                            'descripcion' => 'INSABI (antes Seguro Popular)',
+                        ],
+                        [
+                            'respuesta' => in_array(7, $catalogs['seguros']),
+                            'codigo' => 7,
+                            'descripcion' => 'Seguro Privado',
+                        ],
+                        [
+                            'respuesta' => in_array(8, $catalogs['seguros']),
+                            'codigo' => 8,
+                            'descripcion' => 'En otra institución',
+                        ],
+                        [
+                            'respuesta' => in_array(9, $catalogs['seguros']),
+                            'codigo' => 9,
+                            'descripcion' =>
+                                'No tienen derecho a servicios médicos',
                         ],
                     ],
                     'enfermedadCronica' => [
@@ -3022,54 +3056,102 @@ class CalentadoresController extends Controller
                     'comida' => [
                         'gasto' => $cedula->GastoAlimentos,
                         'periodo' => [
-                            'codigo' => $cedula->PeriodicidadAlimentos,
+                            'codigo' =>
+                                $cedula->PeriodicidadAlimentos == 0
+                                    ? 2
+                                    : $cedula->PeriodicidadAlimentos,
                             'descripcion' => $periodicidades
-                                ->where('id', $cedula->PeriodicidadAlimentos)
+                                ->where(
+                                    'id',
+                                    $cedula->PeriodicidadAlimentos == 0
+                                        ? 2
+                                        : $cedula->PeriodicidadAlimentos
+                                )
                                 ->first()->Periodicidad,
                         ],
                     ],
                     'ropa' => [
                         'gasto' => $cedula->GastoVestido,
                         'periodo' => [
-                            'codigo' => $cedula->PeriodicidadVestido,
+                            'codigo' =>
+                                $cedula->PeriodicidadVestido == 0
+                                    ? 2
+                                    : $cedula->PeriodicidadVestido,
                             'descripcion' => $periodicidades
-                                ->where('id', $cedula->PeriodicidadVestido)
+                                ->where(
+                                    'id',
+                                    $cedula->PeriodicidadVestido == 0
+                                        ? 2
+                                        : $cedula->PeriodicidadVestido
+                                )
                                 ->first()->Periodicidad,
                         ],
                     ],
                     'educacion' => [
                         'gasto' => $cedula->GastoEducacion,
                         'periodo' => [
-                            'codigo' => $cedula->PeriodicidadEducacion,
+                            'codigo' =>
+                                $cedula->PeriodicidadEducacion == 0
+                                    ? 2
+                                    : $cedula->PeriodicidadEducacion,
                             'descripcion' => $periodicidades
-                                ->where('id', $cedula->PeriodicidadEducacion)
+                                ->where(
+                                    'id',
+                                    $cedula->PeriodicidadEducacion == 0
+                                        ? 2
+                                        : $cedula->PeriodicidadEducacion
+                                )
                                 ->first()->Periodicidad,
                         ],
                     ],
                     'medicina' => [
                         'gasto' => $cedula->GastoMedicinas,
                         'periodo' => [
-                            'codigo' => $cedula->PeriodicidadMedicinas,
+                            'codigo' =>
+                                $cedula->PeriodicidadMedicinas == 0
+                                    ? 2
+                                    : $cedula->PeriodicidadMedicinas,
                             'descripcion' => $periodicidades
-                                ->where('id', $cedula->PeriodicidadMedicinas)
+                                ->where(
+                                    'id',
+                                    $cedula->PeriodicidadMedicinas == 0
+                                        ? 2
+                                        : $cedula->PeriodicidadMedicinas
+                                )
                                 ->first()->Periodicidad,
                         ],
                     ],
                     'consultas' => [
                         'gasto' => $cedula->GastosConsultas,
                         'periodo' => [
-                            'codigo' => $cedula->PeriodicidadConsultas,
+                            'codigo' =>
+                                $cedula->PeriodicidadConsultas == 0
+                                    ? 2
+                                    : $cedula->PeriodicidadConsultas,
                             'descripcion' => $periodicidades
-                                ->where('id', $cedula->PeriodicidadConsultas)
+                                ->where(
+                                    'id',
+                                    $cedula->PeriodicidadConsultas == 0
+                                        ? 2
+                                        : $cedula->PeriodicidadConsultas
+                                )
                                 ->first()->Periodicidad,
                         ],
                     ],
                     'combustible' => [
                         'gasto' => $cedula->GastosCombustibles,
                         'periodo' => [
-                            'codigo' => $cedula->PeriodicidadCombustibles,
+                            'codigo' =>
+                                $cedula->PeriodicidadCombustibles == 0
+                                    ? 2
+                                    : $cedula->PeriodicidadCombustibles,
                             'descripcion' => $periodicidades
-                                ->where('id', $cedula->PeriodicidadCombustibles)
+                                ->where(
+                                    'id',
+                                    $cedula->PeriodicidadCombustibles == 0
+                                        ? 2
+                                        : $cedula->PeriodicidadCombustibles
+                                )
                                 ->first()->Periodicidad,
                         ],
                     ],
@@ -3080,7 +3162,9 @@ class CalentadoresController extends Controller
                             'descripcion' => $periodicidades
                                 ->where(
                                     'id',
-                                    $cedula->PeriodicidadServiciosBasicos
+                                    $cedula->PeriodicidadServiciosBasicos == 0
+                                        ? 2
+                                        : $cedula->PeriodicidadServiciosBasicos
                                 )
                                 ->first()->Periodicidad,
                         ],
@@ -3089,11 +3173,16 @@ class CalentadoresController extends Controller
                         'gasto' => $cedula->GastosServiciosRecreacion,
                         'periodo' => [
                             'codigo' =>
-                                $cedula->PeriodicidadServiciosRecreacion,
+                                $cedula->PeriodicidadServiciosRecreacion == 0
+                                    ? 2
+                                    : $cedula->PeriodicidadServiciosRecreacion,
                             'descripcion' => $periodicidades
                                 ->where(
                                     'id',
-                                    $cedula->PeriodicidadServiciosRecreacion
+                                    $cedula->PeriodicidadServiciosRecreacion ==
+                                    0
+                                        ? 2
+                                        : $cedula->PeriodicidadServiciosRecreacion
                                 )
                                 ->first()->Periodicidad,
                         ],
@@ -3105,16 +3194,26 @@ class CalentadoresController extends Controller
                         'descripcion' => $cedula->TipoVivienda,
                     ],
                     'materialPiso' => [
-                        'codigo' => $cedula->idTipoPiso,
-                        'descripcion' => $cedula->Piso,
+                        'codigo' =>
+                            $cedula->idTipoPiso == 0 ? 1 : $cedula->idTipoPiso,
+                        'descripcion' =>
+                            $cedula->Piso == null
+                                ? 'Cemento o firme'
+                                : $cedula->Piso,
                     ],
                     'materialPared' => [
                         'codigo' => $cedula->idTipoParedes,
                         'descripcion' => $cedula->Muro,
                     ],
                     'materialTecho' => [
-                        'codigo' => $cedula->idTipoTecho,
-                        'descripcion' => $cedula->Techo,
+                        'codigo' =>
+                            $cedula->idTipoTecho == 0
+                                ? 1
+                                : $cedula->idTipoTecho,
+                        'descripcion' =>
+                            $cedula->Techo == null
+                                ? 'Losa de concreto o vigueta con bovedilla'
+                                : $cedula->Techo,
                     ],
                     'fuenteAgua' => [
                         'codigo' => $cedula->idTipoAgua,
@@ -3165,10 +3264,14 @@ class CalentadoresController extends Controller
             $formato = 'especifico';
         }
         foreach ($archivos as $file) {
+            if ($file->idClasificacion == 12) {
+                $file->Clasificacion = 'Evidencia Fotográfica';
+            } elseif ($file->idClasificacion == 5) {
+                $file->Clasificacion = 'Acuse';
+            }
             //$fileConverted = fopen('subidos/' . $file->NombreSistema, 'r');
             $formatedFile = [
-                'llave' =>
-                    $formato . '_' . str_replace('.', '', $file->Clasificacion),
+                'llave' => $formato . '_' . $file->Clasificacion,
                 'nombre' => $file->Clasificacion,
                 'uid' => '',
                 'vigencia' => '',
@@ -3188,17 +3291,22 @@ class CalentadoresController extends Controller
         } else {
             $formato = 'especifico';
         }
+
         foreach ($archivos as $file) {
+            if ($file->idClasificacion == 12) {
+                $file->Clasificacion = 'Evidencia Fotográfica';
+            } elseif ($file->idClasificacion == 5) {
+                $file->Clasificacion = 'Acuse';
+            }
             //$fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
             $formatedFile = [
-                'llave' =>
-                    $formato . '_' . str_replace('.', '', $file->Clasificacion),
+                'llave' => $formato . '_' . $file->Clasificacion,
                 'ruta' =>
-                    //'/var/www/html/plataforma/apivales/public/subidos/' .
-                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                    '/var/www/html/plataforma/apivales/public/subidos/' .
+                    //'/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
                     $file->NombreSistema,
                 //'content' => $fileContent,
-                'nombre' => str_replace('.', '', $file->Clasificacion),
+                'nombre' => $file->Clasificacion,
                 'header' => '<Content-Type Header>',
             ];
             array_push($files, $formatedFile);
@@ -3222,8 +3330,8 @@ class CalentadoresController extends Controller
             $formatedFile = [
                 'llave' => 'estandar_Evidencia Fotográfica',
                 'ruta' =>
-                    //'/var/www/html/plataforma/apivales/public/subidos/' .
-                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                    '/var/www/html/plataforma/apivales/public/subidos/' .
+                    //'/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
                     $fileName,
                 'nombre' => 'Evidencia Fotográfica',
                 'header' => '<Content-Type Header>',
@@ -3414,7 +3522,6 @@ class CalentadoresController extends Controller
         }
         return $json;
     }
-
     public function getReporteSolicitudVentanillaCalentadores(Request $request)
     {
         $user = auth()->user();
@@ -3588,63 +3695,67 @@ class CalentadoresController extends Controller
                     //dd($params['filtered']);
                     $filtersCedulas = ['.id'];
                     foreach ($params['filtered'] as $filtro) {
-                        if ($filterQuery != '') {
-                            $filterQuery .= ' AND ';
-                        }
-                        $id = $filtro['id'];
-                        $value = $filtro['value'];
-
-                        if ($id == '.FechaSolicitud') {
-                            $timestamp = strtotime($value);
-                            $value = date('Y-m-d', $timestamp);
-                        }
-
-                        if ($id == '.FechaCreo') {
-                            $timestamp = strtotime($value);
-                            $value = date('Y-m-d', $timestamp);
-                        }
-
-                        if ($id == '.MunicipioVive') {
-                            foreach ($value as $m) {
-                                $mun[] = "'" . $m . "'";
+                        if ($filtro['id'] != '.ListaParaEnviar') {
+                            if ($filterQuery != '') {
+                                $filterQuery .= ' AND ';
                             }
-                            $value = $mun;
-                        }
+                            $id = $filtro['id'];
+                            $value = $filtro['value'];
 
-                        if ($id == 'region') {
-                            $municipios = DB::table('et_cat_municipio')
-                                ->select('Nombre')
-                                ->whereIN('SubRegion', $value)
-                                ->get();
-                            foreach ($municipios as $m) {
-                                $municipioRegion[] = "'" . $m->Nombre . "'";
+                            if ($id == '.FechaSolicitud') {
+                                $timestamp = strtotime($value);
+                                $value = date('Y-m-d', $timestamp);
                             }
 
-                            $id = '.MunicipioVive';
-                            $value = $municipioRegion;
-                        }
+                            if ($id == '.FechaCreo') {
+                                $timestamp = strtotime($value);
+                                $value = date('Y-m-d', $timestamp);
+                            }
 
-                        if (in_array($id, $filtersCedulas)) {
-                            $id = 'vales' . $id;
-                        } else {
-                            $id = 'vales' . $id;
-                        }
-
-                        switch (gettype($value)) {
-                            case 'string':
-                                $filterQuery .= " $id LIKE '%$value%' ";
-                                break;
-                            case 'array':
-                                $colonDividedValue = implode(', ', $value);
-                                $filterQuery .= " $id IN ($colonDividedValue) ";
-                                break;
-                            default:
-                                //dd($value);
-                                if ($value === -1) {
-                                    $filterQuery .= " $id IS NOT NULL ";
-                                } else {
-                                    $filterQuery .= " $id = $value ";
+                            if ($id == '.MunicipioVive') {
+                                foreach ($value as $m) {
+                                    $mun[] = "'" . $m . "'";
                                 }
+                                $value = $mun;
+                            }
+
+                            if ($id == 'region') {
+                                $municipios = DB::table('et_cat_municipio')
+                                    ->select('Nombre')
+                                    ->whereIN('SubRegion', $value)
+                                    ->get();
+                                foreach ($municipios as $m) {
+                                    $municipioRegion[] = "'" . $m->Nombre . "'";
+                                }
+
+                                $id = '.MunicipioVive';
+                                $value = $municipioRegion;
+                            }
+
+                            if ($id == '.ListaParaEnviarCedula') {
+                                $id = 'calentadores_cedulas.ListaParaEnviar';
+                            } elseif (in_array($id, $filtersCedulas)) {
+                                $id = 'vales' . $id;
+                            } else {
+                                $id = 'vales' . $id;
+                            }
+
+                            switch (gettype($value)) {
+                                case 'string':
+                                    $filterQuery .= " $id LIKE '%$value%' ";
+                                    break;
+                                case 'array':
+                                    $colonDividedValue = implode(', ', $value);
+                                    $filterQuery .= " $id IN ($colonDividedValue) ";
+                                    break;
+                                default:
+                                    //dd($value);
+                                    if ($value === -1) {
+                                        $filterQuery .= " $id IS NOT NULL ";
+                                    } else {
+                                        $filterQuery .= " $id = $value ";
+                                    }
+                            }
                         }
                     }
                 }
@@ -3836,5 +3947,45 @@ class CalentadoresController extends Controller
                     \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
                 );
         }
+    }
+
+    public function getCampoUsuario($cedula)
+    {
+        if ($cedula->idUsuarioCreo == 1312) {
+            $getUserOffline = DB::table('users_aplicativo_web')
+                ->select('Nombre')
+                ->where('UserName', $cedula->UsuarioAplicativo)
+                ->get()
+                ->first();
+
+            if ($getUserOffline != null && $getUserOffline != '') {
+                return json_encode(
+                    [
+                        'nombre' => $getUserOffline->Nombre,
+                        'observaciones' => '',
+                    ],
+                    JSON_UNESCAPED_UNICODE
+                );
+            }
+        }
+
+        $getUserApi = DB::table('users')
+            ->select('Nombre', 'Paterno', 'Materno')
+            ->where('id', $cedula->idUsuarioCreo)
+            ->get()
+            ->first();
+
+        return json_encode(
+            [
+                'nombre' =>
+                    $getUserApi->Nombre .
+                    ' ' .
+                    $getUserApi->Paterno .
+                    ' ' .
+                    $getUserApi->Materno,
+                'observaciones' => '',
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
     }
 }

@@ -482,63 +482,65 @@ class CedulasController extends Controller
                 //dd($params['filtered']);
                 $filtersCedulas = ['.id'];
                 foreach ($params['filtered'] as $filtro) {
-                    if ($filterQuery != '') {
-                        $filterQuery .= ' AND ';
-                    }
-                    $id = $filtro['id'];
-                    $value = $filtro['value'];
-
-                    if ($id == '.FechaSolicitud') {
-                        $timestamp = strtotime($value);
-                        $value = date('Y-m-d', $timestamp);
-                    }
-
-                    if ($id == '.FechaCreo') {
-                        $timestamp = strtotime($value);
-                        $value = date('Y-m-d', $timestamp);
-                    }
-
-                    if ($id == '.MunicipioVive') {
-                        foreach ($value as $m) {
-                            $mun[] = "'" . $m . "'";
+                    if ($filtro['id'] != '.ListaParaEnviarCedula') {
+                        if ($filterQuery != '') {
+                            $filterQuery .= ' AND ';
                         }
-                        $value = $mun;
-                    }
+                        $id = $filtro['id'];
+                        $value = $filtro['value'];
 
-                    if ($id == 'region') {
-                        $municipios = DB::table('et_cat_municipio')
-                            ->select('Nombre')
-                            ->whereIN('SubRegion', $value)
-                            ->get();
-                        foreach ($municipios as $m) {
-                            $municipioRegion[] = "'" . $m->Nombre . "'";
+                        if ($id == '.FechaSolicitud') {
+                            $timestamp = strtotime($value);
+                            $value = date('Y-m-d', $timestamp);
                         }
 
-                        $id = '.MunicipioVive';
-                        $value = $municipioRegion;
-                    }
+                        if ($id == '.FechaCreo') {
+                            $timestamp = strtotime($value);
+                            $value = date('Y-m-d', $timestamp);
+                        }
 
-                    if (in_array($id, $filtersCedulas)) {
-                        $id = $tableCedulas . $id;
-                    } else {
-                        $id = $tableSol . $id;
-                    }
-
-                    switch (gettype($value)) {
-                        case 'string':
-                            $filterQuery .= " $id LIKE '%$value%' ";
-                            break;
-                        case 'array':
-                            $colonDividedValue = implode(', ', $value);
-                            $filterQuery .= " $id IN ($colonDividedValue) ";
-                            break;
-                        default:
-                            //dd($value);
-                            if ($value === -1) {
-                                $filterQuery .= " $id IS NOT NULL ";
-                            } else {
-                                $filterQuery .= " $id = $value ";
+                        if ($id == '.MunicipioVive') {
+                            foreach ($value as $m) {
+                                $mun[] = "'" . $m . "'";
                             }
+                            $value = $mun;
+                        }
+
+                        if ($id == 'region') {
+                            $municipios = DB::table('et_cat_municipio')
+                                ->select('Nombre')
+                                ->whereIN('SubRegion', $value)
+                                ->get();
+                            foreach ($municipios as $m) {
+                                $municipioRegion[] = "'" . $m->Nombre . "'";
+                            }
+
+                            $id = '.MunicipioVive';
+                            $value = $municipioRegion;
+                        }
+
+                        if (in_array($id, $filtersCedulas)) {
+                            $id = $tableCedulas . $id;
+                        } else {
+                            $id = $tableSol . $id;
+                        }
+
+                        switch (gettype($value)) {
+                            case 'string':
+                                $filterQuery .= " $id LIKE '%$value%' ";
+                                break;
+                            case 'array':
+                                $colonDividedValue = implode(', ', $value);
+                                $filterQuery .= " $id IN ($colonDividedValue) ";
+                                break;
+                            default:
+                                //dd($value);
+                                if ($value === -1) {
+                                    $filterQuery .= " $id IS NOT NULL ";
+                                } else {
+                                    $filterQuery .= " $id = $value ";
+                                }
+                        }
                     }
                 }
             }
@@ -780,6 +782,31 @@ class CedulasController extends Controller
 
             $user = auth()->user();
             $params['idEstatus'] = 1;
+            $params['Correo'] =
+                isset($params['Correo']) && $params['Correo'] != ''
+                    ? ($params['Correo'] == 'correo@electronico'
+                        ? ''
+                        : $params['Correo'])
+                    : '';
+            $params['TelRecados'] =
+                isset($params['TelRecados']) && $params['TelRecados'] != ''
+                    ? ($params['TelRecados'] == '0'
+                        ? ''
+                        : $params['TelRecados'])
+                    : '';
+
+            $necesidad = '';
+            $costo = '';
+            if ($program == 1) {
+                $necesidad = 'VALES GRANDEZA';
+                $costo = '500';
+            } else {
+                $necesidad = 'CALENTADOR SOLAR';
+                $costo = '8145';
+            }
+
+            $params['NecesidadSolicitante'] = $necesidad;
+            $params['CostoNecesidad'] = $costo;
 
             if (isset($params['Folio'])) {
                 $folioRegistrado = DB::table($tableSol)
@@ -787,22 +814,114 @@ class CedulasController extends Controller
                     ->whereRaw('FechaElimino IS NULL')
                     ->first();
                 if ($folioRegistrado != null) {
-                    $response = [
-                        'success' => true,
-                        'results' => false,
-                        'errors' =>
-                            'El Folio ' .
-                            $params['Folio'] .
-                            ' ya esta registrado para la persona ' .
-                            $folioRegistrado->Nombre .
-                            ' ' .
-                            $folioRegistrado->Paterno .
-                            ' ' .
-                            $folioRegistrado->Materno .
-                            ' con CURP ' .
-                            $folioRegistrado->CURP,
-                    ];
-                    return response()->json($response, 200);
+                    if ($program == 2) {
+                        $folioRegistradoCalentadores = DB::table($tableSol)
+                            ->where([$tableSol . '.Folio' => $params['Folio']])
+                            ->whereRaw($tableSol . '.FechaElimino IS NULL')
+                            ->leftjoin(
+                                'calentadores_cedulas',
+                                'calentadores_cedulas.idSolicitud',
+                                $tableSol . '.id'
+                            )
+                            ->first();
+                        if (
+                            $folioRegistradoCalentadores->ListaParaEnviar == 1
+                        ) {
+                            $response = [
+                                'success' => true,
+                                'results' => false,
+                                'errors' =>
+                                    'El Folio ' .
+                                    $params['Folio'] .
+                                    ' ya esta registrado para la persona ' .
+                                    $folioRegistrado->Nombre .
+                                    ' ' .
+                                    $folioRegistrado->Paterno .
+                                    ' ' .
+                                    $folioRegistrado->Materno .
+                                    ' con CURP ' .
+                                    $folioRegistrado->CURP,
+                                'message' => [
+                                    'idSolicitud' => $folioRegistrado->id,
+                                    'Folio' => $params['Folio'],
+                                    'CURP' => $folioRegistrado->CURP,
+                                    'Nombre' => $folioRegistrado->Nombre,
+                                    'Paterno' => $folioRegistrado->Paterno,
+                                    'Materno' => $folioRegistrado->Materno,
+                                ],
+                            ];
+                            return response()->json($response, 200);
+                        } else {
+                            DB::table($tableSol)
+                                ->where('id', $folioRegistrado->id)
+                                ->update($params);
+                            $response = [
+                                'success' => true,
+                                'results' => true,
+                                'message' => [
+                                    'idSolicitud' => $folioRegistrado->id,
+                                    'Folio' => $params['Folio'],
+                                    'CURP' => $folioRegistrado->CURP,
+                                    'Nombre' => $folioRegistrado->Nombre,
+                                    'Paterno' => $folioRegistrado->Paterno,
+                                    'Materno' => $folioRegistrado->Materno,
+                                ],
+                                'data' => $folioRegistrado->id,
+                            ];
+                            return response()->json($response, 200);
+                        }
+                    } else {
+                        $folioRegistradoVales = DB::table($tableSol)
+                            ->where(['Folio' => $params['Folio']])
+                            ->whereRaw('FechaElimino IS NULL')
+                            ->whereRaw('ListaParaEnviar = "1"')
+                            ->first();
+
+                        if ($folioRegistradoVales != null) {
+                            $response = [
+                                'success' => true,
+                                'results' => false,
+                                'errors' =>
+                                    'El Folio ' .
+                                    $params['Folio'] .
+                                    ' ya esta registrado para la persona ' .
+                                    $folioRegistrado->Nombre .
+                                    ' ' .
+                                    $folioRegistrado->Paterno .
+                                    ' ' .
+                                    $folioRegistrado->Materno .
+                                    ' con CURP ' .
+                                    $folioRegistrado->CURP,
+                                'message' => [
+                                    'idSolicitud' => $folioRegistrado->id,
+                                    'Folio' => $params['Folio'],
+                                    'CURP' => $folioRegistrado->CURP,
+                                    'Nombre' => $folioRegistrado->Nombre,
+                                    'Paterno' => $folioRegistrado->Paterno,
+                                    'Materno' => $folioRegistrado->Materno,
+                                ],
+                            ];
+                            return response()->json($response, 200);
+                        } else {
+                            DB::table($tableSol)
+                                ->where('id', $folioRegistrado->id)
+                                ->update($params);
+                            $response = [
+                                'success' => true,
+                                'results' => true,
+                                'message' => [
+                                    'idSolicitud' => $folioRegistrado->id,
+                                    'Folio' => $params['Folio'],
+                                    'CURP' => $folioRegistrado->CURP,
+                                    'Nombre' => $folioRegistrado->Nombre,
+                                    'Paterno' => $folioRegistrado->Paterno,
+                                    'Materno' => $folioRegistrado->Materno,
+                                ],
+                                'data' => $folioRegistrado->id,
+                            ];
+                            return response()->json($response, 200);
+                        }
+                    }
                 }
             }
 
@@ -1549,28 +1668,140 @@ class CedulasController extends Controller
             $params['FechaCreo'] = date('Y-m-d');
             $params['Correo'] =
                 isset($params['Correo']) && $params['Correo'] != ''
-                    ? $params['Correo']
-                    : 'Sin correo';
+                    ? ($params['Correo'] == 'correo@electronico'
+                        ? ''
+                        : $params['Correo'])
+                    : '';
+            $params['TelRecados'] =
+                isset($params['TelRecados']) && $params['TelRecados'] != ''
+                    ? ($params['TelRecados'] == '0'
+                        ? ''
+                        : $params['TelRecados'])
+                    : '';
+            $params['idEstatus'] = 1;
             unset($params['Prestaciones']);
             unset($params['Enfermedades']);
             unset($params['AtencionesMedicas']);
             unset($params['NewClasificacion']);
             unset($params['NewFiles']);
             unset($params['idCedula']);
+            unset($params['ListaParaEnviar']);
+            //GASTOS PERIODICIDAD
+            if (!isset($params['GastoAlimentos'])) {
+                $params['GastoAlimentos'] = 0;
+            }
+            if (!isset($params['GastoVestido'])) {
+                $params['GastoVestido'] = 0;
+            }
+            if (!isset($params['GestoEducacion'])) {
+                $params['GestoEducacion'] = 0;
+            }
+            if (!isset($params['GastoMedicinas'])) {
+                $params['GastoMedicinas'] = 0;
+            }
+            if (!isset($params['GastosConsultas'])) {
+                $params['GastosConsultas'] = 0;
+            }
+            if (!isset($params['GastosCombustibles'])) {
+                $params['GastosCombustibles'] = 0;
+            }
+            if (!isset($params['GastosServiciosBasicos'])) {
+                $params['GastosServiciosBasicos'] = 0;
+            }
+            if (!isset($params['GastosServiciosRecreacion'])) {
+                $params['GastosServiciosRecreacion'] = 0;
+            }
 
             if (isset($params['idSolicitud'])) {
                 $cedula = DB::table($tableCedulas)
-                    ->where('idSolicitud', $params['id'])
-                    ->whereRaw('FechaElimino IS NULL');
+                    ->where('idSolicitud', $params['idSolicitud'])
+                    ->whereRaw('FechaElimino IS NULL')
+                    ->first();
 
                 if ($cedula != null) {
-                    $response = [
-                        'success' => true,
-                        'results' => false,
-                        'errors' =>
-                            'Esta solicitud ya cuenta con una cedula activa',
-                    ];
-                    return response()->json($response, 200);
+                    if ($cedula->ListaParaEnviar == 1) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'errors' =>
+                                'Esta solicitud ya cuenta con una cedula lista para enviar',
+                            'message' => [
+                                'idSolicitud' => $cedula->idSolicitud,
+                                'Folio' => $cedula->Folio,
+                                'CURP' => $cedula->CURP,
+                                'Nombre' => $cedula->Nombre,
+                                'Paterno' => $cedula->Paterno,
+                                'Materno' => $cedula->Materno,
+                            ],
+                        ];
+                        return response()->json($response, 200);
+                    } else {
+                        $id = $cedula->id;
+                        DB::table($tableCedulas)
+                            ->where('id', $id)
+                            ->update($params);
+                        $programa = $this->getPrograma($params['Folio']);
+
+                        $this->updateSolicitudFromCedula($params, $user);
+
+                        DB::table($tablePrestaciones)
+                            ->where('idCedula', $id)
+                            ->delete();
+                        $formatedPrestaciones = [];
+                        foreach ($prestaciones as $prestacion) {
+                            array_push($formatedPrestaciones, [
+                                'idCedula' => $id,
+                                'idPrestacion' => $prestacion,
+                            ]);
+                        }
+                        DB::table($tablePrestaciones)->insert(
+                            $formatedPrestaciones
+                        );
+
+                        DB::table($tableEnfermedades)
+                            ->where('idCedula', $id)
+                            ->delete();
+                        $formatedEnfermedades = [];
+                        foreach ($enfermedades as $enfermedad) {
+                            array_push($formatedEnfermedades, [
+                                'idCedula' => $id,
+                                'idEnfermedad' => $enfermedad,
+                            ]);
+                        }
+                        DB::table($tableEnfermedades)->insert(
+                            $formatedEnfermedades
+                        );
+
+                        DB::table($tableAtnMedica)
+                            ->where('idCedula', $id)
+                            ->delete();
+                        $formatedAtencionesMedicas = [];
+                        foreach ($atencionesMedicas as $atencion) {
+                            array_push($formatedAtencionesMedicas, [
+                                'idCedula' => $id,
+                                'idAtencionMedica' => $atencion,
+                            ]);
+                        }
+                        DB::table($tableAtnMedica)->insert(
+                            $formatedAtencionesMedicas
+                        );
+
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' => [
+                                'idSolicitud' => $params['idSolicitud'],
+                                'Folio' => $cedula->Folio,
+                                'CURP' => $cedula->CURP,
+                                'Nombre' => $cedula->Nombre,
+                                'Paterno' => $cedula->Paterno,
+                                'Materno' => $cedula->Materno,
+                            ],
+                            'data' => $params['idSolicitud'],
+                        ];
+
+                        return response()->json($response, 200);
+                    }
                 }
             }
 
@@ -2723,13 +2954,15 @@ class CedulasController extends Controller
             JSON_UNESCAPED_UNICODE
         );
 
-        $cUsuario = json_encode(
-            [
-                'nombre' => $solicitud->Enlace,
-                'observaciones' => '',
-            ],
-            JSON_UNESCAPED_UNICODE
-        );
+        $cUsuario = $this->getCampoUsuario($solicitud);
+
+        // $cUsuario = json_encode(
+        //     [
+        //         'nombre' => $solicitud->Enlace,
+        //         'observaciones' => '',
+        //     ],
+        //     JSON_UNESCAPED_UNICODE
+        // );
 
         if ($solicitud->idUsuarioCreo == 1312) {
             $authUsuario = $this->getAuthUsuario(
@@ -2779,7 +3012,8 @@ class CedulasController extends Controller
             //QA
             //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
             //Productivo
-            'https://api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            //'https://api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
         );
         $request2->setMethod(HTTP_Request2::METHOD_POST);
         $request2->setConfig([
@@ -2820,6 +3054,7 @@ class CedulasController extends Controller
                         ->where('id', $id)
                         ->update([
                             'idEstatus' => '8',
+                            'ListaParaEnviar' => '2',
                             'idVale' => $idVale,
                             'idUsuarioActualizo' => $user->id,
                             'FechaActualizo' => date('Y-m-d H:i:s'),
@@ -2934,8 +3169,7 @@ class CedulasController extends Controller
                         'migrante' => [
                             'respuesta' =>
                                 $solicitud->idSituacionActual !== 5 &&
-                                $solicitud->idSituacionActual !== null &&
-                                $solicitud->idSituacionActual !== 0,
+                                $solicitud->idSituacionActual !== null,
                             'codigo' =>
                                 $solicitud->idSituacionActual !== 5
                                     ? $solicitud->idSituacionActual
@@ -3021,16 +3255,16 @@ class CedulasController extends Controller
         }
         if ($solicitud->TelRecados != null) {
             array_push($telefonos, [
-                'tipo' => 'Teléfono de recados',
+                'tipo' => 'Telefono de Recados',
                 'descripcion' => $solicitud->TelRecados,
             ]);
         }
-        if ($solicitud->TelefonoTutor != null) {
-            array_push($telefonos, [
-                'tipo' => 'Teléfono del tutor',
-                'descripcion' => $solicitud->TelefonoTutor,
-            ]);
-        }
+        // if ($solicitud->TelefonoTutor != null) {
+        //     array_push($telefonos, [
+        //         'tipo' => 'Teléfono del tutor',
+        //         'descripcion' => $solicitud->TelefonoTutor,
+        //     ]);
+        // }
         return $telefonos;
     }
 
@@ -4172,6 +4406,20 @@ class CedulasController extends Controller
             ->get()
             ->first();
 
+        $userCreo = null;
+        if ($solicitud->idUsuarioCreo == 1312) {
+            if (
+                $solicitud->UsuarioAplicativo != null &&
+                $solicitud->UsuarioAplicativo != ''
+            ) {
+                $userCreo = DB::table('users_aplicativo_web')
+                    ->select('idUser')
+                    ->where('UserName', $solicitud->UsuarioAplicativo)
+                    ->get()
+                    ->first();
+            }
+        }
+
         $dataVales = [
             'FechaSolicitud' => $solicitud->FechaSolicitud,
             'idIncidencia' => '1',
@@ -4197,14 +4445,17 @@ class CedulasController extends Controller
             'IngresoPercibido' => $solicitud->IngresoMensual,
             'OtrosIngresos' => $solicitud->OtrosIngresos,
             'NumeroPersonas' => $solicitud->PersonasDependientes,
-            'UserOwned' => $solicitud->idUsuarioCreo,
+            'UserOwned' =>
+                $solicitud->idUsuarioCreo == 1312 && $userCreo != null
+                    ? $userCreo->idUser
+                    : $solicitud->idUsuarioCreo,
             'TotalIngresos' => $solicitud->TotalIngreso,
             'OcupacionOtro' => 0,
             'UserCreated' => $user->id,
             'UserUpdated' => $user->id,
             'INEVencida' => 0,
             'isDocumentacionEntrega' => 0,
-            'idCedulaSolicitud' => $id,
+            'Bloqueado' => 1,
             'BloqueadoUser' => $user->id,
             'BloqueadoDate' => date('Y-m-d H:i:s'),
             'created_at' => date('Y-m-d H:i:s'),
@@ -4452,63 +4703,65 @@ class CedulasController extends Controller
                     //dd($params['filtered']);
                     $filtersCedulas = ['.id'];
                     foreach ($params['filtered'] as $filtro) {
-                        if ($filterQuery != '') {
-                            $filterQuery .= ' AND ';
-                        }
-                        $id = $filtro['id'];
-                        $value = $filtro['value'];
-
-                        if ($id == '.FechaSolicitud') {
-                            $timestamp = strtotime($value);
-                            $value = date('Y-m-d', $timestamp);
-                        }
-
-                        if ($id == '.FechaCreo') {
-                            $timestamp = strtotime($value);
-                            $value = date('Y-m-d', $timestamp);
-                        }
-
-                        if ($id == '.MunicipioVive') {
-                            foreach ($value as $m) {
-                                $mun[] = "'" . $m . "'";
+                        if ($filtro['id'] != '.ListaParaEnviarCedula') {
+                            if ($filterQuery != '') {
+                                $filterQuery .= ' AND ';
                             }
-                            $value = $mun;
-                        }
+                            $id = $filtro['id'];
+                            $value = $filtro['value'];
 
-                        if ($id == 'region') {
-                            $municipios = DB::table('et_cat_municipio')
-                                ->select('Nombre')
-                                ->whereIN('SubRegion', $value)
-                                ->get();
-                            foreach ($municipios as $m) {
-                                $municipioRegion[] = "'" . $m->Nombre . "'";
+                            if ($id == '.FechaSolicitud') {
+                                $timestamp = strtotime($value);
+                                $value = date('Y-m-d', $timestamp);
                             }
 
-                            $id = '.MunicipioVive';
-                            $value = $municipioRegion;
-                        }
+                            if ($id == '.FechaCreo') {
+                                $timestamp = strtotime($value);
+                                $value = date('Y-m-d', $timestamp);
+                            }
 
-                        if (in_array($id, $filtersCedulas)) {
-                            $id = 'vales' . $id;
-                        } else {
-                            $id = 'vales' . $id;
-                        }
-
-                        switch (gettype($value)) {
-                            case 'string':
-                                $filterQuery .= " $id LIKE '%$value%' ";
-                                break;
-                            case 'array':
-                                $colonDividedValue = implode(', ', $value);
-                                $filterQuery .= " $id IN ($colonDividedValue) ";
-                                break;
-                            default:
-                                //dd($value);
-                                if ($value === -1) {
-                                    $filterQuery .= " $id IS NOT NULL ";
-                                } else {
-                                    $filterQuery .= " $id = $value ";
+                            if ($id == '.MunicipioVive') {
+                                foreach ($value as $m) {
+                                    $mun[] = "'" . $m . "'";
                                 }
+                                $value = $mun;
+                            }
+
+                            if ($id == 'region') {
+                                $municipios = DB::table('et_cat_municipio')
+                                    ->select('Nombre')
+                                    ->whereIN('SubRegion', $value)
+                                    ->get();
+                                foreach ($municipios as $m) {
+                                    $municipioRegion[] = "'" . $m->Nombre . "'";
+                                }
+
+                                $id = '.MunicipioVive';
+                                $value = $municipioRegion;
+                            }
+
+                            if (in_array($id, $filtersCedulas)) {
+                                $id = 'vales' . $id;
+                            } else {
+                                $id = 'vales' . $id;
+                            }
+
+                            switch (gettype($value)) {
+                                case 'string':
+                                    $filterQuery .= " $id LIKE '%$value%' ";
+                                    break;
+                                case 'array':
+                                    $colonDividedValue = implode(', ', $value);
+                                    $filterQuery .= " $id IN ($colonDividedValue) ";
+                                    break;
+                                default:
+                                    //dd($value);
+                                    if ($value === -1) {
+                                        $filterQuery .= " $id IS NOT NULL ";
+                                    } else {
+                                        $filterQuery .= " $id = $value ";
+                                    }
+                            }
                         }
                     }
                 }
@@ -4700,5 +4953,45 @@ class CedulasController extends Controller
                     \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
                 );
         }
+    }
+
+    public function getCampoUsuario($cedula)
+    {
+        if ($cedula->idUsuarioCreo == 1312) {
+            $getUserOffline = DB::table('users_aplicativo_web')
+                ->select('Nombre')
+                ->where('UserName', $cedula->UsuarioAplicativo)
+                ->get()
+                ->first();
+
+            if ($getUserOffline != null && $getUserOffline != '') {
+                return json_encode(
+                    [
+                        'nombre' => $getUserOffline->Nombre,
+                        'observaciones' => '',
+                    ],
+                    JSON_UNESCAPED_UNICODE
+                );
+            }
+        }
+
+        $getUserApi = DB::table('users')
+            ->select('Nombre', 'Paterno', 'Materno')
+            ->where('id', $cedula->idUsuarioCreo)
+            ->get()
+            ->first();
+
+        return json_encode(
+            [
+                'nombre' =>
+                    $getUserApi->Nombre .
+                    ' ' .
+                    $getUserApi->Paterno .
+                    ' ' .
+                    $getUserApi->Materno,
+                'observaciones' => '',
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
     }
 }
