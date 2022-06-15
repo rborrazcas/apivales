@@ -2077,8 +2077,7 @@ class VValesController extends Controller
                 );
             }
 
-            //$res=$res->toSql();
-            //dd($res);
+            dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
 
             $page = $parameters['page'];
             $pageSize = $parameters['pageSize'];

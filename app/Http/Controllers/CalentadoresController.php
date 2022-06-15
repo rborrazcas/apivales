@@ -728,7 +728,6 @@ class CalentadoresController extends Controller
             unset($params['id']);
             unset($params['Files']);
             unset($params['ArchivosClasificacion']);
-            unset($params['ListaParaEnviar']);
             unset($params['OldFiles']);
             unset($params['OldClasificacion']);
             unset($params['NewFiles']);
@@ -1128,8 +1127,8 @@ class CalentadoresController extends Controller
             if (!isset($params['GastoVestido'])) {
                 $params['GastoVestido'] = 0;
             }
-            if (!isset($params['GestoEducacion'])) {
-                $params['GestoEducacion'] = 0;
+            if (!isset($params['GastoEducacion'])) {
+                $params['GastoEducacion'] = 0;
             }
             if (!isset($params['GastoMedicinas'])) {
                 $params['GastoMedicinas'] = 0;
@@ -2102,6 +2101,7 @@ class CalentadoresController extends Controller
                 ->where('id', $id)
                 ->get()
                 ->first();
+            $user = auth()->user();
         } catch (Exception $e) {
             $response = [
                 'success' => false,
@@ -2516,6 +2516,8 @@ class CalentadoresController extends Controller
                             ->update([
                                 'idEstatus' => '8',
                                 'ListaParaEnviar' => '2',
+                                'UsuarioEnvio' => $user->id,
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
                             ]);
 
                         DB::table('calentadores_cedulas')
@@ -2523,6 +2525,8 @@ class CalentadoresController extends Controller
                             ->update([
                                 'idEstatus' => '8',
                                 'ListaParaEnviar' => '2',
+                                'UsuarioEnvio' => $user->id,
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
                             ]);
 
                         return [

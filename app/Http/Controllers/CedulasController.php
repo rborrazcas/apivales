@@ -807,6 +807,7 @@ class CedulasController extends Controller
 
             $params['NecesidadSolicitante'] = $necesidad;
             $params['CostoNecesidad'] = $costo;
+            unset($params['programa']);
 
             if (isset($params['Folio'])) {
                 $folioRegistrado = DB::table($tableSol)
@@ -1686,6 +1687,7 @@ class CedulasController extends Controller
             unset($params['NewFiles']);
             unset($params['idCedula']);
             unset($params['ListaParaEnviar']);
+            unset($params['programa']);
             //GASTOS PERIODICIDAD
             if (!isset($params['GastoAlimentos'])) {
                 $params['GastoAlimentos'] = 0;
@@ -1693,7 +1695,7 @@ class CedulasController extends Controller
             if (!isset($params['GastoVestido'])) {
                 $params['GastoVestido'] = 0;
             }
-            if (!isset($params['GestoEducacion'])) {
+            if (!isset($params['GastoEducacion'])) {
                 $params['GestoEducacion'] = 0;
             }
             if (!isset($params['GastoMedicinas'])) {
@@ -3056,8 +3058,8 @@ class CedulasController extends Controller
                             'idEstatus' => '8',
                             'ListaParaEnviar' => '2',
                             'idVale' => $idVale,
-                            'idUsuarioActualizo' => $user->id,
-                            'FechaActualizo' => date('Y-m-d H:i:s'),
+                            'UsuarioEnvio' => $user->id,
+                            'FechaEnvio' => date('Y-m-d H:i:s'),
                         ]);
 
                     return [
