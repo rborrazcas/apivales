@@ -21,6 +21,7 @@ use Carbon\Carbon as time;
 use GuzzleHttp\Client;
 use HTTP_Request2;
 use File;
+use Imagick;
 
 class CedulasController extends Controller
 {
@@ -3928,6 +3929,10 @@ class CedulasController extends Controller
         $clasificationArray,
         $userId
     ) {
+        $img = new Imagick;
+        $width = 1920;
+        $height = 1920;
+
         foreach ($files as $key => $file) {
             $originalName = $file->getClientOriginalName();
             $extension = explode('.', $originalName);
@@ -3935,6 +3940,7 @@ class CedulasController extends Controller
             $uniqueName = uniqid() . '.' . $extension;
             $size = $file->getSize();
             $clasification = $clasificationArray[$key];
+            
             $fileObject = [
                 'idSolicitud' => intval($id),
                 'idClasificacion' => intval($clasification),
@@ -3946,7 +3952,26 @@ class CedulasController extends Controller
                 'idUsuarioCreo' => $userId,
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
-            $file->move('subidos', $uniqueName);
+
+            if(in_array(mb_strtolower($extension, 'utf-8'), ['png', 'jpg', 'jpeg', 'gif', 'tiff'])){
+                if( round((($size/1024)/1024), 2) < 1.2){
+                    $file->move('subidos', $uniqueName);
+                }
+                else{
+                    $file->move('subidos/tmp', $uniqueName);
+
+                    $img_tmp_path = sprintf("subidos/tmp/%s", $uniqueName);
+                    $img->readImage($img_tmp_path);
+                    $img->adaptiveResizeImage($width, $height);
+                    $img->writeImage(sprintf("subidos/%s", $uniqueName));
+
+                    File::delete($img_tmp_path);
+                }
+            }else{
+                $file->move('subidos', $uniqueName);
+            }
+            
+
             $tableArchivos = 'solicitud_archivos';
             // if($program>1){
             //     $tableArchivos = 'solicitud_archivos';
