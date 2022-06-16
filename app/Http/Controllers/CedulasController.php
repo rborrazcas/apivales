@@ -3915,10 +3915,10 @@ class CedulasController extends Controller
             ];
 
             if(in_array(mb_strtolower($extension, 'utf-8'), ['png', 'jpg', 'jpeg', 'gif', 'tiff'])){
-                if( round((($size/1024)/1024), 2) < 1.2){
-                    $file->move('subidos', $uniqueName);
-                }
-                else{
+                // if( round((($size/1024)/1024), 2) < 1.2){
+                //     $file->move('subidos', $uniqueName);
+                // }
+                // else{
                     $file->move('subidos/tmp', $uniqueName);
 
                     $img_tmp_path = sprintf("subidos/tmp/%s", $uniqueName);
@@ -3927,7 +3927,7 @@ class CedulasController extends Controller
                     $img->writeImage(sprintf("subidos/%s", $uniqueName));
 
                     File::delete($img_tmp_path);
-                }
+                // }
             }else{
                 $file->move('subidos', $uniqueName);
             }
@@ -3939,6 +3939,8 @@ class CedulasController extends Controller
             // }else{
             //     $tableArchivos = 'cedula_archivos';
             // }
+        }
+    }
 
     public function createSolicitudFilesTest(Request $request)
     {
