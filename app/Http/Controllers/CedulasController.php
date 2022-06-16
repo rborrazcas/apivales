@@ -21,6 +21,7 @@ use Carbon\Carbon as time;
 use GuzzleHttp\Client;
 use HTTP_Request2;
 use File;
+use \Imagick;
 
 class CedulasController extends Controller
 {
@@ -939,32 +940,21 @@ class CedulasController extends Controller
                 $params['idUsuarioCreo'] = $user->id;
                 $params['FechaCreo'] = date('Y-m-d');
                 DB::beginTransaction();
-
                 $id = DB::table($tableSol)->insertGetId($params);
-
-                if (isset($request->NewFiles) && $program === 1) {
-                    $this->createSolicitudFiles(
-                        $id,
-                        $request->NewFiles,
-                        $newClasificacion,
-                        $user->id
-                    );
-                }
                 DB::commit();
             } else {
                 $id = $idSol->id;
                 DB::table($tableSol)
                     ->where('id', $id)
                     ->update($params);
-
-                if (isset($request->NewFiles) && $program === 1) {
-                    $this->createSolicitudFiles(
-                        $id,
-                        $request->NewFiles,
-                        $newClasificacion,
-                        $user->id
-                    );
-                }
+            }
+            if (isset($request->NewFiles) && $program === 1) {
+                $this->createSolicitudFiles(
+                    $id,
+                    $request->NewFiles,
+                    $newClasificacion,
+                    $user->id
+                );
             }
             $response = [
                 'success' => true,
@@ -1086,34 +1076,6 @@ class CedulasController extends Controller
                 ];
                 return response()->json($response, 200);
             }
-
-            // if(
-            //     !isset($params['Celular']) && !isset($params['Telefono']) &&
-            //     !isset($params['Correo']) && !isset($params['TelRecados'])
-            // ){
-            //     $response =  [
-            //         'success'=>true,
-            //         'results'=>false,
-            //         'errors'=>"Agregue al menos un método de contacto"
-            //     ];
-            //     return response()->json($response,200);
-            // }
-
-            // if($params['Edad'] < 18){
-            //     if(
-            //         !isset($params['idParentescoTutor']) &&
-            //         !isset($params['NombreTutor']) && !isset($params['PaternoTutor']) &&
-            //         !isset($params['MaternoTutor']) && !isset($params['FechaNacimientoTutor']) &&
-            //         !isset($params['EdadTutor']) && !isset($params['CURPTutor'])
-            //     ){
-            //         $response =  [
-            //             'success'=>true,
-            //             'results'=>false,
-            //             'errors'=>"Información de tutor incompleta"
-            //         ];
-            //         return response()->json($response,200);
-            //     }
-            // }
             $oldClasificacion = isset($params['OldClasificacion'])
                 ? $params['OldClasificacion']
                 : [];
@@ -3901,33 +3863,72 @@ class CedulasController extends Controller
         $clasificationArray,
         $userId
     ) {
-        foreach ($files as $key => $file) {
-            $originalName = $file->getClientOriginalName();
-            $extension = explode('.', $originalName);
-            $extension = $extension[count($extension) - 1];
-            $uniqueName = uniqid() . '.' . $extension;
-            $size = $file->getSize();
-            $clasification = $clasificationArray[$key];
-            $fileObject = [
-                'idSolicitud' => intval($id),
-                'idClasificacion' => intval($clasification),
-                'NombreOriginal' => $originalName,
-                'NombreSistema' => $uniqueName,
-                'Extension' => $extension,
-                'Tipo' => $this->getFileType($extension),
-                'Tamanio' => $size,
-                'idUsuarioCreo' => $userId,
-                'FechaCreo' => date('Y-m-d H:i:s'),
-            ];
-            $file->move('subidos', $uniqueName);
-            $tableArchivos = 'solicitud_archivos';
-            // if($program>1){
-            //     $tableArchivos = 'solicitud_archivos';
-            // }else{
-            //     $tableArchivos = 'cedula_archivos';
-            // }
+        try {
+            $img = new \Imagick();
+            $width = 1920;
+            $height = 1920;
+            $fullPath = public_path('/subidos/');
+            foreach ($files as $key => $file) {
+                $originalName = $file->getClientOriginalName();
+                $extension = explode('.', $originalName);
+                $extension = $extension[count($extension) - 1];
+                $uniqueName = uniqid() . '.' . $extension;
+                $size = $file->getSize();
+                $clasification = $clasificationArray[$key];
+                $fileObject = [
+                    'idSolicitud' => intval($id),
+                    'idClasificacion' => intval($clasification),
+                    'NombreOriginal' => $originalName,
+                    'NombreSistema' => $uniqueName,
+                    'Extension' => $extension,
+                    'Tipo' => $this->getFileType($extension),
+                    'Tamanio' => $size,
+                    'idUsuarioCreo' => $userId,
+                    'FechaCreo' => date('Y-m-d H:i:s'),
+                ];
+                move_uploaded_file($uniqueName, $fullPath);
+                // $file->move($fullPath, $uniqueName);
+                $tableArchivos = 'solicitud_archivos';
+                DB::table($tableArchivos)->insert($fileObject);
+            }
+        } catch (Exception $e) {
+            dd($e);
+        }
+    }
 
-            DB::table($tableArchivos)->insert($fileObject);
+    public function createSolicitudFilesTest(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $img = new \Imagick();
+            $width = 1920;
+            $height = 1920;
+            $fullPath = public_path('/subidos/');
+            foreach ($files as $key => $file) {
+                $originalName = $file->getClientOriginalName();
+                $extension = explode('.', $originalName);
+                $extension = $extension[count($extension) - 1];
+                $uniqueName = uniqid() . '.' . $extension;
+                $size = $file->getSize();
+                $clasification = $clasificationArray[$key];
+                $fileObject = [
+                    'idSolicitud' => intval($id),
+                    'idClasificacion' => intval($clasification),
+                    'NombreOriginal' => $originalName,
+                    'NombreSistema' => $uniqueName,
+                    'Extension' => $extension,
+                    'Tipo' => $this->getFileType($extension),
+                    'Tamanio' => $size,
+                    'idUsuarioCreo' => $userId,
+                    'FechaCreo' => date('Y-m-d H:i:s'),
+                ];
+                move_uploaded_file($uniqueName, $fullPath);
+                // $file->move($fullPath, $uniqueName);
+                $tableArchivos = 'solicitud_archivos';
+                DB::table($tableArchivos)->insert($fileObject);
+            }
+        } catch (Exception $e) {
+            dd($e);
         }
     }
 
@@ -4007,7 +4008,7 @@ class CedulasController extends Controller
                 ];
                 return response()->json($response, 200);
             }
-
+            $imageMagick = new \Imagick();
             foreach ($files as $key => $file) {
                 $imageContent = $this->imageBase64Content($file);
                 $uniqueName = uniqid() . $extension[$key];
@@ -4016,11 +4017,6 @@ class CedulasController extends Controller
 
                 File::put($fullPath . $uniqueName, $imageContent);
 
-                // $extension = explode('.', $originalName);
-                // $extension = $extension[count($extension) - 1];
-
-                // $size = $file->getSize();
-                // $clasification = $clasificationArray[$key];
                 $fileObject = [
                     'idSolicitud' => intval($id),
                     'idClasificacion' => intval($clasification),
