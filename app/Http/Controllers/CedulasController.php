@@ -21,7 +21,7 @@ use Carbon\Carbon as time;
 use GuzzleHttp\Client;
 use HTTP_Request2;
 use File;
-use \Imagick;
+use Imagick;
 
 class CedulasController extends Controller
 {
@@ -1022,7 +1022,6 @@ class CedulasController extends Controller
             //     ];
             //     return response()->json($response,200);
             // }
-
             $params = $request->all();
             $program = 1;
             if (!isset($params['Folio'])) {
@@ -1774,6 +1773,8 @@ class CedulasController extends Controller
 
             $this->updateSolicitudFromCedula($params, $user);
 
+            $this->updateSolicitudFromCedula($params, $user);
+
             $formatedPrestaciones = [];
             foreach ($prestaciones as $prestacion) {
                 array_push($formatedPrestaciones, [
@@ -1809,6 +1810,10 @@ class CedulasController extends Controller
                     $user->id,
                     $programa
                 );
+            }
+
+            if(isset($request->NewFiles)){
+                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
             }
 
             DB::commit();
@@ -2396,6 +2401,28 @@ class CedulasController extends Controller
                         'idUsuarioElimino' => $user->id,
                         'FechaElimino' => date('Y-m-d H:i:s'),
                     ]);
+            }
+
+            $oldFiles = DB::table("cedula_archivos")
+            ->select("id", "idClasificacion")
+            ->where("idCedula", $id)
+            ->whereRaw("FechaElimino IS NULL")
+            ->get();
+            $oldFilesIds = array_map(function($o) { return $o->id;}, $oldFiles->toArray());
+            if(isset($request->NewFiles)){
+                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
+            }
+            if(isset($request->OldFiles)){
+               $oldFilesIds = $this->updateCedulaFiles($id, $request->OldFiles, $oldClasificacion, $user->id, $oldFilesIds, $oldFiles);
+            }
+
+            if(count($oldFilesIds) > 0){
+                DB::table("cedula_archivos")
+                ->whereIn("id", $oldFilesIds)
+                ->update([
+                    'idUsuarioElimino'=>$user->id,
+                    'FechaElimino'=>date("Y-m-d H:i:s")
+                ]);
             }
 
             DB::commit();
@@ -3863,38 +3890,55 @@ class CedulasController extends Controller
         $clasificationArray,
         $userId
     ) {
-        try {
-            $img = new \Imagick();
-            $width = 1920;
-            $height = 1920;
-            $fullPath = public_path('/subidos/');
-            foreach ($files as $key => $file) {
-                $originalName = $file->getClientOriginalName();
-                $extension = explode('.', $originalName);
-                $extension = $extension[count($extension) - 1];
-                $uniqueName = uniqid() . '.' . $extension;
-                $size = $file->getSize();
-                $clasification = $clasificationArray[$key];
-                $fileObject = [
-                    'idSolicitud' => intval($id),
-                    'idClasificacion' => intval($clasification),
-                    'NombreOriginal' => $originalName,
-                    'NombreSistema' => $uniqueName,
-                    'Extension' => $extension,
-                    'Tipo' => $this->getFileType($extension),
-                    'Tamanio' => $size,
-                    'idUsuarioCreo' => $userId,
-                    'FechaCreo' => date('Y-m-d H:i:s'),
-                ];
-                move_uploaded_file($uniqueName, $fullPath);
-                // $file->move($fullPath, $uniqueName);
-                $tableArchivos = 'solicitud_archivos';
-                DB::table($tableArchivos)->insert($fileObject);
+        $img = new Imagick;
+        $width = 1920;
+        $height = 1920;
+
+        foreach ($files as $key => $file) {
+            $originalName = $file->getClientOriginalName();
+            $extension = explode('.', $originalName);
+            $extension = $extension[count($extension) - 1];
+            $uniqueName = uniqid() . '.' . $extension;
+            $size = $file->getSize();
+            $clasification = $clasificationArray[$key];
+            
+            $fileObject = [
+                'idSolicitud' => intval($id),
+                'idClasificacion' => intval($clasification),
+                'NombreOriginal' => $originalName,
+                'NombreSistema' => $uniqueName,
+                'Extension' => $extension,
+                'Tipo' => $this->getFileType($extension),
+                'Tamanio' => $size,
+                'idUsuarioCreo' => $userId,
+                'FechaCreo' => date('Y-m-d H:i:s'),
+            ];
+
+            if(in_array(mb_strtolower($extension, 'utf-8'), ['png', 'jpg', 'jpeg', 'gif', 'tiff'])){
+                if( round((($size/1024)/1024), 2) < 1.2){
+                    $file->move('subidos', $uniqueName);
+                }
+                else{
+                    $file->move('subidos/tmp', $uniqueName);
+
+                    $img_tmp_path = sprintf("subidos/tmp/%s", $uniqueName);
+                    $img->readImage($img_tmp_path);
+                    $img->adaptiveResizeImage($width, $height);
+                    $img->writeImage(sprintf("subidos/%s", $uniqueName));
+
+                    File::delete($img_tmp_path);
+                }
+            }else{
+                $file->move('subidos', $uniqueName);
             }
-        } catch (Exception $e) {
-            dd($e);
-        }
-    }
+            
+
+            $tableArchivos = 'solicitud_archivos';
+            // if($program>1){
+            //     $tableArchivos = 'solicitud_archivos';
+            // }else{
+            //     $tableArchivos = 'cedula_archivos';
+            // }
 
     public function createSolicitudFilesTest(Request $request)
     {
