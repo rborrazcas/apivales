@@ -1032,7 +1032,6 @@ class CedulasController extends Controller
             //     ];
             //     return response()->json($response,200);
             // }
-
             $params = $request->all();
             $program = 1;
             if (!isset($params['Folio'])) {
@@ -1812,6 +1811,8 @@ class CedulasController extends Controller
 
             $this->updateSolicitudFromCedula($params, $user);
 
+            $this->updateSolicitudFromCedula($params, $user);
+
             $formatedPrestaciones = [];
             foreach ($prestaciones as $prestacion) {
                 array_push($formatedPrestaciones, [
@@ -1847,6 +1848,10 @@ class CedulasController extends Controller
                     $user->id,
                     $programa
                 );
+            }
+
+            if(isset($request->NewFiles)){
+                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
             }
 
             DB::commit();
@@ -2434,6 +2439,28 @@ class CedulasController extends Controller
                         'idUsuarioElimino' => $user->id,
                         'FechaElimino' => date('Y-m-d H:i:s'),
                     ]);
+            }
+
+            $oldFiles = DB::table("cedula_archivos")
+            ->select("id", "idClasificacion")
+            ->where("idCedula", $id)
+            ->whereRaw("FechaElimino IS NULL")
+            ->get();
+            $oldFilesIds = array_map(function($o) { return $o->id;}, $oldFiles->toArray());
+            if(isset($request->NewFiles)){
+                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
+            }
+            if(isset($request->OldFiles)){
+               $oldFilesIds = $this->updateCedulaFiles($id, $request->OldFiles, $oldClasificacion, $user->id, $oldFilesIds, $oldFiles);
+            }
+
+            if(count($oldFilesIds) > 0){
+                DB::table("cedula_archivos")
+                ->whereIn("id", $oldFilesIds)
+                ->update([
+                    'idUsuarioElimino'=>$user->id,
+                    'FechaElimino'=>date("Y-m-d H:i:s")
+                ]);
             }
 
             DB::commit();
