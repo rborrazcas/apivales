@@ -3890,7 +3890,7 @@ class CedulasController extends Controller
         $clasificationArray,
         $userId
     ) {
-        $img = new Imagick;
+        $img = new \Imagick();
         $width = 1920;
         $height = 1920;
 
@@ -3939,6 +3939,7 @@ class CedulasController extends Controller
             // }else{
             //     $tableArchivos = 'cedula_archivos';
             // }
+            DB::table($tableArchivos)->insert($fileObject);
         }
     }
 
