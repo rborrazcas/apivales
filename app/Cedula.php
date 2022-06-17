@@ -11,7 +11,8 @@ class Cedula extends Model
     protected $solicitudes_fillable = [
         'id', 
         'FechaSolicitud', 
-        'FolioTarjetaImpulso', 
+        'FolioTarjetaImpulso',
+        'Folio', 
         'Nombre', 
         'Paterno', 
         'Materno', 
