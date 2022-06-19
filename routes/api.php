@@ -167,6 +167,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CalentadoresController@getReporteSolicitudVentanillaCalentadores'
     );
     Route::get(
+        '/getReporteSolicitudVentanillaProyectos',
+        'ProyectosController@getReporteSolicitudVentanillaProyectos'
+    );
+    Route::get(
         '/getReportesolicitudValesDesglosado',
         'ReportesController@getReportesolicitudValesDesglosado'
     );
@@ -489,22 +493,34 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/deleteSolicitudCalentador',
         'CalentadoresController@deleteSolicitud'
     );
-
+    Route::post(
+        '/createSolicitudProyectos',
+        'ProyectosController@createSolicitud'
+    );
+    Route::post(
+        '/getSolicitudesProyectos',
+        'ProyectosController@getSolicitudes'
+    );
+    Route::post(
+        '/updateSolicitudProyectos',
+        'ProyectosController@updateSolicitud'
+    );
+    Route::post(
+        '/deleteSolicitudProyectos',
+        'ProyectosController@deleteSolicitud'
+    );
     Route::post(
         '/getEstatusGlobalVentanillaVales',
         'CedulasController@getEstatusGlobal'
     );
-
     Route::post(
         '/uploadFilesSolicitud',
         'CedulasController@uploadFilesSolicitud'
     );
-
     Route::post(
         '/uploadFilesCalentadores',
         'CalentadoresController@uploadFilesCalentadores'
     );
-
     Route::post(
         '/getFilesByIdSolicitud',
         'CalentadoresController@getFilesByIdSolicitud'
@@ -565,5 +581,29 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             '/getEstatusGlobalVentanillaCalentadores',
             'CalentadoresController@getEstatusGlobal'
         );
+    });
+
+    Route::group(['prefix' => 'proyectos'], function ($route) {
+        Route::post(
+            '/getEstatusGlobalVentanillaProyectos',
+            'ProyectosController@getEstatusGlobal'
+        );
+        Route::post('/create', 'ProyectosController@create');
+        Route::get('/getById/{id}', 'ProyectosController@getById');
+        Route::get(
+            '/getArchivosByIdP/{id}',
+            'ProyectosController@getFilesById'
+        );
+        Route::get(
+            '/getClasificacionArchivos',
+            'CedulasController@getClasificacionArchivos'
+        );
+        Route::post('/update', 'ProyectosController@update');
+        Route::post('/delete', 'ProyectosController@delete');
+        Route::post(
+            '/updateArchivosCedula',
+            'ProyectosController@updateArchivosCedula'
+        );
+        Route::post('/enviarIGTO', 'ProyectosController@enviarIGTO');
     });
 });
