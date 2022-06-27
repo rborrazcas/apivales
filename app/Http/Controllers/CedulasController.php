@@ -39,13 +39,15 @@ class CedulasController extends Controller
     function getPrograma($folio)
     {
         if (!is_null($folio)) {
-            $q = str_contains($folio, 'Q3450');
-            $q2 = str_contains($folio, 'q3450');
-            if ($q || $q2) {
+            $q = str_contains(strtoupper($folio), 'Q3450');
+            $q2 = str_contains(strtoupper($folio), 'Q1417');
+            if ($q) {
                 return 1; //1 para vales
+            } elseif ($q2) {
+                return 2; //2 para calentadores
             } else {
-                return 2;
-            } //2 para calentadores
+                return 3;
+            }
         } else {
             return 0;
         } //No existe folio
@@ -756,32 +758,65 @@ class CedulasController extends Controller
             // }
 
             $params = $request->all();
+            $user = auth()->user();
             $idAplicativo = '';
+            $necesidad = '';
+            $costo = '';
 
-            if (!isset($params['Folio'])) {
-                $program = 1;
+            if (isset($params['programa'])) {
+                switch (strtoupper($params['programa'])) {
+                    case 'VALE GRANDEZA':
+                        $program = 1;
+                        break;
+                    case 'CALENTADORES SOLARES':
+                        $program = 2;
+                        break;
+                    case 'PROYECTOS PRODUCTIVOS':
+                        $program = 3;
+                        break;
+                }
             } else {
-                $program = $this->getPrograma($params['Folio']);
+                if (!isset($params['Folio'])) {
+                    $program = 1;
+                } else {
+                    $program = $this->getPrograma($params['Folio']);
+                }
             }
 
-            if ($program > 1) {
-                $tableSol = 'calentadores_solicitudes';
-            } else {
-                $tableSol = 'cedulas_solicitudes';
-            }
+            switch ($program) {
+                case 1:
+                    $tableSol = 'cedulas_solicitudes';
+                    $necesidad = 'VALES GRANDEZA';
+                    $costo = '500';
+                    break;
+                case 2:
+                    $tableCedulas = 'calentadores_cedulas';
+                    $tableSol = 'calentadores_solicitudes';
+                    $necesidad = 'CALENTADOR SOLAR';
+                    $costo = '8145';
+                    break;
+                case 3:
+                    $tableSol = 'proyectos_solicitudes';
+                    $tableCedulas = 'proyectos_cedulas';
+                    unset($params['Latitud']);
+                    unset($params['Longitud']);
+                    unset($params['idParentescoTutor']);
+                    unset($params['NombreTutor']);
+                    unset($params['PaternoTutor']);
+                    unset($params['MaternoTutor']);
+                    unset($params['FechaNacimientoTutor']);
+                    unset($params['EdadTutor']);
+                    unset($params['CURPTutor']);
+                    unset($params['TelefonoTutor']);
+                    unset($params['CorreoTutor']);
 
-            if (isset($params['idSolicitudAplicativo'])) {
-                $idAplicativo = $params['idSolicitudAplicativo'];
+                    break;
             }
 
             $newClasificacion = isset($params['NewClasificacion'])
                 ? $params['NewClasificacion']
                 : [];
             $files = isset($params['NewFiles']) ? $params['NewFiles'] : [];
-            unset($params['NewClasificacion']);
-            unset($params['NewFiles']);
-
-            $user = auth()->user();
             $params['idEstatus'] = 1;
             $params['Correo'] =
                 isset($params['Correo']) && $params['Correo'] != ''
@@ -795,20 +830,21 @@ class CedulasController extends Controller
                         ? ''
                         : $params['TelRecados'])
                     : '';
-
-            $necesidad = '';
-            $costo = '';
-            if ($program == 1) {
-                $necesidad = 'VALES GRANDEZA';
-                $costo = '500';
-            } else {
-                $necesidad = 'CALENTADOR SOLAR';
-                $costo = '8145';
+            if ($program < 3) {
+                $params['NecesidadSolicitante'] = $necesidad;
+                $params['CostoNecesidad'] = $costo;
+            }
+            if (isset($params['idSolicitudAplicativo'])) {
+                $idAplicativo = $params['idSolicitudAplicativo'];
             }
 
-            $params['NecesidadSolicitante'] = $necesidad;
-            $params['CostoNecesidad'] = $costo;
             unset($params['programa']);
+            unset($params['NewClasificacion']);
+            unset($params['NewFiles']);
+
+            if ($user->id == 1312) {
+                unset($params['ListaParaEnviar']);
+            }
 
             if (isset($params['Folio'])) {
                 $folioRegistrado = DB::table($tableSol)
@@ -816,13 +852,13 @@ class CedulasController extends Controller
                     ->whereRaw('FechaElimino IS NULL')
                     ->first();
                 if ($folioRegistrado != null) {
-                    if ($program == 2) {
+                    if ($program > 1) {
                         $folioRegistradoCalentadores = DB::table($tableSol)
                             ->where([$tableSol . '.Folio' => $params['Folio']])
                             ->whereRaw($tableSol . '.FechaElimino IS NULL')
                             ->leftjoin(
-                                'calentadores_cedulas',
-                                'calentadores_cedulas.idSolicitud',
+                                $tableCedulas,
+                                $tableCedulas . '.idSolicitud',
                                 $tableSol . '.id'
                             )
                             ->first();
@@ -1089,6 +1125,7 @@ class CedulasController extends Controller
             unset($params['OldClasificacion']);
             unset($params['NewFiles']);
             unset($params['NewClasificacion']);
+            unset($params['programa']);
 
             $params['idUsuarioActualizo'] = $user->id;
             $params['FechaActualizo'] = date('Y-m-d');
@@ -1590,28 +1627,61 @@ class CedulasController extends Controller
             // }
             $params = $request->all();
 
-            if (!isset($params['Folio'])) {
-                $program = 1;
+            if (isset($params['programa'])) {
+                switch (strtoupper($params['programa'])) {
+                    case 'VALE GRANDEZA':
+                        $program = 1;
+                        break;
+                    case 'CALENTADORES SOLARES':
+                        $program = 2;
+                        break;
+                    case 'PROYECTOS PRODUCTIVOS':
+                        $program = 3;
+                        break;
+                }
             } else {
-                $program = $this->getPrograma($params['Folio']);
+                if (!isset($params['Folio'])) {
+                    $program = 1;
+                } else {
+                    $program = $this->getPrograma($params['Folio']);
+                }
             }
 
-            if ($program > 1) {
-                $tableSol = 'calentadores_solicitudes';
-                $tableCedulas = 'calentadores_cedulas';
-                $tablePrestaciones = 'calentadores_prestaciones';
-                $tableEnfermedades = 'calentadores_enfermedades';
-                $tableAtnMedica = 'calentadores_atenciones_medicas';
-            } else {
-                $tableSol = 'cedulas_solicitudes';
-                $tableCedulas = 'cedulas';
-                $tablePrestaciones = 'cedulas_prestaciones';
-                $tableEnfermedades = 'cedulas_enfermedades';
-                $tableAtnMedica = 'cedulas_atenciones_medicas';
+            switch ($program) {
+                case 1:
+                    $tableSol = 'cedulas_solicitudes';
+                    $tableCedulas = 'cedulas';
+                    $tablePrestaciones = 'cedulas_prestaciones';
+                    $tableEnfermedades = 'cedulas_enfermedades';
+                    $tableAtnMedica = 'cedulas_atenciones_medicas';
+                    break;
+                case 2:
+                    $tableSol = 'calentadores_solicitudes';
+                    $tableCedulas = 'calentadores_cedulas';
+                    $tablePrestaciones = 'calentadores_prestaciones';
+                    $tableEnfermedades = 'calentadores_enfermedades';
+                    $tableAtnMedica = 'calentadores_atenciones_medicas';
+                    break;
+                case 3:
+                    $tableSol = 'proyectos_solicitudes';
+                    $tableCedulas = 'proyectos_cedulas';
+                    $tablePrestaciones = 'proyectos_prestaciones';
+                    $tableEnfermedades = 'proyectos_enfermedades';
+                    $tableAtnMedica = 'proyectos_atenciones_medicas';
+                    unset($params['Latitud']);
+                    unset($params['Longitud']);
+                    unset($params['idParentescoTutor']);
+                    unset($params['NombreTutor']);
+                    unset($params['PaternoTutor']);
+                    unset($params['MaternoTutor']);
+                    unset($params['FechaNacimientoTutor']);
+                    unset($params['EdadTutor']);
+                    unset($params['CURPTutor']);
+                    unset($params['TelefonoTutor']);
+                    unset($params['CorreoTutor']);
+
+                    break;
             }
-
-            DB::beginTransaction();
-
             $prestaciones = isset($params['Prestaciones'])
                 ? $params['Prestaciones']
                 : [];
@@ -1649,6 +1719,9 @@ class CedulasController extends Controller
             unset($params['idCedula']);
             unset($params['ListaParaEnviar']);
             unset($params['programa']);
+            if ($user->id == 1312) {
+                unset($params['ListaParaEnviar']);
+            }
             //GASTOS PERIODICIDAD
             if (!isset($params['GastoAlimentos'])) {
                 $params['GastoAlimentos'] = 0;
@@ -1674,7 +1747,7 @@ class CedulasController extends Controller
             if (!isset($params['GastosServiciosRecreacion'])) {
                 $params['GastosServiciosRecreacion'] = 0;
             }
-
+            DB::beginTransaction();
             if (isset($params['idSolicitud'])) {
                 $cedula = DB::table($tableCedulas)
                     ->where('idSolicitud', $params['idSolicitud'])
@@ -1703,7 +1776,6 @@ class CedulasController extends Controller
                         DB::table($tableCedulas)
                             ->where('id', $id)
                             ->update($params);
-                        $programa = $this->getPrograma($params['Folio']);
 
                         $this->updateSolicitudFromCedula($params, $user);
 
@@ -1769,12 +1841,7 @@ class CedulasController extends Controller
             }
 
             $id = DB::table($tableCedulas)->insertGetId($params);
-            $programa = $this->getPrograma($params['Folio']);
-
             $this->updateSolicitudFromCedula($params, $user);
-
-            $this->updateSolicitudFromCedula($params, $user);
-
             $formatedPrestaciones = [];
             foreach ($prestaciones as $prestacion) {
                 array_push($formatedPrestaciones, [
@@ -1808,12 +1875,17 @@ class CedulasController extends Controller
                     $request->NewFiles,
                     $newClasificacion,
                     $user->id,
-                    $programa
+                    $program
                 );
             }
 
-            if(isset($request->NewFiles)){
-                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
+            if (isset($request->NewFiles)) {
+                $this->createCedulaFiles(
+                    $id,
+                    $request->NewFiles,
+                    $newClasificacion,
+                    $user->id
+                );
             }
 
             DB::commit();
@@ -2403,26 +2475,40 @@ class CedulasController extends Controller
                     ]);
             }
 
-            $oldFiles = DB::table("cedula_archivos")
-            ->select("id", "idClasificacion")
-            ->where("idCedula", $id)
-            ->whereRaw("FechaElimino IS NULL")
-            ->get();
-            $oldFilesIds = array_map(function($o) { return $o->id;}, $oldFiles->toArray());
-            if(isset($request->NewFiles)){
-                $this->createCedulaFiles($id, $request->NewFiles, $newClasificacion, $user->id);
+            $oldFiles = DB::table('cedula_archivos')
+                ->select('id', 'idClasificacion')
+                ->where('idCedula', $id)
+                ->whereRaw('FechaElimino IS NULL')
+                ->get();
+            $oldFilesIds = array_map(function ($o) {
+                return $o->id;
+            }, $oldFiles->toArray());
+            if (isset($request->NewFiles)) {
+                $this->createCedulaFiles(
+                    $id,
+                    $request->NewFiles,
+                    $newClasificacion,
+                    $user->id
+                );
             }
-            if(isset($request->OldFiles)){
-               $oldFilesIds = $this->updateCedulaFiles($id, $request->OldFiles, $oldClasificacion, $user->id, $oldFilesIds, $oldFiles);
+            if (isset($request->OldFiles)) {
+                $oldFilesIds = $this->updateCedulaFiles(
+                    $id,
+                    $request->OldFiles,
+                    $oldClasificacion,
+                    $user->id,
+                    $oldFilesIds,
+                    $oldFiles
+                );
             }
 
-            if(count($oldFilesIds) > 0){
-                DB::table("cedula_archivos")
-                ->whereIn("id", $oldFilesIds)
-                ->update([
-                    'idUsuarioElimino'=>$user->id,
-                    'FechaElimino'=>date("Y-m-d H:i:s")
-                ]);
+            if (count($oldFilesIds) > 0) {
+                DB::table('cedula_archivos')
+                    ->whereIn('id', $oldFilesIds)
+                    ->update([
+                        'idUsuarioElimino' => $user->id,
+                        'FechaElimino' => date('Y-m-d H:i:s'),
+                    ]);
             }
 
             DB::commit();
@@ -3781,12 +3867,15 @@ class CedulasController extends Controller
             'FechaActualizo' => date('Y-m-d'),
         ];
 
-        if ($this->getPrograma($cedula['Folio']) > 1) {
+        if ($this->getPrograma($cedula['Folio']) == 2) {
             $tableSol = 'calentadores_solicitudes';
             $tableCedulas = 'calentadores_cedulas';
-        } else {
+        } elseif ($this->getPrograma($cedula['Folio']) == 1) {
             $tableSol = 'cedulas_solicitudes';
             $tableCedulas = 'cedulas';
+        } else {
+            $tableSol = 'proyectos_solicitudes';
+            $tableCedulas = 'proyectos_cedulas';
         }
 
         DB::table($tableSol)
@@ -3890,7 +3979,7 @@ class CedulasController extends Controller
         $clasificationArray,
         $userId
     ) {
-        $img = new \Imagick();
+        $img = new Imagick();
         $width = 1920;
         $height = 1920;
 
@@ -3901,7 +3990,7 @@ class CedulasController extends Controller
             $uniqueName = uniqid() . '.' . $extension;
             $size = $file->getSize();
             $clasification = $clasificationArray[$key];
-            
+
             $fileObject = [
                 'idSolicitud' => intval($id),
                 'idClasificacion' => intval($clasification),
@@ -3914,24 +4003,31 @@ class CedulasController extends Controller
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
 
-            if(in_array(mb_strtolower($extension, 'utf-8'), ['png', 'jpg', 'jpeg', 'gif', 'tiff'])){
+            if (
+                in_array(mb_strtolower($extension, 'utf-8'), [
+                    'png',
+                    'jpg',
+                    'jpeg',
+                    'gif',
+                    'tiff',
+                ])
+            ) {
                 // if( round((($size/1024)/1024), 2) < 1.2){
                 //     $file->move('subidos', $uniqueName);
                 // }
                 // else{
-                    $file->move('subidos/tmp', $uniqueName);
+                $file->move('subidos/tmp', $uniqueName);
 
-                    $img_tmp_path = sprintf("subidos/tmp/%s", $uniqueName);
-                    $img->readImage($img_tmp_path);
-                    $img->adaptiveResizeImage($width, $height);
-                    $img->writeImage(sprintf("subidos/%s", $uniqueName));
+                $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
+                $img->readImage($img_tmp_path);
+                $img->adaptiveResizeImage($width, $height);
+                $img->writeImage(sprintf('subidos/%s', $uniqueName));
 
-                    File::delete($img_tmp_path);
+                File::delete($img_tmp_path);
                 // }
-            }else{
+            } else {
                 $file->move('subidos', $uniqueName);
             }
-            
 
             $tableArchivos = 'solicitud_archivos';
             // if($program>1){
@@ -3947,7 +4043,7 @@ class CedulasController extends Controller
     {
         try {
             $params = $request->all();
-            $img = new \Imagick();
+            $img = new Imagick();
             $width = 1920;
             $height = 1920;
             $fullPath = public_path('/subidos/');
@@ -4055,7 +4151,7 @@ class CedulasController extends Controller
                 ];
                 return response()->json($response, 200);
             }
-            $imageMagick = new \Imagick();
+            $imageMagick = new Imagick();
             foreach ($files as $key => $file) {
                 $imageContent = $this->imageBase64Content($file);
                 $uniqueName = uniqid() . $extension[$key];

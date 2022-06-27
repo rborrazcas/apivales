@@ -171,6 +171,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'ProyectosController@getReporteSolicitudVentanillaProyectos'
     );
     Route::get(
+        '/getReporteSolicitudVentanillaDiagnostico',
+        'DiagnosticoController@getReporteSolicitudVentanillaDiagnostico'
+    );
+    Route::get(
         '/getReportesolicitudValesDesglosado',
         'ReportesController@getReportesolicitudValesDesglosado'
     );
@@ -509,6 +513,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/deleteSolicitudProyectos',
         'ProyectosController@deleteSolicitud'
     );
+    Route::post('/getCedulasDiagnostico', 'DiagnosticoController@getCedulas');
     Route::post(
         '/getEstatusGlobalVentanillaVales',
         'CedulasController@getEstatusGlobal'
@@ -605,5 +610,25 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'ProyectosController@updateArchivosCedula'
         );
         Route::post('/enviarIGTO', 'ProyectosController@enviarIGTO');
+    });
+
+    Route::group(['prefix' => 'diagnostico'], function ($route) {
+        Route::post(
+            '/getEstatusGlobalVentanillaDiagnostico',
+            'DiagnosticoController@getEstatusGlobal'
+        );
+        Route::post('/create', 'DiagnosticoController@create');
+        Route::get('/getById/{id}', 'DiagnosticoController@getById');
+        Route::get(
+            '/getArchivosByIdD/{id}',
+            'DiagnosticoController@getFilesById'
+        );
+        Route::post('/update', 'DiagnosticoController@update');
+        Route::post('/delete', 'DiagnosticoController@delete');
+        Route::post(
+            '/updateArchivosCedula',
+            'DiagnosticoController@updateArchivosCedula'
+        );
+        Route::post('/validarCedula', 'DiagnosticoController@validar');
     });
 });

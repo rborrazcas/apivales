@@ -2421,12 +2421,13 @@ class CalentadoresController extends Controller
             [
                 'dependencia' => [
                     'sociedad' => '',
-                    'codigo' => '0005',
-                    'nombre' => 'SECRETARÍA DE DESARROLLO SOCIAL Y HUMANO',
-                    'siglas' => 'SDSH',
+                    'codigo' => '0032',
+                    'nombre' =>
+                        'Secretaría de Medio Ambiente y Ordenamiento Territorial',
+                    'siglas' => 'SMAOT',
                     'eje' => [
-                        'codigo' => 'II',
-                        'descripcion' => 'Desarrollo Humano y Social',
+                        'codigo' => 'IV',
+                        'descripcion' => 'Desarrollo Ordenado y Sostenible',
                     ],
                 ],
                 'programa' => [
