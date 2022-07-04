@@ -2300,9 +2300,55 @@ class CalentadoresController extends Controller
                 'calentadores_cedula_archivos.idClasificacion'
             )
             ->where('idCedula', $id)
-            ->whereIn('cedula_archivos_clasificacion.id', [3, 6, 4])
+            ->whereIn('cedula_archivos_clasificacion.id', [3, 4, 6])
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
+
+        if ($files->count() != 3) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' =>
+                    'Revise los documentos de Identificación Oficial Vigente, CURP ' .
+                    'y Comprobante de Domicilio, Solo debe agregar un archivo por clasificación.',
+                'message' =>
+                    'Revise los documentos de Identificación Oficial Vigente, CURP ' .
+                    'y Comprobante de Domicilio, Solo debe agregar un archivo por clasificación.',
+            ];
+            return response()->json($response, 200);
+        } else {
+            $clasificaciones = [];
+            foreach ($files as $file) {
+                $clasificaciones[] = $file->idClasificacion;
+            }
+            if (!in_array(3, $clasificaciones)) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Falta la Identificación Oficial Vigente',
+                    'message' => 'Falta la Identificación Oficial Vigente',
+                ];
+                return response()->json($response, 200);
+            }
+            if (!in_array(4, $clasificaciones)) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Falta la CURP',
+                    'message' => 'Falta la CURP',
+                ];
+                return response()->json($response, 200);
+            }
+            if (!in_array(6, $clasificaciones)) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Falta el Comprobante de Domicilio',
+                    'message' => 'Falta el Comprobante de Domicilio',
+                ];
+                return response()->json($response, 200);
+            }
+        }
 
         $filesAcuse = DB::table('calentadores_cedula_archivos')
             ->select(
@@ -2319,6 +2365,18 @@ class CalentadoresController extends Controller
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
 
+        if ($filesAcuse->count() != 1) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' =>
+                    'Revise el documento de Formato de Firma y Acuse, Solo debe agregar un archivo por clasificación.',
+                'message' =>
+                    'Revise el documento de Formato de Firma y Acuse, Solo debe agregar un archivo por clasificación.',
+            ];
+            return response()->json($response, 200);
+        }
+
         $filesEvidencias = DB::table('calentadores_cedula_archivos')
             ->select(
                 'calentadores_cedula_archivos.*',
@@ -2334,12 +2392,14 @@ class CalentadoresController extends Controller
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
 
-        if ($filesEvidencias == null) {
+        if ($filesEvidencias->count() != 1) {
             $response = [
                 'success' => true,
                 'results' => false,
-                'errors' => 'Faltan evidencias por cargar',
-                'message' => 'Faltan evidencias por cargar',
+                'errors' =>
+                    'Revise el documento de Evidencias PDF, Debe agregar un archivo por clasificación.',
+                'message' =>
+                    'Revise el documento de Evidencias PDF, Debe agregar un archivo por clasificación.',
             ];
             return response()->json($response, 200);
         }
@@ -2358,6 +2418,18 @@ class CalentadoresController extends Controller
             ->where('cedula_archivos_clasificacion.id', '10')
             ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
             ->get();
+
+        if ($filesEspecifico->count() != 1) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' =>
+                    'Revise el documento de Formato de Información del Programa, Debe agregar un archivo por clasificación.',
+                'message' =>
+                    'Revise el documento de Formato de Información del Programa, Debe agregar un archivo por clasificación.',
+            ];
+            return response()->json($response, 200);
+        }
 
         $solicitudJson = $this->formatSolicitudIGTOJson($cedula);
         if (!$solicitudJson['success']) {
@@ -2505,6 +2577,7 @@ class CalentadoresController extends Controller
                 $file['header']
             );
         }
+        //dd($request2);
         try {
             $response = $request2->send();
             $message = json_decode($response->getBody());
@@ -2558,9 +2631,9 @@ class CalentadoresController extends Controller
                 $response2 = [
                     'success' => true,
                     'results' => false,
-                    'errors' => $message,
+                    'errors' => $response->getBody(),
                     'message' =>
-                        'Ha ocurrido un error, consulte al administrador',
+                        'Ha ocurrido un error al enviar, consulte al administrador',
                 ];
                 return response()->json($response2, 200);
             }
@@ -2568,7 +2641,7 @@ class CalentadoresController extends Controller
             $response2 = [
                 'success' => true,
                 'results' => false,
-                'errors' => $e,
+                'errors' => $e . 'error',
                 'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
             return response()->json($response2, 200);
@@ -2615,7 +2688,10 @@ class CalentadoresController extends Controller
                             $solicitud->FechaNacimiento
                         ),
                         'fechaNacimientoTexto' => $solicitud->FechaNacimiento,
-                        'genero' => $solicitud->Sexo,
+                        'genero' =>
+                            strtoupper($solicitud->Sexo) == 'H'
+                                ? 'MASCULINO'
+                                : 'FEMENINO',
                         'nacionalidad' => $curp->nacionalidad,
                         'nombre' => $solicitud->Nombre,
                         'primerApellido' =>
@@ -3303,6 +3379,14 @@ class CalentadoresController extends Controller
             } elseif ($file->idClasificacion == 5) {
                 $file->Clasificacion = 'Acuse';
             }
+
+            $mimeType = 'image/jpeg';
+            if (strtoupper($file->Extension) == 'PDF') {
+                $mimeType = 'application/pdf';
+            } elseif (strtoupper($file->Extension) == 'PNG') {
+                $mimeType = 'image/png';
+            }
+
             //$fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
@@ -3312,7 +3396,7 @@ class CalentadoresController extends Controller
                     $file->NombreSistema,
                 //'content' => $fileContent,
                 'nombre' => $file->Clasificacion,
-                'header' => '<Content-Type Header>',
+                'header' => $mimeType,
             ];
             array_push($files, $formatedFile);
         }

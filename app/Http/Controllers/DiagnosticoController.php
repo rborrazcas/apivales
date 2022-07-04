@@ -146,15 +146,15 @@ class DiagnosticoController extends Controller
                     ->first();
                 $filtroCapturo =
                     '(' .
-                    $tableSol .
+                    $tableCedulas .
                     ".idUsuarioCreo = '" .
                     $user->id .
                     "' OR " .
-                    $tableSol .
+                    $tableCedulas .
                     ".idUsuarioActualizo = '" .
                     $user->id .
                     "' OR " .
-                    $tableSol .
+                    $tableCedulas .
                     ".UsuarioAplicativo = '" .
                     $usuarioApp->UserName .
                     "')";
@@ -167,12 +167,12 @@ class DiagnosticoController extends Controller
 
                 $filtroCapturo =
                     '(' .
-                    $tableSol .
+                    $tableCedulas .
                     '.idUsuarioCreo IN (' .
                     'SELECT idUser FROM users_aplicativo_web WHERE idUserOwner = ' .
                     $idUserOwner->idUserOwner .
                     ') OR ' .
-                    $tableSol .
+                    $tableCedulas .
                     '.UsuarioAplicativo IN (' .
                     'SELECT UserName FROM users_aplicativo_web WHERE idUserOwner = ' .
                     $idUserOwner->idUserOwner .
@@ -1710,76 +1710,525 @@ class DiagnosticoController extends Controller
                 'vales.Folio AS Folio',
                 'vales.FechaSolicitud',
                 'vales.CURP',
+                'vales.RFC',
                 DB::raw(
-                    "concat_ws(' ',vales.Nombre, vales.Paterno, vales.Materno) as NombreCompleto"
+                    "concat_ws(' ',vales.Nombre,vales.Paterno,vales.Materno) as NombreCompleto"
                 ),
                 'vales.Sexo',
                 'vales.FechaNacimiento',
+                'cat_estado_civil.EstadoCivil',
+                'cat_parentesco_jefe_hogar.Parentesco',
+                'entidadesVive.Entidad',
+                'vales.MunicipioVive AS Municipio',
+                'vales.LocalidadVive AS Localidad',
+                'vales.CPVive',
                 DB::raw(
                     "concat_ws(' ',vales.CalleVive, concat('Num. ', vales.NoExtVive), if(vales.NoIntVive is not null,concat('NumInt. ',vales.NoIntVive), ''), concat('Col. ',vales.ColoniaVive)) as Direccion"
                 ),
                 'vales.AGEBVive AS ClaveAGEB',
                 'vales.ManzanaVive AS Manzana',
-                'vales.CPVive',
-                'vales.MunicipioVive AS Municipio',
-                'vales.LocalidadVive AS Localidad',
+                'vales.TipoAsentamientoVive',
+                'vales.Referencias',
                 'vales.Telefono',
                 'vales.Celular',
                 'vales.TelRecados',
                 'vales.Correo',
-                'vales.TotalHogares AS PersonasGastosSeparados',
                 DB::raw("
-                    CASE
-                        WHEN
-                        vales.ListaParaEnviar = 1
-                        THEN
-                            'SI'
-                        ELSE
-                            'NO'
-                        END
-                    AS ListaParaEnviar
-                    "),
+                        CASE
+                             WHEN
+                             vales.NumHijos = 0
+                             THEN
+                                 '-'
+                             ELSE
+                                 vales.NumHijos
+                             END
+                         AS NumHijos
+                         "),
+                DB::raw("
+                        CASE
+                             WHEN
+                             vales.NumHijas = 0
+                             THEN
+                                 '-'
+                             ELSE
+                                 vales.NumHijas
+                             END
+                         AS NumHijas
+                         "),
+                'vales.TotalHogares AS PersonasGastosSeparados',
                 'vales.NumeroMujeresHogar',
                 'vales.NumeroHombresHogar',
                 DB::raw("
+                        CASE
+                            WHEN
+                            vales.PersonasMayoresEdad = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS PersonasMayoresEdad
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PersonasTerceraEdad = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS PersonasTerceraEdad
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PersonaJefaFamilia = 'H'
+                            THEN
+                                'HOMBRE'
+                            ELSE
+                                'MUJER'
+                            END
+                        AS PersonaJefaFamilia
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DificultadMovilidad = 0
+                            THEN
+                                'NO'
+                            ELSE
+                                movimiento.Grado
+                            END
+                        AS DificultadMovilidad
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DificultadVer = 0
+                            THEN
+                                'NO'
+                            ELSE
+                                ver.Grado
+                            END
+                        AS DificultadVer
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DificultadOir = 0
+                            THEN
+                                'NO'
+                            ELSE
+                                oir.Grado
+                            END
+                        AS DificultadOir
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DificultadHablar = 0
+                            THEN
+                                'NO'
+                            ELSE
+                                hab.Grado
+                            END
+                        AS DificultadHablar
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DificultadVestirse = 0
+                            THEN
+                                'NO'
+                            ELSE
+                                vestir.Grado
+                            END
+                        AS DificultadVestirse
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DificultadRecordar = 0
+                            THEN
+                                'NO'
+                            ELSE
+                                rec.Grado
+                            END
+                        AS DificultadRecordar
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DificultadBrazos = 0
+                            THEN
+                                'NO'
+                            ELSE
+                                brazos.Grado
+                            END
+                        AS DificultadBrazos
+                        "),
+                DB::raw("
                     CASE
                         WHEN
-                        vales.PersonasMayoresEdad = 1
+                        vales.DificultadMental = 1
                         THEN
                             'SI'
                         ELSE
                             'NO'
                         END
-                    AS MayoresEdad
+                    AS DificultadMental
                     "),
                 DB::raw("
                     CASE
                         WHEN
-                        vales.PersonasTerceraEdad = 1
+                        vales.AsisteEscuela = 1
                         THEN
                             'SI'
                         ELSE
                             'NO'
                         END
-                    AS TerceraEdad
+                    AS AsisteEscuela
                     "),
-                'vales.PersonaJefaFamilia',
-                'vales_status.Estatus',
+                'cat_niveles_educacion.Nivel',
+                'educacionGrado.Grado',
+                'cat_actividades.Actividad',
+                'vales.IngresoTotalMesPasado',
+                'vales.PensionMensual',
+                'vales.IngresoOtrosPaises',
+                'vales.GastoAlimentos',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PeriodicidadAlimentos = 0
+                            THEN
+                                '-'
+                            ELSE
+                            ali.Periodicidad
+                            END
+                        AS PeriodicidadAlimentos
+                        "),
+                'vales.GastoVestido',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PeriodicidadVestido = 0
+                            THEN
+                                '-'
+                            ELSE
+                            ves.Periodicidad
+                            END
+                        AS PeriodicidadVestido
+                        "),
+                'vales.GastoEducacion',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PeriodicidadEducacion = 0
+                            THEN
+                                '-'
+                            ELSE
+                            edu.Periodicidad
+                            END
+                        AS PeriodicidadEducacion
+                        "),
+                'vales.GastoMedicinas',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PeriodicidadMedicinas = 0
+                            THEN
+                                '-'
+                            ELSE
+                            medi.Periodicidad
+                            END
+                        AS PeriodicidadMedicinas
+                        "),
+                'vales.GastosConsultas',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PeriodicidadConsultas = 0
+                            THEN
+                                '-'
+                            ELSE
+                            cons.Periodicidad
+                            END
+                        AS PeriodicidadConsultas
+                        "),
+                'vales.GastosCombustibles',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PeriodicidadCombustibles = 0
+                            THEN
+                                '-'
+                            ELSE
+                            comb.Periodicidad
+                            END
+                        AS PeriodicidadCombustibles
+                        "),
+                'vales.GastosServiciosBasicos',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PeriodicidadServiciosBasicos = 0
+                            THEN
+                                '-'
+                            ELSE
+                            serv.Periodicidad
+                            END
+                        AS PeriodicidadServiciosBasicos
+                        "),
+                'vales.GastosServiciosRecreacion',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.PeriodicidadServiciosRecreacion = 0
+                            THEN
+                                '-'
+                            ELSE
+                            recre.Periodicidad
+                            END
+                        AS PeriodicidadServiciosRecreacion
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.AlimentacionPocoVariada = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS AlimentacionPocoVariada
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.ComioMenos = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS ComioMenos
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DisminucionComida = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS DisminucionComida
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.NoComio = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS NoComio
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DurmioHambre = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS DurmioHambre
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.DejoComer = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS DejoComer
+                        "),
+                'vales.PersonasHogar',
+                'vales.CuartosHogar',
+                'cat_tipos_viviendas.Tipo',
+                'cat_tipos_pisos.Piso',
+                'cat_tipos_muros.Muro',
+                'cat_tipos_techos.Techo',
+                'cat_tipos_agua.Agua',
+                'cat_tipos_drenajes.Drenaje',
+                'cat_tipos_luz.Luz',
+                'cat_tipos_combustibles.Combustible',
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.Refrigerador = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS Refrigerador
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.Lavadora = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS Lavadora
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.Computadora = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS Computadora
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.Estufa = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS Estufa
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.Calentador = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS Calentador
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.CalentadorSolar = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS CalentadorSolar
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.Television = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS Television
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.Internet = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS Internet
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.TieneTelefono = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS TieneTelefono
+                        "),
+                DB::raw("
+                        CASE
+                            WHEN
+                            vales.Tinaco = 1
+                            THEN
+                                'SI'
+                            ELSE
+                                'NO'
+                            END
+                        AS Tinaco
+                        "),
+                DB::raw("
+                    CASE
+                        WHEN
+                        vales.ColoniaSegura = 1
+                        THEN
+                            'SI'
+                        ELSE
+                            'NO'
+                        END
+                    AS ColoniaSegura
+                    "),
                 DB::raw(
-                    "CASE 
-                        WHEN 
-                            vales.idUsuarioCreo = 1312 
-                        THEN 
-                            users_aplicativo_web.Nombre 
-                        ELSE 
-                            CONCAT_WS( ' ', users.Nombre, users.Paterno, users.Materno ) 
-                        END 
-                    AS UserInfoCapturo"
+                    "CASE
+                            WHEN
+                                vales.ListaParaEnviar = 0
+                            THEN
+                                'Por validar'
+                            ELSE
+                                'Validada'
+                            END
+                        AS Estatus"
                 ),
-                'vales.Enlace AS Enlace'
+                DB::raw(
+                    "CASE
+                            WHEN
+                                vales.idUsuarioCreo = 1312
+                            THEN
+                                users_aplicativo_web.Nombre
+                            ELSE
+                                CONCAT_WS( ' ', users.Nombre, users.Paterno, users.Materno )
+                            END
+                        AS UserInfoCapturo"
+                ),
+                'vales.Enlace AS Enlace',
+                'vales.Latitud',
+                'vales.Longitud'
             )
             ->leftJoin('vales_status', 'vales_status.id', '=', 'idEstatus')
             ->leftJoin('users', 'users.id', '=', 'vales.idUsuarioCreo')
+            ->leftJoin(
+                'cat_estado_civil',
+                'cat_estado_civil.id',
+                '=',
+                'vales.idEstadoCivil'
+            )
+            ->leftJoin(
+                'cat_parentesco_jefe_hogar',
+                'cat_parentesco_jefe_hogar.id',
+                '=',
+                'vales.idParentescoJefeHogar'
+            )
             ->leftJoin(
                 'et_cat_municipio',
                 'et_cat_municipio.Nombre',
@@ -1790,6 +2239,138 @@ class DiagnosticoController extends Controller
                 'users_aplicativo_web',
                 'users_aplicativo_web.UserName',
                 'vales.UsuarioAplicativo'
+            )
+            ->leftJoin(
+                'cat_entidad AS entidadesVive',
+                'entidadesVive.id',
+                'vales.idEntidadVive'
+            )
+            ->leftJoin(
+                'cat_codigos_dificultad as movimiento',
+                'movimiento.id',
+                '=',
+                'vales.DificultadMovilidad'
+            )
+            ->leftJoin(
+                'cat_codigos_dificultad as ver',
+                'ver.id',
+                'vales.DificultadVer'
+            )
+            ->leftJoin(
+                'cat_codigos_dificultad as oir',
+                'oir.id',
+                'vales.DificultadOir'
+            )
+            ->leftJoin(
+                'cat_codigos_dificultad as hab',
+                'hab.id',
+                'vales.DificultadHablar'
+            )
+            ->leftJoin(
+                'cat_codigos_dificultad as vestir',
+                'vestir.id',
+                'vales.DificultadVestirse'
+            )
+            ->leftJoin(
+                'cat_codigos_dificultad as rec',
+                'rec.id',
+                'vales.DificultadRecordar'
+            )
+            ->leftJoin(
+                'cat_codigos_dificultad as brazos',
+                'brazos.id',
+                'vales.DificultadBrazos'
+            )
+            ->leftJoin(
+                'cat_niveles_educacion',
+                'cat_niveles_educacion.id',
+                'vales.idNivelEscuela'
+            )
+            ->leftJoin(
+                'cat_grados_educacion as educacionGrado',
+                'educacionGrado.id',
+                'vales.idGradoEscuela'
+            )
+            ->leftJoin(
+                'cat_actividades',
+                'cat_actividades.id',
+                'vales.idActividades'
+            )
+            ->leftJoin(
+                'cat_periodicidad as ali',
+                'ali.id',
+                'vales.PeriodicidadAlimentos'
+            )
+            ->leftJoin(
+                'cat_periodicidad as ves',
+                'ves.id',
+                'vales.PeriodicidadVestido'
+            )
+            ->leftJoin(
+                'cat_periodicidad as edu',
+                'edu.id',
+                'vales.PeriodicidadEducacion'
+            )
+            ->leftJoin(
+                'cat_periodicidad as medi',
+                'medi.id',
+                'vales.PeriodicidadMedicinas'
+            )
+            ->leftJoin(
+                'cat_periodicidad as cons',
+                'cons.id',
+                'vales.PeriodicidadConsultas'
+            )
+            ->leftJoin(
+                'cat_periodicidad as comb',
+                'comb.id',
+                'vales.PeriodicidadCombustibles'
+            )
+            ->leftJoin(
+                'cat_periodicidad as serv',
+                'serv.id',
+                'vales.PeriodicidadServiciosBasicos'
+            )
+            ->leftJoin(
+                'cat_periodicidad as recre',
+                'recre.id',
+                'vales.PeriodicidadServiciosRecreacion'
+            )
+            ->leftJoin(
+                'cat_tipos_viviendas',
+                'cat_tipos_viviendas.id',
+                'vales.idTipoVivienda'
+            )
+            ->leftJoin(
+                'cat_tipos_pisos',
+                'cat_tipos_pisos.id',
+                'vales.idTipoPiso'
+            )
+            ->leftJoin(
+                'cat_tipos_muros',
+                'cat_tipos_muros.id',
+                'vales.idTipoParedes'
+            )
+            ->leftJoin(
+                'cat_tipos_techos',
+                'cat_tipos_techos.id',
+                'vales.idTipoTecho'
+            )
+            ->leftJoin(
+                'cat_tipos_agua',
+                'cat_tipos_agua.id',
+                'vales.idTipoAgua'
+            )
+            ->leftJoin(
+                'cat_tipos_drenajes',
+                'cat_tipos_drenajes.id',
+                'vales.idTipoDrenaje'
+            )
+            ->leftJoin('cat_tipos_luz', 'cat_tipos_luz.id', 'vales.idTipoLuz')
+            ->leftJoin(
+                'cat_tipos_combustibles',
+                'cat_tipos_combustibles.id',
+                'vales.idTipoCombustible'
             )
             ->whereRaw('vales.FechaElimino IS NULL');
 
@@ -1945,7 +2526,7 @@ class DiagnosticoController extends Controller
             );
             $writer = new Xlsx($spreadsheet);
             $writer->save(
-                'archivos/' . $user->email . 'reporteComercioVales.xlsx'
+                'archivos/' . $user->email . 'reporteDiagnostico.xlsx'
             );
             $file =
                 public_path() .
@@ -1955,7 +2536,7 @@ class DiagnosticoController extends Controller
 
             return response()->download(
                 $file,
-                'SolicitudesCalentadores' . date('Y-m-d') . '.xlsx'
+                'SolicitudesDiagnostico' . date('Y-m-d') . '.xlsx'
             );
         }
 
@@ -1978,7 +2559,7 @@ class DiagnosticoController extends Controller
 
         $reader = IOFactory::createReader('Xlsx');
         $spreadsheet = $reader->load(
-            public_path() . '/archivos/formatoReporteSolicitudValesV6.xlsx'
+            public_path() . '/archivos/formatoReporteSolicitudValesV7.xlsx'
         );
         $sheet = $spreadsheet->getActiveSheet();
         $largo = count($res);

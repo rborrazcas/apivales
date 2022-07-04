@@ -2846,10 +2846,21 @@ class CedulasController extends Controller
             return response()->json($response, 200);
         }
 
+        if ($folio->Folio == null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'La solicitud no cuenta con Folio, revise su iformación',
+            ];
+            return response()->json($response, 200);
+        }
+
         try {
             if ($folio != null) {
                 $urlValidacionFolio =
-                    'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
                     $folio->Folio;
                 $client = new Client();
                 $response = $client->request('GET', $urlValidacionFolio, [
@@ -2961,6 +2972,43 @@ class CedulasController extends Controller
             ->whereRaw('solicitud_archivos.FechaElimino IS NULL')
             ->get();
 
+        if ($files->count() != 2) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' =>
+                    'Revise los documentos de Identificación Oficial Vigente,' .
+                    ' y el Formato de Firma y Acuse, Solo debe agregar un archivo por clasificación.',
+                'message' =>
+                    'Revise los documentos de Identificación Oficial Vigente,' .
+                    ' y el Formato de Firma y Acuse, Solo debe agregar un archivo por clasificación.',
+            ];
+            return response()->json($response, 200);
+        } else {
+            $clasificaciones = [];
+            foreach ($files as $file) {
+                $clasificaciones[] = $file->idClasificacion;
+            }
+            if (!in_array(3, $clasificaciones)) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Falta la Identificación Oficial Vigente',
+                    'message' => 'Falta la Identificación Oficial Vigente',
+                ];
+                return response()->json($response, 200);
+            }
+            if (!in_array(5, $clasificaciones)) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Falta el Formato de Firma y Acuse',
+                    'message' => 'Falta el Formato de Firma y Acuse',
+                ];
+                return response()->json($response, 200);
+            }
+        }
+
         $filesEspecifico = DB::table('solicitud_archivos')
             ->select(
                 'solicitud_archivos.*',
@@ -2975,6 +3023,18 @@ class CedulasController extends Controller
             ->whereRaw('solicitud_archivos.FechaElimino IS NULL')
             ->where('cedula_archivos_clasificacion.id', '2')
             ->get();
+
+        if ($filesEspecifico->count() != 1) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' =>
+                    'Revise el documento de Formato SEDESHU-PVG-01, Debe agregar un archivo por clasificación.',
+                'message' =>
+                    'Revise el documento de Formato SEDESHU-PVG-01, Debe agregar un archivo por clasificación.',
+            ];
+            return response()->json($response, 200);
+        }
 
         $solicitudJson = $this->formatSolicitudIGTOJson($solicitud);
         if (!$solicitudJson['success']) {
@@ -3113,43 +3173,54 @@ class CedulasController extends Controller
         }
         try {
             $response = $request2->send();
-            $message = json_decode($response->getBody());
+            $resp = json_decode($response->getBody());
+            $message = $resp;
             if ($response->getStatus() == 200) {
-                try {
-                    $infoVale = $this->setVales($id);
-                    $idVale = DB::table('vales')->insertGetId($infoVale);
+                if ($resp->success) {
+                    try {
+                        $infoVale = $this->setVales($id);
+                        $idVale = DB::table('vales')->insertGetId($infoVale);
 
-                    $vale = DB::table('vales')
-                        ->select(
-                            'vales.*',
-                            DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica')
-                        )
-                        ->where('vales.id', '=', $idVale)
-                        ->first();
+                        $vale = DB::table('vales')
+                            ->select(
+                                'vales.*',
+                                DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica')
+                            )
+                            ->where('vales.id', '=', $idVale)
+                            ->first();
 
-                    DB::table('cedulas_solicitudes')
-                        ->where('id', $id)
-                        ->update([
-                            'idEstatus' => '8',
-                            'ListaParaEnviar' => '2',
-                            'idVale' => $idVale,
-                            'UsuarioEnvio' => $user->id,
-                            'FechaEnvio' => date('Y-m-d H:i:s'),
-                        ]);
+                        DB::table('cedulas_solicitudes')
+                            ->where('id', $id)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                                'idVale' => $idVale,
+                                'UsuarioEnvio' => $user->id,
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
 
-                    return [
-                        'success' => true,
-                        'results' => true,
-                        'message' => $vale->ClaveUnica,
-                    ];
-                    return response()->json($response2, 200);
-                } catch (Exception $e) {
+                        return [
+                            'success' => true,
+                            'results' => true,
+                            'message' => $vale->ClaveUnica,
+                        ];
+                        return response()->json($response2, 200);
+                    } catch (Exception $e) {
+                        $response2 = [
+                            'success' => true,
+                            'results' => false,
+                            'errors' => $e->errors,
+                            'message' =>
+                                'La solicitud fue enviada pero hubo un problema al actualizar la solicitud',
+                        ];
+                        return response()->json($response2, 200);
+                    }
+                } else {
                     $response2 = [
                         'success' => true,
                         'results' => false,
-                        'errors' => $e->errors,
-                        'message' =>
-                            'La solicitud fue enviada pero hubo un problema al actualizar la solicitud',
+                        'errors' => $resp,
+                        'message' => 'Ocurrio un error al enviar la solicitud',
                     ];
                     return response()->json($response2, 200);
                 }
@@ -3208,7 +3279,7 @@ class CedulasController extends Controller
                     'tipoSolicitud' => 'Ciudadana',
                     'origen' => 'F',
                     'tutor' => [
-                        'respuesta' => $solicitud->idParentescoTutor != null,
+                        'respuesta' => false,
                     ],
 
                     'datosCurp' => [
@@ -3219,7 +3290,10 @@ class CedulasController extends Controller
                             $solicitud->FechaNacimiento
                         ),
                         'fechaNacimientoTexto' => $solicitud->FechaNacimiento,
-                        'genero' => $solicitud->Sexo,
+                        'genero' =>
+                            strtoupper($solicitud->Sexo) == 'H'
+                                ? 'MASCULINO'
+                                : 'FEMENINO',
                         'nacionalidad' => $curp->nacionalidad,
                         'nombre' => $solicitud->Nombre,
                         'primerApellido' =>
@@ -3294,7 +3368,10 @@ class CedulasController extends Controller
                             'tipo' => 'colonia',
                             'nombre' => $solicitud->ColoniaVive,
                         ],
-                        'numeroExt' => $solicitud->NoExtVive,
+                        'numeroExt' =>
+                            $solicitud->NoExtVive != null
+                                ? $solicitud->NoExtVive
+                                : 'S/N',
                         'numeroInt' => $solicitud->NoIntVive,
                         'entidadFederativa' => $solicitud->EntidadVive,
                         'localidad' => $solicitud->LocalidadVive,
@@ -3332,7 +3409,7 @@ class CedulasController extends Controller
         }
         if ($solicitud->TelRecados != null) {
             array_push($telefonos, [
-                'tipo' => 'Telefono de Recados',
+                'tipo' => 'Teléfono de Recados',
                 'descripcion' => $solicitud->TelRecados,
             ]);
         }
@@ -3746,7 +3823,14 @@ class CedulasController extends Controller
         } else {
             $formato = 'especifico';
         }
+
         foreach ($archivos as $file) {
+            $mimeType = 'image/jpeg';
+            if (strtoupper($file->Extension) == 'PDF') {
+                $mimeType = 'application/pdf';
+            } elseif (strtoupper($file->Extension) == 'PNG') {
+                $mimeType = 'image/png';
+            }
             $fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
             $formatedFile = [
                 'llave' =>
@@ -3757,7 +3841,7 @@ class CedulasController extends Controller
                     $file->NombreSistema,
                 //'content' => $fileContent,
                 'nombre' => str_replace('.', '', $file->Clasificacion),
-                'header' => '<Content-Type Header>',
+                'header' => $mimeType,
             ];
             array_push($files, $formatedFile);
         }
@@ -4214,15 +4298,15 @@ class CedulasController extends Controller
     public function envioMasivoVentanilla(Request $request)
     {
         try {
-            $solicitudesAEnviar = DB::table('valesrvii_ventanilla')
-                ->select('id')
-                ->get();
-
             $arraySinFolio = [];
             $arrayFoliosNoValidos = [];
             $arrayCURPNoValida = [];
             $arraySolicitudesIncompletas = [];
             $arrayEnviadas = [];
+            // $solicitudesAEnviar = DB::table('valesrvii_ventanilla')
+            $solicitudesAEnviar = DB::table('solicitudes_Q3450_NoEnviadas')
+                ->selectRaw('ESTATUS AS id')
+                ->get();
 
             foreach ($solicitudesAEnviar as $key) {
                 $flag = $this->enviarIGTOMasivo($key->id);
@@ -4281,28 +4365,61 @@ class CedulasController extends Controller
             ->where('id', $id)
             ->get()
             ->first();
+        //Se valida si ya este registrado.
+        if ($folio->Folio != null) {
+            // $foliosEnviados = DB::table('solicitudes_Q3450')
+            //     ->where('solicitudes_Q3450.FOLIO', '=', $folio->Folio)
+            //     ->get();
 
-        if ($folio->Folio) {
-            $urlValidacionFolio =
-                'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
-                $folio->Folio;
-            $client = new Client();
-            $response = $client->request('GET', $urlValidacionFolio, [
-                'verify' => false,
-                'headers' => [
-                    'Content-Type' => 'multipart/form-data',
-                    'Authorization' => '616c818fe33268648502g834',
-                ],
-            ]);
+            // if ($foliosEnviados != null) {
+            //     DB::table('solicitudes_Q3450_NoEnviadas')->insert([
+            //         'FOLIO' => $folio->Folio,
+            //         'ESTATUS' => $id,
+            //         'Fecha Estatus' => 'En listado de enviados',
+            //     ]);
+            //     return [
+            //         'success' => true,
+            //         'data' => 'Registrado',
+            //         'codigo' => '4',
+            //     ];
+            // }
 
-            $responseBody = json_decode($response->getBody());
-            if (!$responseBody->success) {
-                return [
-                    'success' => $flag,
-                    'data' => 'Folio no encontrado ' . $folio->Folio,
-                    'codigo' => '2',
-                ];
-            }
+            // $urlValidacionFolio =
+            //     'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/cedula/' .
+            //     $folio->Folio;
+            // $client = new Client();
+            // $response = $client->request('GET', $urlValidacionFolio, [
+            //     'verify' => false,
+            //     'headers' => [
+            //         'Content-Type' => 'multipart/form-data',
+            //         'Authorization' => '616c818fe33268648502g834',
+            //     ],
+            // ]);
+            // $responseBody = json_decode($response->getBody());
+
+            // if ($responseBody->success) {
+            //     DB::table('solicitudes_Q3450_NoEnviadas')->insert([
+            //         'FOLIO' => $folio->Folio,
+            //         'ESTATUS' => $id,
+            //         'Fecha Estatus' => $responseBody->message,
+            //     ]);
+            //     return [
+            //         'success' => true,
+            //         'data' => $responseBody->message,
+            //         'codigo' => '4',
+            //     ];
+            // } else {
+            //     DB::table('solicitudes_Q3450_NoEnviadas')->insert([
+            //         'FOLIO' => $folio->Folio,
+            //         'ESTATUS' => $id,
+            //         'Fecha Estatus' => $responseBody->message,
+            //     ]);
+            //     return [
+            //         'success' => false,
+            //         'data' => $responseBody->message,
+            //         'codigo' => '2',
+            //     ];
+            // }
         } else {
             return [
                 'success' => $flag,
@@ -4314,14 +4431,14 @@ class CedulasController extends Controller
         $solicitud = DB::table('cedulas_solicitudes')
             ->selectRaw(
                 "
-                            cedulas_solicitudes.*, 
-                            cat_estado_civil.EstadoCivil,
-                            cat_parentesco_jefe_hogar.Parentesco AS ParentescoJefeHogar,
-                            cat_situacion_actual.Situacion AS SituacionActual,
-                            entidadNacimiento.Entidad AS EntidadNacimiento,
-                            entidadVive.Entidad AS EntidadVive,
-                            cat_parentesco_tutor.Parentesco AS ParentescoTutor
-                "
+                        cedulas_solicitudes.*, 
+                        cat_estado_civil.EstadoCivil,
+                        cat_parentesco_jefe_hogar.Parentesco AS ParentescoJefeHogar,
+                        cat_situacion_actual.Situacion AS SituacionActual,
+                        entidadNacimiento.Entidad AS EntidadNacimiento,
+                        entidadVive.Entidad AS EntidadVive,
+                        cat_parentesco_tutor.Parentesco AS ParentescoTutor
+            "
             )
             ->leftjoin(
                 'cat_estado_civil',
@@ -4356,6 +4473,17 @@ class CedulasController extends Controller
             ->where('cedulas_solicitudes.id', $id)
             ->first();
 
+        if (
+            !isset($solicitud->MunicipioVive) ||
+            !isset($solicitud->LocalidadVive)
+        ) {
+            return [
+                'success' => false,
+                'data' => 'Solicitud sin Municipio o Localidad',
+                'codigo' => '1',
+            ];
+        }
+
         $files = DB::table('solicitud_archivos')
             ->select(
                 'solicitud_archivos.*',
@@ -4386,12 +4514,11 @@ class CedulasController extends Controller
 
         $solicitudJson = $this->formatSolicitudIGTOJson($solicitud);
         if (!$solicitudJson['success']) {
-            $response = [
+            return [
                 'success' => false,
                 'data' => $solicitudJson['error'],
                 'codigo' => '3',
             ];
-            return $response;
         }
 
         $solicitudJson = $solicitudJson['data'];
@@ -4438,39 +4565,16 @@ class CedulasController extends Controller
             JSON_UNESCAPED_UNICODE
         );
 
-        $cUsuario = json_encode(
-            [
-                'nombre' => $solicitud->Enlace,
-                'observaciones' => '',
-            ],
-            JSON_UNESCAPED_UNICODE
-        );
+        $cUsuario = $this->getCampoUsuario($solicitud);
 
-        $authUsuario = json_encode(
-            [
-                'uid' => '626c06d49c1fce80afa1faa6',
-                'name' => 'ALEJANDRA CAUDILLO OLMOS (RESPONSABLE Q)', //Cambiar a sedeshu
-                'email' => 'acaudilloo@guanajuato.gob.mx',
-                'role' => [
-                    'key' => 'RESPONSABLE_Q_ROL',
-                    'name' => 'ol Responsable Programa VIM',
-                ],
-                'dependency' => [
-                    'name' => 'Secretaría de Desarrollo Social y Humano',
-                    'acronym' => 'SDSH',
-                    'office' => [
-                        'address' =>
-                            'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
-                        'name' => 'Dirección de Articulación Regional IV',
-                        'georef' => [
-                            'type' => 'Point',
-                            'coordinates' => [21.1378241, -101.6541802],
-                        ],
-                    ],
-                ],
-            ],
-            JSON_UNESCAPED_UNICODE
-        );
+        if ($solicitud->idUsuarioCreo == 1312) {
+            $authUsuario = $this->getAuthUsuario(
+                $solicitud->UsuarioAplicativo,
+                1
+            );
+        } else {
+            $authUsuario = $this->getAuthUsuario($solicitud->idUsuarioCreo, 2);
+        }
 
         $dataCompleted = [
             'solicitud' => $solicitudJson['solicitud'],
@@ -4480,24 +4584,27 @@ class CedulasController extends Controller
             'campoUsuario' => $cUsuario,
         ];
 
-        $request = new HTTP_Request2();
-        $request->setUrl(
-            'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+        $request2 = new HTTP_Request2();
+        $request2->setUrl(
+            //QA
+            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            //Productivo
+            //'https://api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
         );
-        $request->setMethod(HTTP_Request2::METHOD_POST);
-        $request->setConfig([
+        $request2->setMethod(HTTP_Request2::METHOD_POST);
+        $request2->setConfig([
             'follow_redirects' => true,
             'ssl_verify_peer' => false,
             'ssl_verify_host' => false,
         ]);
-        $request->setHeader([
+        $request2->setHeader([
             'Authorization' => '616c818fe33268648502g834',
         ]);
-        $request->addPostParameter($dataCompleted);
+        $request2->addPostParameter($dataCompleted);
 
         foreach ($infoFiles as $file) {
-            //$documentos[$file['llave']] = $file['content'];
-            $request->addUpload(
+            $request2->addUpload(
                 $file['llave'],
                 $file['ruta'],
                 $file['nombre'],
@@ -4506,15 +4613,53 @@ class CedulasController extends Controller
         }
         //dd($request);
         try {
-            $response = $request->send();
+            $response = $request2->send();
             if ($response->getStatus() == 200) {
-                $flag = true;
-                $message = json_decode($response->getBody());
-                return [
-                    'success' => $flag,
-                    'data' => $message,
-                    'codigo' => '4',
-                ];
+                $resp = json_decode($response->getBody());
+                $message = $resp->message;
+                if ($resp->success) {
+                    try {
+                        $infoVale = $this->setVales($id);
+                        $idVale = DB::table('vales')->insertGetId($infoVale);
+
+                        $vale = DB::table('vales')
+                            ->select(
+                                'vales.*',
+                                DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica')
+                            )
+                            ->where('vales.id', '=', $idVale)
+                            ->first();
+
+                        DB::table('cedulas_solicitudes')
+                            ->where('id', $id)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                                'idVale' => $idVale,
+                                'UsuarioEnvio' => $user->id,
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+
+                        $flag = true;
+                        return [
+                            'success' => $flag,
+                            'data' => $message,
+                            'codigo' => '4',
+                        ];
+                    } catch (Exception $e) {
+                        return [
+                            'success' => false,
+                            'data' => $message,
+                            'codigo' => '5',
+                        ];
+                    }
+                } else {
+                    return [
+                        'success' => false,
+                        'data' => $message,
+                        'codigo' => '2',
+                    ];
+                }
             } else {
                 $message = $response->getBody();
             }

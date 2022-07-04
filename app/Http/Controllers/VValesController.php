@@ -2077,7 +2077,7 @@ class VValesController extends Controller
                 );
             }
 
-            dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
+            //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
 
             $page = $parameters['page'];
             $pageSize = $parameters['pageSize'];
@@ -5453,11 +5453,20 @@ class VValesController extends Controller
             case '4181096034':
             case '4181243664':
             case '4181244176':
-                if(!in_array($parameters['idMunicipio'], [3, 14, 22, 29, 30])){ //R2
-                    $response =  ['success'=>true,'results'=>false,
-                    'errors'=>[],'data'=>[], 'message'=>'¡Error de Captura: Municipio Restringido!'];
-                    return response()->json($response,200);
-                }  
+                if (
+                    !in_array($parameters['idMunicipio'], [3, 14, 22, 29, 30])
+                ) {
+                    //R2
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' => [],
+                        'data' => [],
+                        'message' =>
+                            '¡Error de Captura: Municipio Restringido!',
+                    ];
+                    return response()->json($response, 200);
+                }
                 break;
             case '4761458090':
             case '4773662301':
@@ -5517,11 +5526,31 @@ class VValesController extends Controller
             case '4454566305':
             case '4451060740':
             case '4451064837':
-                if(!in_array($parameters['idMunicipio'], [2, 10, 18, 19, 21, 28, 36, 38, 41, 46])){ //R5
-                    $response =  ['success'=>true,'results'=>false,
-                    'errors'=>[],'data'=>[], 'message'=>'¡Error de Captura: Municipio Restringido!'];
-                    return response()->json($response,200);
-                }  
+                if (
+                    !in_array($parameters['idMunicipio'], [
+                        2,
+                        10,
+                        18,
+                        19,
+                        21,
+                        28,
+                        36,
+                        38,
+                        41,
+                        46,
+                    ])
+                ) {
+                    //R5
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' => [],
+                        'data' => [],
+                        'message' =>
+                            '¡Error de Captura: Municipio Restringido!',
+                    ];
+                    return response()->json($response, 200);
+                }
                 break;
             case '4731003346':
             case '4611712123':
@@ -5560,11 +5589,29 @@ class VValesController extends Controller
             case '4666691001':
             case '4613124634':
             case '4661208529':
-                if(!in_array($parameters['idMunicipio'], [4, 5, 7, 9, 11, 35, 39, 44])){ //R6
-                    $response =  ['success'=>true,'results'=>false,
-                    'errors'=>[],'data'=>[], 'message'=>'¡Error de Captura: Municipio Restringido!'];
-                    return response()->json($response,200);
-                }  
+                if (
+                    !in_array($parameters['idMunicipio'], [
+                        4,
+                        5,
+                        7,
+                        9,
+                        11,
+                        35,
+                        39,
+                        44,
+                    ])
+                ) {
+                    //R6
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' => [],
+                        'data' => [],
+                        'message' =>
+                            '¡Error de Captura: Municipio Restringido!',
+                    ];
+                    return response()->json($response, 200);
+                }
                 break;
             case '4777541653':
             case '4776389631':
@@ -5582,35 +5629,83 @@ class VValesController extends Controller
             case '4772277568':
             case '4773282797':
             case '4771709665':
-                if(!in_array($parameters['idMunicipio'], [20])){ //R7
-                    $response =  ['success'=>true,'results'=>false,
-                    'errors'=>[],'data'=>[], 'message'=>'¡Error de Captura: Municipio Restringido!'];
-                    return response()->json($response,200);
-                }  
+                if (!in_array($parameters['idMunicipio'], [20])) {
+                    //R7
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' => [],
+                        'data' => [],
+                        'message' =>
+                            '¡Error de Captura: Municipio Restringido!',
+                    ];
+                    return response()->json($response, 200);
+                }
                 break;
             #Capturadores de regiones 1, 2, 4, 5 y 6
             case '4686821807':
             case '4681324865':
             case '4611102229':
-                if(!in_array($parameters['idMunicipio'], [
-                    6, 13, 32, 33, 34, 40, 43, 45, 
-                    3, 14, 22, 29, 30,
-                    1, 8, 12, 16, 23, 24, 42, 
-                    2, 10, 18, 19, 21, 28, 36, 38, 41, 46, 
-                    4, 5, 7, 9, 11, 35, 39, 44
-                    ])){
-                    $response =  ['success'=>true,'results'=>false,
-                    'errors'=>[],'data'=>[], 'message'=>'¡Error de Captura: Municipio Restringido!'];
-                    return response()->json($response,200);
-                }  
+                if (
+                    !in_array($parameters['idMunicipio'], [
+                        6,
+                        13,
+                        32,
+                        33,
+                        34,
+                        40,
+                        43,
+                        45,
+                        3,
+                        14,
+                        22,
+                        29,
+                        30,
+                        1,
+                        8,
+                        12,
+                        16,
+                        23,
+                        24,
+                        42,
+                        2,
+                        10,
+                        18,
+                        19,
+                        21,
+                        28,
+                        36,
+                        38,
+                        41,
+                        46,
+                        4,
+                        5,
+                        7,
+                        9,
+                        11,
+                        35,
+                        39,
+                        44,
+                    ])
+                ) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' => [],
+                        'data' => [],
+                        'message' =>
+                            '¡Error de Captura: Municipio Restringido!',
+                    ];
+                    return response()->json($response, 200);
+                }
                 break;
-                // if($parameters['idMunicipio'] !=  1 &&
-                //     $parameters['idMunicipio'] != 23){
-                //         $response =  ['success'=>true,'results'=>false,
-                //         'errors'=>[],'data'=>[], 'message'=>'¡Error de Captura: Municipio Restringido!'];
-                //         return response()->json($response,200);
-                // }  
-                // break;
+            // if($parameters['idMunicipio'] !=  1 &&
+            //     $parameters['idMunicipio'] != 23){
+            //         $response =  ['success'=>true,'results'=>false,
+            //         'errors'=>[],'data'=>[], 'message'=>'¡Error de Captura: Municipio Restringido!'];
+            //         return response()->json($response,200);
+            // }
+            // break;
             /* case '4681011231':
             case '4681138635':
             case '4681068011':
