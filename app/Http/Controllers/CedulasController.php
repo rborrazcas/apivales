@@ -774,6 +774,9 @@ class CedulasController extends Controller
                     case 'PROYECTOS PRODUCTIVOS':
                         $program = 3;
                         break;
+                    case 'YO PUEDO':
+                        $program = 4;
+                        break;
                 }
             } else {
                 if (!isset($params['Folio'])) {
@@ -809,7 +812,12 @@ class CedulasController extends Controller
                     unset($params['CURPTutor']);
                     unset($params['TelefonoTutor']);
                     unset($params['CorreoTutor']);
-
+                    break;
+                case 4:
+                    $tableCedulas = 'yopuedo_cedulas';
+                    $tableSol = 'yopuedo_solicitudes';
+                    $necesidad = '';
+                    $costo = '';
                     break;
             }
 
@@ -830,7 +838,7 @@ class CedulasController extends Controller
                         ? ''
                         : $params['TelRecados'])
                     : '';
-            if ($program < 3) {
+            if ($program != 3) {
                 $params['NecesidadSolicitante'] = $necesidad;
                 $params['CostoNecesidad'] = $costo;
             }
@@ -1638,6 +1646,9 @@ class CedulasController extends Controller
                     case 'PROYECTOS PRODUCTIVOS':
                         $program = 3;
                         break;
+                    case 'YO PUEDO':
+                        $program = 4;
+                        break;
                 }
             } else {
                 if (!isset($params['Folio'])) {
@@ -1679,7 +1690,13 @@ class CedulasController extends Controller
                     unset($params['CURPTutor']);
                     unset($params['TelefonoTutor']);
                     unset($params['CorreoTutor']);
-
+                    break;
+                case 4:
+                    $tableSol = 'yopuedo_solicitudes';
+                    $tableCedulas = 'yopuedo_cedulas';
+                    $tablePrestaciones = 'yopuedo_prestaciones';
+                    $tableEnfermedades = 'yopuedo_enfermedades';
+                    $tableAtnMedica = 'yopuedo_atenciones_medicas';
                     break;
             }
             $prestaciones = isset($params['Prestaciones'])
@@ -1697,7 +1714,7 @@ class CedulasController extends Controller
 
             $user = auth()->user();
             $params['idUsuarioCreo'] = $user->id;
-            $params['FechaCreo'] = date('Y-m-d');
+            $params['FechaCreo'] = date('Y-m-d H:i:s');
             $params['Correo'] =
                 isset($params['Correo']) && $params['Correo'] != ''
                     ? ($params['Correo'] == 'correo@electronico'
@@ -1717,8 +1734,8 @@ class CedulasController extends Controller
             unset($params['NewClasificacion']);
             unset($params['NewFiles']);
             unset($params['idCedula']);
-            unset($params['ListaParaEnviar']);
             unset($params['programa']);
+
             if ($user->id == 1312) {
                 unset($params['ListaParaEnviar']);
             }
@@ -1747,6 +1764,7 @@ class CedulasController extends Controller
             if (!isset($params['GastosServiciosRecreacion'])) {
                 $params['GastosServiciosRecreacion'] = 0;
             }
+
             DB::beginTransaction();
             if (isset($params['idSolicitud'])) {
                 $cedula = DB::table($tableCedulas)
@@ -1777,7 +1795,11 @@ class CedulasController extends Controller
                             ->where('id', $id)
                             ->update($params);
 
-                        $this->updateSolicitudFromCedula($params, $user);
+                        $this->updateSolicitudFromCedula(
+                            $params,
+                            $user,
+                            $program
+                        );
 
                         DB::table($tablePrestaciones)
                             ->where('idCedula', $id)
@@ -1841,33 +1863,40 @@ class CedulasController extends Controller
             }
 
             $id = DB::table($tableCedulas)->insertGetId($params);
-            $this->updateSolicitudFromCedula($params, $user);
-            $formatedPrestaciones = [];
-            foreach ($prestaciones as $prestacion) {
-                array_push($formatedPrestaciones, [
-                    'idCedula' => $id,
-                    'idPrestacion' => $prestacion,
-                ]);
-            }
-            DB::table($tablePrestaciones)->insert($formatedPrestaciones);
+            $this->updateSolicitudFromCedula($params, $user, $program);
 
-            $formatedEnfermedades = [];
-            foreach ($enfermedades as $enfermedad) {
-                array_push($formatedEnfermedades, [
-                    'idCedula' => $id,
-                    'idEnfermedad' => $enfermedad,
-                ]);
+            if (count($prestaciones) > 0) {
+                $formatedPrestaciones = [];
+                foreach ($prestaciones as $prestacion) {
+                    $formatedPrestaciones[] = [
+                        'idCedula' => $id,
+                        'idPrestacion' => $prestacion,
+                    ];
+                }
+                DB::table($tablePrestaciones)->insert($formatedPrestaciones);
             }
-            DB::table($tableEnfermedades)->insert($formatedEnfermedades);
 
-            $formatedAtencionesMedicas = [];
-            foreach ($atencionesMedicas as $atencion) {
-                array_push($formatedAtencionesMedicas, [
-                    'idCedula' => $id,
-                    'idAtencionMedica' => $atencion,
-                ]);
+            if (count($enfermedades) > 0) {
+                $formatedEnfermedades = [];
+                foreach ($enfermedades as $enfermedad) {
+                    $formatedEnfermedades[] = [
+                        'idCedula' => $id,
+                        'idEnfermedad' => $enfermedad,
+                    ];
+                }
+                DB::table($tableEnfermedades)->insert($formatedEnfermedades);
             }
-            DB::table($tableAtnMedica)->insert($formatedAtencionesMedicas);
+
+            if (count($atencionesMedicas) > 0) {
+                $formatedAtencionesMedicas = [];
+                foreach ($atencionesMedicas as $atencion) {
+                    $formatedAtencionesMedicas[] = [
+                        'idCedula' => $id,
+                        'idAtencionMedica' => $atencion,
+                    ];
+                }
+                DB::table($tableAtnMedica)->insert($formatedAtencionesMedicas);
+            }
 
             if (isset($request->NewFiles)) {
                 $this->createCedulaFiles(
@@ -2399,7 +2428,7 @@ class CedulasController extends Controller
                 ->where('id', $id)
                 ->update($params);
 
-            $this->updateSolicitudFromCedula($params, $user);
+            $this->updateSolicitudFromCedula($params, $user, $program);
 
             DB::table($tablePrestaciones)
                 ->where('idCedula', $id)
@@ -3863,7 +3892,7 @@ class CedulasController extends Controller
     //     return $files;
     // }
 
-    private function updateSolicitudFromCedula($cedula, $user)
+    private function updateSolicitudFromCedula($cedula, $user, $programa)
     {
         $params = [
             'FechaSolicitud' => $cedula['FechaSolicitud']
@@ -3951,15 +3980,18 @@ class CedulasController extends Controller
             'FechaActualizo' => date('Y-m-d'),
         ];
 
-        if ($this->getPrograma($cedula['Folio']) == 2) {
+        if ($programa == 2) {
             $tableSol = 'calentadores_solicitudes';
             $tableCedulas = 'calentadores_cedulas';
-        } elseif ($this->getPrograma($cedula['Folio']) == 1) {
+        } elseif ($programa == 1) {
             $tableSol = 'cedulas_solicitudes';
             $tableCedulas = 'cedulas';
-        } else {
+        } elseif ($programa == 3) {
             $tableSol = 'proyectos_solicitudes';
             $tableCedulas = 'proyectos_cedulas';
+        } else {
+            $tableSol = 'yopuedo_solicitudes';
+            $tableCedulas = 'yopuedo_cedulas';
         }
 
         DB::table($tableSol)

@@ -514,6 +514,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'ProyectosController@deleteSolicitud'
     );
     Route::post('/getCedulasDiagnostico', 'DiagnosticoController@getCedulas');
+    Route::post('/getSolicitudesYoPuedo', 'YoPuedoController@getSolicitudes');
+    Route::post('/createSolicitudYoPuedo', 'YoPuedoController@createSolicitud');
+    Route::post('/updateSolicitudYoPuedo', 'YoPuedoController@updateSolicitud');
+    Route::post('/deleteSolicitudYoPuedo', 'YoPuedoController@deleteSolicitud');
     Route::post(
         '/getEstatusGlobalVentanillaVales',
         'CedulasController@getEstatusGlobal'
@@ -526,6 +530,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/uploadFilesCalentadores',
         'CalentadoresController@uploadFilesCalentadores'
     );
+    Route::post('/uploadFilesYoPuedo', 'YoPuedoController@uploadFilesYoPuedo');
     Route::post(
         '/getFilesByIdSolicitud',
         'CalentadoresController@getFilesByIdSolicitud'
@@ -630,5 +635,30 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'DiagnosticoController@updateArchivosCedula'
         );
         Route::post('/validarCedula', 'DiagnosticoController@validar');
+    });
+
+    Route::group(['prefix' => 'yopuedo'], function ($route) {
+        Route::post(
+            '/getEstatusGlobalVentanillaYoPuedo',
+            'YoPuedoController@getEstatusGlobal'
+        );
+        Route::post('/create', 'YoPuedoController@create');
+        Route::get('/getById/{id}', 'YoPuedoController@getById');
+        Route::get('/getArchivosByIdY/{id}', 'YoPuedoController@getFilesById');
+        Route::get(
+            '/getClasificacionArchivos',
+            'CedulasController@getClasificacionArchivos'
+        );
+        Route::get(
+            '/getArchivosByIdSolicitud/{id}',
+            'YoPuedoController@getFilesByIdSolicitud'
+        );
+        Route::post('/update', 'YoPuedoController@update');
+        Route::post('/delete', 'YoPuedoController@delete');
+        Route::post(
+            '/updateArchivosCedula',
+            'YoPuedoController@updateArchivosCedula'
+        );
+        Route::post('/enviarIGTO', 'YoPuedoController@enviarIGTO');
     });
 });
