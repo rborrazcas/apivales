@@ -66,6 +66,11 @@ Route::post(
     '/envioMasivoVentanilla',
     'CedulasController@envioMasivoVentanilla'
 );
+
+Route::post(
+    '/descargarArchivosMasivo',
+    'YoPuedoController@getArchivosBeneficiaroYoPuedo'
+);
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
 
 // estas rutas requiren de un token válido para poder accederse.
@@ -641,6 +646,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post(
             '/getEstatusGlobalVentanillaYoPuedo',
             'YoPuedoController@getEstatusGlobal'
+        );
+        Route::get(
+            '/getCatalogosCedulas',
+            'YoPuedoController@getCatalogosCedulas'
         );
         Route::post('/create', 'YoPuedoController@create');
         Route::get('/getById/{id}', 'YoPuedoController@getById');

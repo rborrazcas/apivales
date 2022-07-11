@@ -4128,29 +4128,16 @@ class CedulasController extends Controller
                     'tiff',
                 ])
             ) {
-                // if( round((($size/1024)/1024), 2) < 1.2){
-                //     $file->move('subidos', $uniqueName);
-                // }
-                // else{
                 $file->move('subidos/tmp', $uniqueName);
-
                 $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
                 $img->readImage($img_tmp_path);
                 $img->adaptiveResizeImage($width, $height);
                 $img->writeImage(sprintf('subidos/%s', $uniqueName));
-
                 File::delete($img_tmp_path);
-                // }
             } else {
                 $file->move('subidos', $uniqueName);
             }
-
             $tableArchivos = 'solicitud_archivos';
-            // if($program>1){
-            //     $tableArchivos = 'solicitud_archivos';
-            // }else{
-            //     $tableArchivos = 'cedula_archivos';
-            // }
             DB::table($tableArchivos)->insert($fileObject);
         }
     }

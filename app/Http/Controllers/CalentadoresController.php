@@ -21,6 +21,7 @@ use DB;
 use Arr;
 use File;
 use Zipper;
+use Imagick;
 use JWTAuth;
 use Validator;
 use HTTP_Request2;
@@ -2026,6 +2027,9 @@ class CalentadoresController extends Controller
         $clasificationArray,
         $userId
     ) {
+        $img = new Imagick();
+        $width = 1920;
+        $height = 1920;
         foreach ($files as $key => $file) {
             $originalName = $file->getClientOriginalName();
             $extension = explode('.', $originalName);
@@ -2044,7 +2048,26 @@ class CalentadoresController extends Controller
                 'idUsuarioCreo' => $userId,
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
-            $file->move('subidos', $uniqueName);
+
+            if (
+                in_array(mb_strtolower($extension, 'utf-8'), [
+                    'png',
+                    'jpg',
+                    'jpeg',
+                    'gif',
+                    'tiff',
+                ])
+            ) {
+                $file->move('subidos/tmp', $uniqueName);
+                $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
+                $img->readImage($img_tmp_path);
+                $img->adaptiveResizeImage($width, $height);
+                $img->writeImage(sprintf('subidos/%s', $uniqueName));
+                File::delete($img_tmp_path);
+            } else {
+                $file->move('subidos', $uniqueName);
+            }
+
             DB::table('calentadores_cedula_archivos')->insert($fileObject);
         }
     }

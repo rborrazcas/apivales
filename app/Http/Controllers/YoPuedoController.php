@@ -96,6 +96,163 @@ class YoPuedoController extends Controller
         }
     }
 
+    function getCatalogosCedulas(Request $request)
+    {
+        try {
+            $cat_estado_civil = DB::table('cat_estado_civil')
+                ->select('id AS value', 'EstadoCivil AS label')
+                ->get();
+
+            $cat_estatus_persona = DB::table('cat_estatus_persona')
+                ->select('id AS value', 'Estatus AS label')
+                ->get();
+
+            $entidades = DB::table('cat_entidad')
+                ->select('id AS value', 'Entidad AS label', 'Clave_CURP')
+                ->where('id', '<>', 1)
+                ->get();
+
+            $cat_parentesco_jefe_hogar = DB::table('cat_parentesco_jefe_hogar')
+                ->select('id AS value', 'Parentesco AS label')
+                ->get();
+
+            $cat_parentesco_tutor = DB::table('cat_parentesco_tutor')
+                ->select('id AS value', 'Parentesco AS label')
+                ->get();
+
+            $cat_situacion_actual = DB::table('cat_situacion_actual')
+                ->select('id AS value', 'Situacion AS label')
+                ->get();
+
+            $cat_actividades = DB::table('cat_actividades')
+                ->select('id AS value', 'Actividad AS label')
+                ->get();
+
+            $cat_codigos_dificultad = DB::table('cat_codigos_dificultad')
+                ->select('id AS value', 'Grado AS label')
+                ->get();
+
+            $cat_enfermedades = DB::table('cat_enfermedades')
+                ->select('id AS value', 'Enfermedad AS label')
+                ->get();
+
+            $cat_grados_educacion = DB::table('cat_grados_educacion')
+                ->select('id AS value', 'Grado AS label')
+                ->get();
+
+            $cat_niveles_educacion = DB::table('cat_niveles_educacion')
+                ->select('id AS value', 'Nivel AS label')
+                ->get();
+
+            $cat_prestaciones = DB::table('cat_prestaciones')
+                ->select('id AS value', 'Prestacion AS label')
+                ->get();
+
+            $cat_situacion_actual = DB::table('cat_situacion_actual')
+                ->select('id AS value', 'Situacion AS label')
+                ->get();
+
+            $cat_tipo_seguro = DB::table('cat_tipo_seguro')
+                ->select('id AS value', 'Tipo AS label')
+                ->get();
+
+            $cat_tipos_agua = DB::table('cat_tipos_agua')
+                ->select('id AS value', 'Agua AS label')
+                ->get();
+
+            $cat_tipos_combustibles = DB::table('cat_tipos_combustibles')
+                ->select('id AS value', 'Combustible AS label')
+                ->get();
+
+            $cat_tipos_drenajes = DB::table('cat_tipos_drenajes')
+                ->select('id AS value', 'Drenaje AS label')
+                ->get();
+
+            $cat_tipos_luz = DB::table('cat_tipos_luz')
+                ->select('id AS value', 'Luz AS label')
+                ->get();
+
+            $cat_tipos_muros = DB::table('cat_tipos_muros')
+                ->select('id AS value', 'Muro AS label')
+                ->get();
+
+            $cat_tipos_pisos = DB::table('cat_tipos_pisos')
+                ->select('id AS value', 'Piso AS label')
+                ->get();
+
+            $cat_tipos_techos = DB::table('cat_tipos_techos')
+                ->select('id AS value', 'Techo AS label')
+                ->get();
+
+            $cat_tipos_viviendas = DB::table('cat_tipos_viviendas')
+                ->select('id AS value', 'Tipo AS label')
+                ->get();
+
+            $cat_periodicidad = DB::table('cat_periodicidad')
+                ->select('id AS value', 'Periodicidad AS label')
+                ->get();
+
+            $archivos_clasificacion = DB::table('cedula_archivos_clasificacion')
+                ->select('id AS value', 'Clasificacion AS label')
+                ->get();
+
+            $municipios = DB::table('et_cat_municipio')
+                ->select('id AS value', 'Nombre AS label')
+                ->get();
+
+            // $localidades = DB::table('cat_localidad_cedula')
+            //     ->select('id AS value', 'Nombre AS label')
+            //     ->orderBy('label')
+            //     ->get();
+
+            $catalogs = [
+                'entidades' => $entidades,
+                'cat_parentesco_jefe_hogar' => $cat_parentesco_jefe_hogar,
+                'cat_parentesco_tutor' => $cat_parentesco_tutor,
+                'cat_situacion_actual' => $cat_situacion_actual,
+                'cat_estado_civil' => $cat_estado_civil,
+                'cat_actividades' => $cat_actividades,
+                'cat_codigos_dificultad' => $cat_codigos_dificultad,
+                'cat_enfermedades' => $cat_enfermedades,
+                'cat_grados_educacion' => $cat_grados_educacion,
+                'cat_niveles_educacion' => $cat_niveles_educacion,
+                'cat_prestaciones' => $cat_prestaciones,
+                'cat_situacion_actual' => $cat_situacion_actual,
+                'cat_tipo_seguro' => $cat_tipo_seguro,
+                'cat_tipos_combustibles' => $cat_tipos_combustibles,
+                'cat_tipos_drenajes' => $cat_tipos_drenajes,
+                'cat_tipos_luz' => $cat_tipos_luz,
+                'cat_tipos_muros' => $cat_tipos_muros,
+                'cat_tipos_pisos' => $cat_tipos_pisos,
+                'cat_tipos_techos' => $cat_tipos_techos,
+                'cat_tipos_viviendas' => $cat_tipos_viviendas,
+                'cat_tipos_agua' => $cat_tipos_agua,
+                'cat_periodicidad' => $cat_periodicidad,
+                'cat_estatus_persona' => $cat_estatus_persona,
+                'archivos_clasificacion' => $archivos_clasificacion,
+                'municipios' => $municipios,
+                //'localidades' => $localidades,
+            ];
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $catalogs,
+            ];
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function getSolicitudes(Request $request)
     {
         try {
@@ -1333,25 +1490,25 @@ class YoPuedoController extends Controller
         }
     }
 
-    function getFilesByIdSolicitud(Request $request)
+    function getFilesByIdSolicitud(Request $request, $id)
     {
         try {
             $v = Validator::make($request->all(), [
                 'id' => 'required',
             ]);
-            if ($v->fails()) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'errors' => $v->errors(),
-                ];
-                return response()->json($response, 200);
-            }
-            $params = $request->all();
-            $idSolicitud = $params['id'];
+            // if ($v->fails()) {
+            //     $response = [
+            //         'success' => true,
+            //         'results' => false,
+            //         'errors' => $v->errors(),
+            //     ];
+            //     return response()->json($response, 200);
+            // }
+            // $params = $request->all();
+            // $idSolicitud = $params['id'];
             $cedula = DB::table('yopuedo_cedulas')
                 ->select('id')
-                ->where('idSolicitud', $idSolicitud)
+                ->where('idSolicitud', $id)
                 ->whereRaw('FechaElimino IS NULL')
                 ->get()
                 ->first();
@@ -1942,21 +2099,35 @@ class YoPuedoController extends Controller
             'CorreoTutor' => $cedula['CorreoTutor']
                 ? $cedula['CorreoTutor']
                 : null,
-            'NecesidadSolicitante' => $cedula['NecesidadSolicitante'],
-            'CostoNecesidad' => $cedula['CostoNecesidad'] ?: null,
-            'idEntidadVive' => $cedula['idEntidadVive'] ?: null,
-            'MunicipioVive' => $cedula['MunicipioVive'] ?: null,
-            'LocalidadVive' => $cedula['LocalidadVive'] ?: null,
-            'CPVive' => $cedula['CPVive'] ?: null,
-            'ColoniaVive' => $cedula['ColoniaVive'] ?: null,
-            'CalleVive' => $cedula['CalleVive'] ?: null,
-            'NoExtVive' => $cedula['NoExtVive'] ?: null,
-            'NoIntVive' => $cedula['NoIntVive'] ?: null,
-            'Referencias' => $cedula['Referencias'] ?: null,
-            'idGrupo' => $cedula['idGrupo'] ?: null,
-            'idMunicipioGrupo' => $cedula['idMunicipioGrupo'] ?: null,
-            'idEstatusGrupo' => $cedula['idEstatusGrupo'] ?: null,
-            'Enlace' => $cedula['Enlace'] ?: null,
+            'idEntidadVive' => $cedula['idEntidadVive']
+                ? $cedula['idEntidadVive']
+                : null,
+            'MunicipioVive' => $cedula['MunicipioVive']
+                ? $cedula['MunicipioVive']
+                : null,
+            'LocalidadVive' => $cedula['LocalidadVive']
+                ? $cedula['LocalidadVive']
+                : null,
+            'CPVive' => $cedula['CPVive'] ? $cedula['CPVive'] : null,
+            'ColoniaVive' => $cedula['ColoniaVive']
+                ? $cedula['ColoniaVive']
+                : null,
+            'CalleVive' => $cedula['CalleVive'] ? $cedula['CalleVive'] : null,
+            'NoExtVive' => $cedula['NoExtVive'] ? $cedula['NoExtVive'] : null,
+            'NoIntVive' => $cedula['NoIntVive'] ? $cedula['NoIntVive'] : null,
+            'Referencias' => $cedula['Referencias']
+                ? $cedula['Referencias']
+                : null,
+            'Latitud' => $cedula['Latitud'] ? $cedula['Latitud'] : null,
+            'Longitud' => $cedula['Longitud'] ? $cedula['Longitud'] : null,
+            'idGrupo' => $cedula['idGrupo'] ? $cedula['idGrupo'] : null,
+            'idMunicipioGrupo' => $cedula['idMunicipioGrupo']
+                ? $cedula['idMunicipioGrupo']
+                : null,
+            'idEstatusGrupo' => $cedula['idEstatusGrupo']
+                ? $cedula['idEstatusGrupo']
+                : null,
+            'Enlace' => $cedula['Enlace'] ? $cedula['Enlace'] : null,
             'idUsuarioActualizo' => $user->id,
             'FechaActualizo' => date('Y-m-d H:i:s'),
         ];
@@ -2264,20 +2435,18 @@ class YoPuedoController extends Controller
                 'yopuedo_cedula_archivos.idClasificacion'
             )
             ->where('idCedula', $id)
-            ->whereIn('cedula_archivos_clasificacion.id', [3, 4, 6])
+            ->whereIn('cedula_archivos_clasificacion.id', [4])
             ->whereRaw('yopuedo_cedula_archivos.FechaElimino IS NULL')
             ->get();
 
-        if ($files->count() != 3) {
+        if ($files->count() != 1) {
             $response = [
                 'success' => true,
                 'results' => false,
                 'errors' =>
-                    'Revise los documentos de Identificación Oficial Vigente, CURP ' .
-                    'y Comprobante de Domicilio, Solo debe agregar un archivo por clasificación.',
+                    'Revise los documentos de CURP Solo debe agregar un archivo por clasificación.',
                 'message' =>
-                    'Revise los documentos de Identificación Oficial Vigente, CURP ' .
-                    'y Comprobante de Domicilio, Solo debe agregar un archivo por clasificación.',
+                    'Revise los documentos de CURP Solo debe agregar un archivo por clasificación.',
             ];
             return response()->json($response, 200);
         } else {
@@ -2285,30 +2454,12 @@ class YoPuedoController extends Controller
             foreach ($files as $file) {
                 $clasificaciones[] = $file->idClasificacion;
             }
-            if (!in_array(3, $clasificaciones)) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'errors' => 'Falta la Identificación Oficial Vigente',
-                    'message' => 'Falta la Identificación Oficial Vigente',
-                ];
-                return response()->json($response, 200);
-            }
             if (!in_array(4, $clasificaciones)) {
                 $response = [
                     'success' => true,
                     'results' => false,
                     'errors' => 'Falta la CURP',
                     'message' => 'Falta la CURP',
-                ];
-                return response()->json($response, 200);
-            }
-            if (!in_array(6, $clasificaciones)) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'errors' => 'Falta el Comprobante de Domicilio',
-                    'message' => 'Falta el Comprobante de Domicilio',
                 ];
                 return response()->json($response, 200);
             }
@@ -2341,60 +2492,6 @@ class YoPuedoController extends Controller
             return response()->json($response, 200);
         }
 
-        $filesEvidencias = DB::table('yopuedo_cedula_archivos')
-            ->select(
-                'yopuedo_cedula_archivos.*',
-                'cedula_archivos_clasificacion.Clasificacion'
-            )
-            ->join(
-                'cedula_archivos_clasificacion',
-                'cedula_archivos_clasificacion.id',
-                'yopuedo_cedula_archivos.idClasificacion'
-            )
-            ->where('idCedula', $id)
-            ->whereIn('cedula_archivos_clasificacion.id', [12])
-            ->whereRaw('yopuedo_cedula_archivos.FechaElimino IS NULL')
-            ->get();
-
-        if ($filesEvidencias->count() != 1) {
-            $response = [
-                'success' => true,
-                'results' => false,
-                'errors' =>
-                    'Revise el documento de Evidencias PDF, Debe agregar un archivo por clasificación.',
-                'message' =>
-                    'Revise el documento de Evidencias PDF, Debe agregar un archivo por clasificación.',
-            ];
-            return response()->json($response, 200);
-        }
-
-        $filesEspecifico = DB::table('yopuedo_cedula_archivos')
-            ->select(
-                'yopuedo_cedula_archivos.*',
-                'cedula_archivos_clasificacion.Clasificacion'
-            )
-            ->join(
-                'cedula_archivos_clasificacion',
-                'cedula_archivos_clasificacion.id',
-                'yopuedo_cedula_archivos.idClasificacion'
-            )
-            ->where('idCedula', $id)
-            ->where('cedula_archivos_clasificacion.id', '10')
-            ->whereRaw('yopuedo_cedula_archivos.FechaElimino IS NULL')
-            ->get();
-
-        if ($filesEspecifico->count() != 1) {
-            $response = [
-                'success' => true,
-                'results' => false,
-                'errors' =>
-                    'Revise el documento de Formato de Información del Programa, Debe agregar un archivo por clasificación.',
-                'message' =>
-                    'Revise el documento de Formato de Información del Programa, Debe agregar un archivo por clasificación.',
-            ];
-            return response()->json($response, 200);
-        }
-
         $solicitudJson = $this->formatSolicitudIGTOJson($cedula);
         if (!$solicitudJson['success']) {
             $response = [
@@ -2416,24 +2513,22 @@ class YoPuedoController extends Controller
         $cedulaJson = $this->formatCedulaIGTOJson($cedula, $catalogs);
         $formatedFiles = $this->formatArchivos($files, 1);
         $infoFiles = $this->getInfoArchivos($files, 1);
-        $formatedFilesEspecifico = $this->formatArchivos($filesEspecifico, 2);
-        $infoFilesEspecifico = $this->getInfoArchivos($filesEspecifico, 2);
-        $formatedFilesEvidencias = $this->formatArchivos($filesEvidencias, 2);
-        $infoFilesEvidencias = $this->getInfoArchivos($filesEvidencias, 2);
         $formatedFilesAcuse = $this->formatArchivos($filesAcuse, 1);
         $infoFilesAcuse = $this->getInfoArchivos($filesAcuse, 1);
 
-        $infoFiles = array_merge(
-            $infoFiles,
-            $infoFilesAcuse,
-            $infoFilesEspecifico,
-            $infoFilesEvidencias
-        );
-        $formatedFilesEspecifico = array_merge(
-            $formatedFilesEspecifico,
-            $formatedFilesEvidencias
-        );
+        $infoFiles = array_merge($infoFiles, $infoFilesAcuse);
+
         $formatedFiles = array_merge($formatedFiles, $formatedFilesAcuse);
+
+        if ($cedula->Edad && $cedula->Edad < 18) {
+            $cve = '0256-01-01';
+            $nombreApoyo =
+                'Capacitación en cuatro módulos para menores de edad';
+        } else {
+            $cve = '0256-02-01';
+            $nombreApoyo =
+                'Capacitación en cuatro módulos para mayores de edad';
+        }
 
         $programa = json_encode(
             [
@@ -2448,15 +2543,15 @@ class YoPuedoController extends Controller
                     ],
                 ],
                 'programa' => [
-                    'q' => 'Q',
+                    'q' => 'Q0256',
                     'nombre' => 'YO PUEDO GUANAJUATO PUEDE',
                     'modalidad' => [
-                        'nombre' => 'YO PUEDO GUANAJUATO PUEDE',
-                        'clave' => 'Q',
+                        'nombre' => 'PROCESO FORMATIVO',
+                        'clave' => 'Q0256-01',
                     ],
                     'tipoApoyo' => [
-                        'clave' => 'Q',
-                        'nombre' => 'YO PUEDO GUANAJUATO PUEDE',
+                        'clave' => $cve,
+                        'nombre' => $nombreApoyo,
                     ],
                 ],
             ],
@@ -2466,7 +2561,7 @@ class YoPuedoController extends Controller
         $docs = json_encode(
             [
                 'estandar' => $formatedFiles,
-                'especifico' => $formatedFilesEspecifico,
+                'especifico' => [],
             ],
             JSON_UNESCAPED_UNICODE
         );
@@ -2614,7 +2709,7 @@ class YoPuedoController extends Controller
                     'tipoSolicitud' => 'Ciudadana',
                     'origen' => 'F',
                     'tutor' => [
-                        'respuesta' => false, //Cambiar
+                        'respuesta' => $solicitud->NombreTutor ? true : false,
                     ],
                     'datosCurp' => [
                         'folio' => $solicitud->Folio,
@@ -3513,6 +3608,7 @@ class YoPuedoController extends Controller
         }
         return $json;
     }
+
     public function getReporteSolicitudVentanillaCalentadores(Request $request)
     {
         $user = auth()->user();
@@ -3899,8 +3995,7 @@ class YoPuedoController extends Controller
         );
     }
 
-    //funcion para generar bordes en el excel.
-    public static function crearBordes($largo, $columna, &$sheet)
+    public function crearBordes($largo, $columna, &$sheet)
     {
         for ($i = 0; $i < $largo; $i++) {
             $inicio = 11 + $i;
@@ -3974,5 +4069,105 @@ class YoPuedoController extends Controller
             ],
             JSON_UNESCAPED_UNICODE
         );
+    }
+
+    public function getArchivosBeneficiaroYoPuedo(Request $request)
+    {
+        $fullPath = public_path('/subidos/');
+        ini_set('max_execution_time', 800);
+        $inicio = date('Y-m-d H:i:s');
+        $client = new Client();
+        $url =
+            'https://socioeducativo.guanajuato.gob.mx/api/idseWS/documentosPorCURP/';
+
+        $data = DB::table('curps_yopuedo_archivos')
+            ->select('id', 'curp')
+            ->whereRaw('(descargado IS NULL OR descargado = "0")')
+            ->get()
+            ->chunk(500);
+
+        if (count($data) == 0) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' => 'No se encuentran registros para extraer archivos',
+                'total' => 0,
+            ]);
+        }
+
+        try {
+            foreach ($data as $reg) {
+                foreach ($reg as $r) {
+                    $request = $client->request('GET', $url . $r->curp, [
+                        'verify' => false,
+                        'headers' => [
+                            'content-type' => 'application/json',
+                            'Accept' => 'application/json',
+                        ],
+                    ]);
+
+                    $res = json_decode($request->getBody()->getContents());
+
+                    foreach ($res as $file) {
+                        $archivo = explode('/', $file->Ruta);
+                        $originalName = end($archivo);
+                        $tipoArchivo =
+                            strtoupper($file->Tipo) == 'CURP' ? 4 : 5;
+                        $extensionArray = explode('.', $originalName);
+                        $extension = end($extensionArray);
+                        $uniqueName = uniqid() . '.' . $extension;
+                        $tipo = $this->getFileType($extension);
+
+                        $requestD = $client->request(
+                            'GET',
+                            'https://' . $file->Ruta,
+                            [
+                                'verify' => false,
+                                'headers' => [
+                                    'content-type' => 'application/json',
+                                    'Accept' => 'application/json',
+                                ],
+                            ]
+                        );
+                        $f = $requestD->getBody()->getContents();
+                        File::put($fullPath . $uniqueName, $f);
+
+                        $fileObject = [
+                            'idCurp' => $r->id,
+                            'idClasificacion' => $tipoArchivo,
+                            'NombreOriginal' => $originalName,
+                            'NombreSistema' => $uniqueName,
+                            'Extension' => $extension,
+                            'Tipo' => $tipo,
+                            'Tamanio' => '',
+                            'idUsuarioCreo' => '1',
+                            'FechaCreo' => date('Y-m-d H:i:s'),
+                        ];
+
+                        DB::table('archivos_curp_yopuedo')->insert($fileObject);
+                    }
+
+                    DB::table('curps_yopuedo_archivos')
+                        ->where('id', $r->id)
+                        ->update(['descargado' => 1]);
+                }
+            }
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            return response()->json([
+                'success' => false,
+                'results' => false,
+                'error' => $e
+                    ->getResponse()
+                    ->getBody()
+                    ->getContents(),
+            ]);
+        }
+        return response()->json([
+            'success' => true,
+            'results' => true,
+            'message' => 'Se obtuvieron los archivos con exito',
+            'inicio' => $inicio,
+            'fin' => date('Y-m-d H:i:s'),
+        ]);
     }
 }
