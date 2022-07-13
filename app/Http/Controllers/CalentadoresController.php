@@ -2136,7 +2136,7 @@ class CalentadoresController extends Controller
         try {
             if ($folio != null) {
                 $urlValidacionFolio =
-                    'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
                     $folio->Folio;
                 $client = new Client();
                 $response = $client->request('GET', $urlValidacionFolio, [

@@ -643,6 +643,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     });
 
     Route::group(['prefix' => 'yopuedo'], function ($route) {
+        Route::post('/getMunicipios', 'YoPuedoController@getMunicipios');
         Route::post(
             '/getEstatusGlobalVentanillaYoPuedo',
             'YoPuedoController@getEstatusGlobal'

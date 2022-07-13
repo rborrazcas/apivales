@@ -96,6 +96,76 @@ class YoPuedoController extends Controller
         }
     }
 
+    function getMunicipios(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        $userName = DB::table('users_aplicativo_web')
+            ->selectRaw('UserName,Region')
+            ->where('idUser', $user->id)
+            ->get()
+            ->first();
+        $permisos = $this->getPermisos();
+        try {
+            if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
+                $res_Vales = DB::table('yopuedo_solicitudes')
+                    ->select('MunicipioVive as municipio')
+                    ->where('idUsuarioCreo', $user->id)
+                    ->orWhere('UsuarioAplicativo', $userName->UserName);
+            } elseif ($permisos->ViewAll < 1) {
+                $region = '';
+                if ($userName->Region == 'I') {
+                    $region = 1;
+                } elseif ($userName->Region == 'II') {
+                    $region = 2;
+                } elseif ($userName->Region == 'III') {
+                    $region = 3;
+                } elseif ($userName->Region == 'IV') {
+                    $region = 4;
+                } elseif ($userName->Region == 'V') {
+                    $region = 5;
+                } elseif ($userName->Region == 'VI') {
+                    $region = 6;
+                } elseif ($userName->Region == 'VII') {
+                    $region = 7;
+                }
+
+                $res_Vales = DB::table('et_cat_municipio')
+                    ->select('Nombre as municipio')
+                    ->where('SubRegion', $region);
+            } else {
+                $res_Vales = DB::table('et_cat_municipio')->select(
+                    'Nombre as municipio'
+                );
+            }
+
+            $res_Vales = $res_Vales->groupBy('municipio');
+            $res_Vales = $res_Vales->get();
+
+            $arrayMPios = [];
+
+            foreach ($res_Vales as $data) {
+                $arrayMPios[] = $data->municipio;
+            }
+
+            $res = DB::table('et_cat_municipio')
+                ->select('Id', 'Nombre', 'Region', 'SubRegion')
+                ->whereIn('Nombre', $arrayMPios)
+                ->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            return [
+                'success' => false,
+                'errors' => $e->getMessage(),
+            ];
+        }
+    }
+
     function getCatalogosCedulas(Request $request)
     {
         try {
@@ -610,6 +680,9 @@ class YoPuedoController extends Controller
                     'ActualizadoPor' => $data->ActualizadoPor,
                     'idCedula' => $data->idCedula,
                     'ListaParaEnviarY' => $data->ListaParaEnviarY,
+                    'idGrupo' => $data->idGrupo,
+                    'idMunicipioGrupo' => $data->idMunicipioGrupo,
+                    'idEstatusGrupo' => $data->idEstatusGrupo,
                 ];
 
                 array_push($array_res, $temp);
@@ -833,7 +906,7 @@ class YoPuedoController extends Controller
                     'yopuedo_cedulas.idSolicitud',
                     'yopuedo_solicitudes.id'
                 )
-                ->where('yopuedo_solicitudes.id', $params['id'])
+                ->where('yopuedo_solicitudes.id', $id)
                 ->first();
             if ($solicitud->idEstatus != 1 || isset($solicitud->idCedula)) {
                 $response = [
@@ -2255,7 +2328,7 @@ class YoPuedoController extends Controller
                     'verify' => false,
                     'headers' => [
                         'Content-Type' => 'multipart/form-data',
-                        'Authorization' => '616c818fe33268648502f962',
+                        'Authorization' => '616c818fe33268648502g834',
                     ],
                 ]);
 
@@ -2521,11 +2594,13 @@ class YoPuedoController extends Controller
         $formatedFiles = array_merge($formatedFiles, $formatedFilesAcuse);
 
         if ($cedula->Edad && $cedula->Edad < 18) {
+            $cvep = 'Q0256-01';
             $cve = '0256-01-01';
             $nombreApoyo =
                 'Capacitación en cuatro módulos para menores de edad';
         } else {
-            $cve = '0256-02-01';
+            $cvep = 'Q0256-02';
+            $cve = '0256-02-02';
             $nombreApoyo =
                 'Capacitación en cuatro módulos para mayores de edad';
         }
@@ -2547,7 +2622,7 @@ class YoPuedoController extends Controller
                     'nombre' => 'YO PUEDO GUANAJUATO PUEDE',
                     'modalidad' => [
                         'nombre' => 'PROCESO FORMATIVO',
-                        'clave' => 'Q0256-01',
+                        'clave' => $cvep,
                     ],
                     'tipoApoyo' => [
                         'clave' => $cve,
@@ -2585,8 +2660,8 @@ class YoPuedoController extends Controller
 
         $request2 = new HTTP_Request2();
         $request2->setUrl(
-            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
-            'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
+            'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
+            //'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
         );
 
         $request2->setMethod(HTTP_Request2::METHOD_POST);
@@ -2621,7 +2696,7 @@ class YoPuedoController extends Controller
                             ->update([
                                 'idEstatus' => '8',
                                 'ListaParaEnviar' => '2',
-                                'UsuarioEnvio' => $user->id,
+                                'idUsuarioEnvio' => $user->id,
                                 'FechaEnvio' => date('Y-m-d H:i:s'),
                             ]);
 
@@ -2630,7 +2705,7 @@ class YoPuedoController extends Controller
                             ->update([
                                 'idEstatus' => '8',
                                 'ListaParaEnviar' => '2',
-                                'UsuarioEnvio' => $user->id,
+                                'idUsuarioEnvio' => $user->id,
                                 'FechaEnvio' => date('Y-m-d H:i:s'),
                             ]);
 
@@ -3519,93 +3594,32 @@ class YoPuedoController extends Controller
 
     public function getAuthUsuario($idUser, $index)
     {
-        $flag = false;
-        if ($idUser != null && $idUser != '') {
-            $filtro = '';
-            if ($index == 1) {
-                $filtro = "UserName = '" . $idUser . "'";
-            } else {
-                $filtro = "idUser = '" . $idUser . "'";
-            }
-            $idRegional = DB::table('users_aplicativo_web')
-                ->select('idUserOwner')
-                ->whereRaw($filtro)
-                ->get()
-                ->first();
-            if ($idRegional != null) {
-                $datosRegional = DB::table('cuentas_regionales_ventanilla')
-                    ->selectRaw('uId,Nombre,correoCuenta,rol')
-                    ->where('idRegional', $idRegional->idUserOwner)
-                    ->get()
-                    ->first();
-                if ($datosRegional != null) {
-                    $json = json_encode(
-                        [
-                            'uid' => $datosRegional->uId,
-                            'name' => $datosRegional->Nombre, //Cambiar a sedeshu
-                            'email' => $datosRegional->correoCuenta,
-                            'role' => [
-                                'key' => $datosRegional->rol,
-                                'name' => 'Rol Responsable Programa',
-                            ],
-                            'dependency' => [
-                                'name' =>
-                                    'Secretaría de Desarrollo Social y Humano',
-                                'acronym' => 'SDSH',
-                                'office' => [
-                                    'address' =>
-                                        'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
-                                    'name' =>
-                                        'Dirección de Articulación Regional IV',
-                                    'georef' => [
-                                        'type' => 'Point',
-                                        'coordinates' => [
-                                            21.1378241,
-                                            -101.6541802,
-                                        ],
-                                    ],
-                                ],
-                            ],
-                        ],
-                        JSON_UNESCAPED_UNICODE
-                    );
-                } else {
-                    $flag = true;
-                }
-            } else {
-                $flag = true;
-            }
-        } else {
-            $flag = true;
-        }
-
-        if ($flag) {
-            $json = json_encode(
-                [
-                    'uid' => '626c06d49c1fce80afa1faa6',
-                    'name' => 'ALEJANDRA CAUDILLO OLMOS (RESPONSABLE Q)', //Cambiar a sedeshu
-                    'email' => 'acaudilloo@guanajuato.gob.mx',
-                    'role' => [
-                        'key' => 'RESPONSABLE_Q_ROL',
-                        'name' => 'Rol Responsable Programa VIM',
-                    ],
-                    'dependency' => [
-                        'name' => 'Secretaría de Desarrollo Social y Humano',
-                        'acronym' => 'SDSH',
-                        'office' => [
-                            'address' =>
-                                'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
-                            'name' => 'Dirección de Articulación Regional IV',
-                            'georef' => [
-                                'type' => 'Point',
-                                'coordinates' => [21.1378241, -101.6541802],
-                            ],
+        $json = json_encode(
+            [
+                'uid' => '62cdc01786674330d7288cf1',
+                'name' => 'MARIA DE MONTSERRAT RAMIREZ FUENTES (RESPONSABLE Q)', //Cambiar a sedeshu
+                'email' => 'mramirezfuen@guanajuato.gob.mx',
+                'role' => [
+                    'key' => 'RESPONSABLE_Q_ROL',
+                    'name' => 'Rol Responsable Programa VIM',
+                ],
+                'dependency' => [
+                    'name' => 'Secretaría de Desarrollo Social y Humano',
+                    'acronym' => 'SDSH',
+                    'office' => [
+                        'address' =>
+                            'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
+                        'name' => 'Dirección de Articulación Regional IV',
+                        'georef' => [
+                            'type' => 'Point',
+                            'coordinates' => [21.1378241, -101.6541802],
                         ],
                     ],
                 ],
-                JSON_UNESCAPED_UNICODE
-            );
-        }
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
+
         return $json;
     }
 
