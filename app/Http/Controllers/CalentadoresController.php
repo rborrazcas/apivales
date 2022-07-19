@@ -33,7 +33,7 @@ class CalentadoresController extends Controller
         $user = auth()->user();
 
         $permisos = DB::table('users_menus')
-            ->where(['idUser' => $user->id, 'idMenu' => '13'])
+            ->where(['idUser' => $user->id, 'idMenu' => '14'])
             ->get()
             ->first();
         return $permisos;
@@ -588,6 +588,9 @@ class CalentadoresController extends Controller
 
             unset($params['Files']);
             unset($params['ArchivosClasificacion']);
+            unset($params['idGrupo']);
+            unset($params['idEstatusGrupo']);
+            unset($params['idMunicipioGrupo']);
             //dd($params);
             $id = DB::table('calentadores_solicitudes')->insertGetId($params);
 
@@ -733,6 +736,9 @@ class CalentadoresController extends Controller
             unset($params['OldClasificacion']);
             unset($params['NewFiles']);
             unset($params['NewClasificacion']);
+            unset($params['idGrupo']);
+            unset($params['idEstatusGrupo']);
+            unset($params['idMunicipioGrupo']);
 
             $params['idUsuarioActualizo'] = $user->id;
             $params['FechaActualizo'] = date('Y-m-d');
@@ -1162,6 +1168,9 @@ class CalentadoresController extends Controller
             unset($params['idCedula']);
             unset($params['id']);
             unset($params['Boiler']);
+            unset($params['idGrupo']);
+            unset($params['idEstatusGrupo']);
+            unset($params['idMunicipioGrupo']);
 
             $id = DB::table('calentadores_cedulas')->insertGetId($params);
 
@@ -1629,6 +1638,9 @@ class CalentadoresController extends Controller
             unset($params['NewClasificacion']);
             unset($params['idCedula']);
             unset($params['Boiler']);
+            unset($params['idGrupo']);
+            unset($params['idEstatusGrupo']);
+            unset($params['idMunicipioGrupo']);
 
             DB::table('calentadores_cedulas')
                 ->where('id', $id)
@@ -2588,7 +2600,7 @@ class CalentadoresController extends Controller
             'ssl_verify_host' => false,
         ]);
         $request2->setHeader([
-            'Authorization' => '616c818fe33268648502g834',
+            'Authorization' => '616c818fe33268648502f962',
         ]);
         $request2->addPostParameter($dataCompleted);
 
@@ -2645,7 +2657,7 @@ class CalentadoresController extends Controller
                     $response2 = [
                         'success' => false,
                         'results' => false,
-                        'errors' => $e->errors,
+                        'errors' => $message,
                         'message' => 'La Cedula no fue enviada',
                     ];
                     return response()->json($response2, 200);
@@ -4007,13 +4019,13 @@ class CalentadoresController extends Controller
         //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
         $writer = new Xlsx($spreadsheet);
         $writer->save(
-            'archivos/' . $user->email . 'SolicitudesValesGrandeza.xlsx'
+            'archivos/' . $user->email . 'SolicitudesCalentadores.xlsx'
         );
         $file =
             public_path() .
             '/archivos/' .
             $user->email .
-            'SolicitudesValesGrandeza.xlsx';
+            'SolicitudesCalentadores.xlsx';
 
         return response()->download(
             $file,

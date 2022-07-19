@@ -704,6 +704,9 @@ class DiagnosticoController extends Controller
             unset($params['id']);
             unset($params['idSolicitud']);
             unset($params['programa']);
+            unset($params['idGrupo']);
+            unset($params['idEstatusGrupo']);
+            unset($params['idMunicipioGrupo']);
 
             DB::beginTransaction();
             if (isset($params['MunicipioVive'])) {
@@ -1186,6 +1189,9 @@ class DiagnosticoController extends Controller
             unset($params['OldClasificacion']);
             unset($params['NewFiles']);
             unset($params['NewClasificacion']);
+            unset($params['idGrupo']);
+            unset($params['idEstatusGrupo']);
+            unset($params['idMunicipioGrupo']);
 
             DB::beginTransaction();
 

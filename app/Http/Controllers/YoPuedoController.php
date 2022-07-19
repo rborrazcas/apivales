@@ -3623,7 +3623,7 @@ class YoPuedoController extends Controller
         return $json;
     }
 
-    public function getReporteSolicitudVentanillaCalentadores(Request $request)
+    public function getReporteSolicitudVentanillaYoPuedo(Request $request)
     {
         $user = auth()->user();
         $parameters['UserCreated'] = $user->id;

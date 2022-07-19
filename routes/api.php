@@ -172,6 +172,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CalentadoresController@getReporteSolicitudVentanillaCalentadores'
     );
     Route::get(
+        '/getReporteSolicitudVentanillaYoPuedo',
+        'YoPuedoController@getReporteSolicitudVentanillaYoPuedo'
+    );
+    Route::get(
         '/getReporteSolicitudVentanillaProyectos',
         'ProyectosController@getReporteSolicitudVentanillaProyectos'
     );
@@ -354,6 +358,12 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getUsersArticuladoresV2',
         'UserController@getUsersArticuladoresV2'
     );
+
+    Route::post(
+        '/getArticuladores',
+        'CedulasController@getArticuladoresVentanilla'
+    );
+
     Route::post('/getUsersRecepcionoV2', 'UserController@getUsersRecepcionoV2');
 
     Route::post('/getEstatusGlobal', 'ValesStatusController@getEstatusGlobal');
