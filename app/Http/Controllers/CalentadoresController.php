@@ -2706,6 +2706,11 @@ class CalentadoresController extends Controller
             ];
         }
         $curp = $responseBody->Resultado;
+        $cveLocalidad = DB::table('et_cat_localidad')
+            ->select('CveInegi')
+            ->where('Nombre', $solicitud->LocalidadVive)
+            ->get()
+            ->first();
 
         $json = [
             'solicitud' => json_encode(
@@ -2798,11 +2803,19 @@ class CalentadoresController extends Controller
                             ? []
                             : $this->getCorreos($solicitud),
                         'cp' => $solicitud->CPVive,
-                        'colonia ' => $solicitud->ColoniaVive,
+                        'asentamiento' => [
+                            'tipo' => 'Colonia',
+                            'nombre' => $solicitud->ColoniaVive,
+                        ],
                         'numeroExt' => $solicitud->NoExtVive,
                         'numeroInt' => $solicitud->NoIntVive,
                         'entidadFederativa' => $solicitud->EntidadVive,
-                        'localidad' => $solicitud->LocalidadVive,
+                        'localidad' => [
+                            'nombre' => $solicitud->LocalidadVive
+                                ? $solicitud->LocalidadVive
+                                : '',
+                            'codigo' => $cveLocalidad->CveInegi,
+                        ],
                         'municipio' => $solicitud->MunicipioVive,
                         'calle' => $solicitud->CalleVive,
                         'referencias' => $solicitud->Referencias,
@@ -4111,5 +4124,466 @@ class CalentadoresController extends Controller
             ],
             JSON_UNESCAPED_UNICODE
         );
+    }
+
+    public function envioMasivoVentanillaC(Request $request)
+    {
+        try {
+            $solicitudesAEnviar = DB::table('FoliosCalentadoresMasivo')
+                ->where('Enviado', '0')
+                ->get();
+
+            if ($solicitudesAEnviar->count() == 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'No existen solicitudes para enviar',
+                ];
+                return response()->json($response, 200);
+            }
+
+            foreach ($solicitudesAEnviar as $key) {
+                $flag = $this->enviarIGTOMasivo($key->idCedula);
+                if ($flag) {
+                    DB::table('FoliosCalentadoresMasivo')->update([
+                        'Enviado' => '1',
+                    ]);
+                }
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Enviadas con exito',
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function enviarIGTOMasivo($id)
+    {
+        try {
+            $folio = DB::table('calentadores_cedulas')
+                ->select('Folio')
+                ->where('id', $id)
+                ->get()
+                ->first();
+            $user = auth()->user();
+        } catch (Exception $e) {
+            return false;
+        }
+        // try {
+        //     if ($folio != null) {
+        //         $urlValidacionFolio =
+        //             'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+        //             $folio->Folio;
+        //         $client = new Client();
+        //         $response = $client->request('GET', $urlValidacionFolio, [
+        //             'verify' => false,
+        //             'headers' => [
+        //                 'Content-Type' => 'multipart/form-data',
+        //                 'Authorization' => '616c818fe33268648502f962',
+        //             ],
+        //         ]);
+
+        //         $responseBody = json_decode($response->getBody());
+        //         if (!$responseBody->success) {
+        //             return false;
+        //         }
+        //     } else {
+        //         return false;
+        //     }
+        // } catch (Exception $e) {
+        //     return false;
+        // }
+
+        $cedula = DB::table('calentadores_cedulas as cedulas')
+            ->selectRaw(
+                "
+                        cedulas.*, cat_estado_civil.EstadoCivil, 
+                        cat_parentesco_jefe_hogar.Parentesco AS ParentescoJefeHogar,
+                        cat_situacion_actual.Situacion AS SituacionActual, 
+                        entidadNacimiento.Entidad AS EntidadNacimiento, 
+                        entidadVive.Entidad AS EntidadVive,
+                        cat_parentesco_tutor.Parentesco AS ParentescoTutor,
+                        gradoEducacion.Grado AS GradoEducacion,
+                        nivelesEducacion.Nivel AS NivelEducacion,
+                        actividades.Actividad,
+                        viviendas.Tipo AS TipoVivienda,
+                        pisos.Piso,
+                        muros.Muro,
+                        techos.Techo,
+                        aguas.Agua,
+                        drenajes.Drenaje,
+                        luz.Luz,
+                        combustibles.Combustible
+                    "
+            )
+            ->leftjoin(
+                'cat_estado_civil',
+                'cat_estado_civil.id',
+                'cedulas.idEstadoCivil'
+            )
+            ->leftjoin(
+                'cat_parentesco_jefe_hogar',
+                'cat_parentesco_jefe_hogar.id',
+                'cedulas.idParentescoJefeHogar'
+            )
+            ->leftjoin(
+                'cat_situacion_actual',
+                'cat_situacion_actual.id',
+                'cedulas.idSituacionActual'
+            )
+            ->leftJoin(
+                'cat_parentesco_tutor',
+                'cat_parentesco_tutor.id',
+                'cedulas.idParentescoTutor'
+            )
+            ->leftjoin(
+                'cat_entidad AS entidadNacimiento',
+                'entidadNacimiento.id',
+                'cedulas.idEntidadNacimiento'
+            )
+            ->leftjoin(
+                'cat_entidad AS entidadVive',
+                'entidadVive.id',
+                'cedulas.idEntidadVive'
+            )
+            ->leftjoin(
+                'cat_grados_educacion AS gradoEducacion',
+                'gradoEducacion.id',
+                'cedulas.idGradoEscuela'
+            )
+            ->leftjoin(
+                'cat_niveles_educacion AS nivelesEducacion',
+                'nivelesEducacion.id',
+                'cedulas.idNivelEscuela'
+            )
+            ->leftjoin(
+                'cat_actividades AS actividades',
+                'actividades.id',
+                'cedulas.idActividades'
+            )
+            ->leftjoin(
+                'cat_tipos_viviendas AS viviendas',
+                'viviendas.id',
+                'cedulas.idTipoVivienda'
+            )
+            ->leftjoin(
+                'cat_tipos_pisos AS pisos',
+                'pisos.id',
+                'cedulas.idTipoPiso'
+            )
+            ->leftjoin(
+                'cat_tipos_muros AS muros',
+                'muros.id',
+                'cedulas.idTipoParedes'
+            )
+            ->leftjoin(
+                'cat_tipos_techos AS techos',
+                'techos.id',
+                'cedulas.idTipoTecho'
+            )
+            ->leftjoin(
+                'cat_tipos_agua AS aguas',
+                'aguas.id',
+                'cedulas.idTipoAgua'
+            )
+            ->leftjoin(
+                'cat_tipos_drenajes AS drenajes',
+                'drenajes.id',
+                'cedulas.idTipoDrenaje'
+            )
+            ->leftjoin('cat_tipos_luz AS luz', 'luz.id', 'cedulas.idTipoLuz')
+            ->leftjoin(
+                'cat_tipos_combustibles AS combustibles',
+                'combustibles.id',
+                'cedulas.idTipoCombustible'
+            )
+            ->where('cedulas.id', $id)
+            ->first();
+        //dd(str_replace_array('?', $cedula->getBindings(), $cedula->toSql()));
+        if (!isset($cedula->MunicipioVive) || !isset($cedula->LocalidadVive)) {
+            return false;
+        }
+
+        $seguros = DB::table('calentadores_atenciones_medicas')
+            ->where('idCedula', $id)
+            ->get();
+        $seguros = array_map(function ($o) {
+            return $o->idAtencionMedica;
+        }, $seguros->toArray());
+
+        $enfermedades = DB::table('calentadores_enfermedades')
+            ->where('idCedula', $id)
+            ->get();
+        $enfermedades = array_map(function ($o) {
+            return $o->idEnfermedad;
+        }, $enfermedades->toArray());
+
+        $prestaciones = DB::table('calentadores_prestaciones')
+            ->where('idCedula', $id)
+            ->get();
+        $prestaciones = array_map(function ($o) {
+            return $o->idPrestacion;
+        }, $prestaciones->toArray());
+
+        $files = DB::table('calentadores_cedula_archivos')
+            ->select(
+                'calentadores_cedula_archivos.*',
+                'cedula_archivos_clasificacion.Clasificacion'
+            )
+            ->join(
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
+                'calentadores_cedula_archivos.idClasificacion'
+            )
+            ->where('idCedula', $id)
+            ->whereIn('cedula_archivos_clasificacion.id', [3, 4, 6])
+            ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
+            ->get();
+
+        if ($files->count() != 3) {
+            return false;
+        } else {
+            $clasificaciones = [];
+            foreach ($files as $file) {
+                $clasificaciones[] = $file->idClasificacion;
+            }
+            if (!in_array(3, $clasificaciones)) {
+                return false;
+            }
+            if (!in_array(4, $clasificaciones)) {
+                return false;
+            }
+            if (!in_array(6, $clasificaciones)) {
+                return false;
+            }
+        }
+
+        $filesAcuse = DB::table('calentadores_cedula_archivos')
+            ->select(
+                'calentadores_cedula_archivos.*',
+                'cedula_archivos_clasificacion.Clasificacion'
+            )
+            ->join(
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
+                'calentadores_cedula_archivos.idClasificacion'
+            )
+            ->where('idCedula', $id)
+            ->whereIn('cedula_archivos_clasificacion.id', [5])
+            ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
+            ->get();
+
+        if ($filesAcuse->count() != 1) {
+            return false;
+        }
+
+        $filesEvidencias = DB::table('calentadores_cedula_archivos')
+            ->select(
+                'calentadores_cedula_archivos.*',
+                'cedula_archivos_clasificacion.Clasificacion'
+            )
+            ->join(
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
+                'calentadores_cedula_archivos.idClasificacion'
+            )
+            ->where('idCedula', $id)
+            ->whereIn('cedula_archivos_clasificacion.id', [12])
+            ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
+            ->get();
+
+        if ($filesEvidencias->count() != 1) {
+            return false;
+        }
+
+        $filesEspecifico = DB::table('calentadores_cedula_archivos')
+            ->select(
+                'calentadores_cedula_archivos.*',
+                'cedula_archivos_clasificacion.Clasificacion'
+            )
+            ->join(
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
+                'calentadores_cedula_archivos.idClasificacion'
+            )
+            ->where('idCedula', $id)
+            ->where('cedula_archivos_clasificacion.id', '10')
+            ->whereRaw('calentadores_cedula_archivos.FechaElimino IS NULL')
+            ->get();
+
+        if ($filesEspecifico->count() != 1) {
+            return false;
+        }
+
+        $solicitudJson = $this->formatSolicitudIGTOJson($cedula);
+        if (!$solicitudJson['success']) {
+            return false;
+        }
+
+        $solicitudJson = $solicitudJson['data'];
+        $catalogs = [
+            'seguros' => $seguros,
+            'enfermedades' => $enfermedades,
+            'prestaciones' => $prestaciones,
+        ];
+
+        $cedulaJson = $this->formatCedulaIGTOJson($cedula, $catalogs);
+        $formatedFiles = $this->formatArchivos($files, 1);
+        $infoFiles = $this->getInfoArchivos($files, 1);
+        $formatedFilesEspecifico = $this->formatArchivos($filesEspecifico, 2);
+        $infoFilesEspecifico = $this->getInfoArchivos($filesEspecifico, 2);
+        $formatedFilesEvidencias = $this->formatArchivos($filesEvidencias, 2);
+        $infoFilesEvidencias = $this->getInfoArchivos($filesEvidencias, 2);
+        $formatedFilesAcuse = $this->formatArchivos($filesAcuse, 1);
+        $infoFilesAcuse = $this->getInfoArchivos($filesAcuse, 1);
+
+        $infoFiles = array_merge(
+            $infoFiles,
+            $infoFilesAcuse,
+            $infoFilesEspecifico,
+            $infoFilesEvidencias
+        );
+
+        $formatedFilesEspecifico = array_merge(
+            $formatedFilesEspecifico,
+            $formatedFilesEvidencias
+        );
+
+        $formatedFiles = array_merge($formatedFiles, $formatedFilesAcuse);
+
+        $programa = json_encode(
+            [
+                'dependencia' => [
+                    'sociedad' => '',
+                    'codigo' => '0032',
+                    'nombre' =>
+                        'Secretaría de Medio Ambiente y Ordenamiento Territorial',
+                    'siglas' => 'SMAOT',
+                    'eje' => [
+                        'codigo' => 'IV',
+                        'descripcion' => 'Desarrollo Ordenado y Sostenible',
+                    ],
+                ],
+                'programa' => [
+                    'q' => 'Q1417',
+                    'nombre' => 'Calentadores Solares',
+                    'modalidad' => [
+                        'nombre' => 'Implementación de calentadores solares',
+                        'clave' => 'Q1417-01',
+                    ],
+                    'tipoApoyo' => [
+                        'clave' => 'Q1417-01-01',
+                        'nombre' =>
+                            'Otorgamiento de un calentador solar de agua por vivienda',
+                    ],
+                ],
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
+
+        $docs = json_encode(
+            [
+                'estandar' => $formatedFiles,
+                'especifico' => $formatedFilesEspecifico,
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
+
+        $cUsuario = $this->getCampoUsuario($cedula);
+
+        if ($cedula->idUsuarioCreo == 1312) {
+            $authUsuario = $this->getAuthUsuario($cedula->UsuarioAplicativo, 1);
+        } else {
+            $authUsuario = $this->getAuthUsuario($cedula->idUsuarioCreo, 2);
+        }
+
+        $dataCompleted = [
+            'solicitud' => $solicitudJson['solicitud'],
+            'programa' => $programa,
+            'cedula' => $cedulaJson,
+            'documentos' => $docs,
+            'authUsuario' => $authUsuario,
+            'campoUsuario' => $cUsuario,
+        ];
+
+        $request2 = new HTTP_Request2();
+        $request2->setUrl(
+            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
+            'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
+        );
+
+        $request2->setMethod(HTTP_Request2::METHOD_POST);
+        $request2->setConfig([
+            'follow_redirects' => true,
+            'ssl_verify_peer' => false,
+            'ssl_verify_host' => false,
+        ]);
+        $request2->setHeader([
+            'Authorization' => '616c818fe33268648502f962',
+        ]);
+        $request2->addPostParameter($dataCompleted);
+
+        foreach ($infoFiles as $file) {
+            $request2->addUpload(
+                $file['llave'],
+                $file['ruta'],
+                $file['nombre'],
+                $file['header']
+            );
+        }
+        //dd($request2);
+        try {
+            $response = $request2->send();
+            $message = json_decode($response->getBody());
+            //dd($response->getReasonPhrase());
+            //dd($message);
+            if ($response->getStatus() == 200) {
+                if ($message->success) {
+                    try {
+                        DB::table('calentadores_solicitudes')
+                            ->where('id', $cedula->idSolicitud)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+
+                        DB::table('calentadores_cedulas')
+                            ->where('id', $cedula->id)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+                        return true;
+                    } catch (Exception $e) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        } catch (HTTP_Request2_Exception $e) {
+            dd($e);
+            return false;
+        }
     }
 }

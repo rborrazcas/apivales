@@ -68,6 +68,11 @@ Route::post(
 );
 
 Route::post(
+    '/envioMasivoVentanillaC',
+    'CalentadoresController@envioMasivoVentanillaC'
+);
+
+Route::post(
     '/descargarArchivosMasivo',
     'YoPuedoController@getArchivosBeneficiaroYoPuedo'
 );
