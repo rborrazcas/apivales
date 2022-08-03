@@ -20,7 +20,7 @@
         "pear/http_request2": "^2.5",
         "phpoffice/phppresentation": "dev-master",
         "phpoffice/phpspreadsheet": "^1.11",
-        "tymon/jwt-auth": "dev-develop"
+        "tymon/jwt-auth": "^1.0"
     },
     "require-dev": {
         "beyondcode/laravel-dump-server": "^1.0",
