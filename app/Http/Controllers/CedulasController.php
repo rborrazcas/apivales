@@ -4583,9 +4583,9 @@ class CedulasController extends Controller
             $arrayCURPNoValida = [];
             $arraySolicitudesIncompletas = [];
             $arrayEnviadas = [];
-            // $solicitudesAEnviar = DB::table('valesrvii_ventanilla')
-            $solicitudesAEnviar = DB::table('solicitudes_Q3450_NoEnviadas')
-                ->selectRaw('ESTATUS AS id')
+            $solicitudesAEnviar = DB::table('valesrvii_ventanilla_completos')
+                ->select('id')
+                ->where('Enviada', 3)
                 ->get();
 
             foreach ($solicitudesAEnviar as $key) {
@@ -4647,59 +4647,25 @@ class CedulasController extends Controller
             ->first();
         //Se valida si ya este registrado.
         if ($folio->Folio != null) {
-            // $foliosEnviados = DB::table('solicitudes_Q3450')
-            //     ->where('solicitudes_Q3450.FOLIO', '=', $folio->Folio)
-            //     ->get();
-
-            // if ($foliosEnviados != null) {
-            //     DB::table('solicitudes_Q3450_NoEnviadas')->insert([
-            //         'FOLIO' => $folio->Folio,
-            //         'ESTATUS' => $id,
-            //         'Fecha Estatus' => 'En listado de enviados',
-            //     ]);
-            //     return [
-            //         'success' => true,
-            //         'data' => 'Registrado',
-            //         'codigo' => '4',
-            //     ];
-            // }
-
-            // $urlValidacionFolio =
-            //     'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/cedula/' .
-            //     $folio->Folio;
-            // $client = new Client();
-            // $response = $client->request('GET', $urlValidacionFolio, [
-            //     'verify' => false,
-            //     'headers' => [
-            //         'Content-Type' => 'multipart/form-data',
-            //         'Authorization' => '616c818fe33268648502g834',
-            //     ],
-            // ]);
-            // $responseBody = json_decode($response->getBody());
-
-            // if ($responseBody->success) {
-            //     DB::table('solicitudes_Q3450_NoEnviadas')->insert([
-            //         'FOLIO' => $folio->Folio,
-            //         'ESTATUS' => $id,
-            //         'Fecha Estatus' => $responseBody->message,
-            //     ]);
-            //     return [
-            //         'success' => true,
-            //         'data' => $responseBody->message,
-            //         'codigo' => '4',
-            //     ];
-            // } else {
-            //     DB::table('solicitudes_Q3450_NoEnviadas')->insert([
-            //         'FOLIO' => $folio->Folio,
-            //         'ESTATUS' => $id,
-            //         'Fecha Estatus' => $responseBody->message,
-            //     ]);
-            //     return [
-            //         'success' => false,
-            //         'data' => $responseBody->message,
-            //         'codigo' => '2',
-            //     ];
-            // }
+            $urlValidacionFolio =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                $folio->Folio;
+            $client = new Client();
+            $response = $client->request('GET', $urlValidacionFolio, [
+                'verify' => false,
+                'headers' => [
+                    'Content-Type' => 'multipart/form-data',
+                    'Authorization' => '616c818fe33268648502g834',
+                ],
+            ]);
+            $responseBody = json_decode($response->getBody());
+            if (!$responseBody->success) {
+                return [
+                    'success' => false,
+                    'data' => $responseBody->message,
+                    'codigo' => '2',
+                ];
+            }
         } else {
             return [
                 'success' => $flag,
@@ -4776,6 +4742,7 @@ class CedulasController extends Controller
             )
             ->where('idSolicitud', $id)
             ->whereIn('cedula_archivos_clasificacion.id', [3, 5])
+            ->whereNULL('FechaElimino')
             ->get();
 
         $filesEspecifico = DB::table('solicitud_archivos')
@@ -4790,6 +4757,7 @@ class CedulasController extends Controller
             )
             ->where('idSolicitud', $id)
             ->where('cedula_archivos_clasificacion.id', '2')
+            ->whereNULL('FechaElimino')
             ->get();
 
         $solicitudJson = $this->formatSolicitudIGTOJson($solicitud);
@@ -4863,13 +4831,9 @@ class CedulasController extends Controller
             'authUsuario' => $authUsuario,
             'campoUsuario' => $cUsuario,
         ];
-
+        //dd($infoFiles);
         $request2 = new HTTP_Request2();
         $request2->setUrl(
-            //QA
-            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
-            //Productivo
-            //'https://api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
             'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
         );
         $request2->setMethod(HTTP_Request2::METHOD_POST);
@@ -4891,33 +4855,27 @@ class CedulasController extends Controller
                 $file['header']
             );
         }
-        //dd($request);
         try {
             $response = $request2->send();
+            //dd($response);
             if ($response->getStatus() == 200) {
                 $resp = json_decode($response->getBody());
                 $message = $resp->message;
                 if ($resp->success) {
                     try {
-                        $infoVale = $this->setVales($id);
-                        $idVale = DB::table('vales')->insertGetId($infoVale);
-
-                        $vale = DB::table('vales')
-                            ->select(
-                                'vales.*',
-                                DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica')
-                            )
-                            ->where('vales.id', '=', $idVale)
-                            ->first();
-
                         DB::table('cedulas_solicitudes')
                             ->where('id', $id)
                             ->update([
                                 'idEstatus' => '8',
                                 'ListaParaEnviar' => '2',
-                                'idVale' => $idVale,
-                                'UsuarioEnvio' => $user->id,
+                                //'UsuarioEnvio' => $user->id,
                                 'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+
+                        DB::table('valesrvii_ventanilla_completos')
+                            ->where('id', $id)
+                            ->update([
+                                'Enviada' => '1',
                             ]);
 
                         $flag = true;
