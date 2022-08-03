@@ -4,24 +4,28 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
-use DB;
-use JWTAuth;
 use Illuminate\Contracts\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Arr;
+
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
-use Validator;
-use App\Cedula;
-use App\VNegociosFiltros;
-use Arr;
+
 use Carbon\Carbon as time;
 use GuzzleHttp\Client;
+use JWTAuth;
+use Validator;
 use HTTP_Request2;
-use File;
 use Imagick;
+
+use App\Cedula;
+use App\VNegociosFiltros;
 
 class CedulasController extends Controller
 {
@@ -2460,11 +2464,7 @@ class CedulasController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema); // 'https://apivales.apisedeshu.com/subidos/' .$o->NombreSistema;
                 return $o;
             }, $archivos2->toArray());
 
@@ -2511,11 +2511,7 @@ class CedulasController extends Controller
             }, $archivos2->toArray());
 
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema); // 'https://apivales.apisedeshu.com/subidos/' . $o->NombreSistema;
                 return $o;
             }, $archivos2->toArray());
 
@@ -4141,10 +4137,8 @@ class CedulasController extends Controller
             $formato = 'especifico';
         }
         foreach ($archivos as $file) {
-            //$fileConverted = fopen('subidos/' . $file->NombreSistema, 'r');
             $formatedFile = [
-                'llave' =>
-                    $formato . '_' . str_replace('.', '', $file->Clasificacion),
+                'llave' => $formato . '_' . str_replace('.', '', $file->Clasificacion),
                 'nombre' => $file->Clasificacion,
                 'uid' => '',
                 'vigencia' => '',
@@ -4172,15 +4166,10 @@ class CedulasController extends Controller
             } elseif (strtoupper($file->Extension) == 'PNG') {
                 $mimeType = 'image/png';
             }
-            $fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
+
             $formatedFile = [
-                'llave' =>
-                    $formato . '_' . str_replace('.', '', $file->Clasificacion),
-                'ruta' =>
-                    '/var/www/html/plataforma/apivales/public/subidos/' .
-                    //'/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
-                    $file->NombreSistema,
-                //'content' => $fileContent,
+                'llave' => $formato . '_' . str_replace('.', '', $file->Clasificacion),
+                'ruta' => Storage::disk('subidos')->path($file->NombreSistema), // '/var/www/html/plataforma/apivales/public/subidos/' .$file->NombreSistema,
                 'nombre' => str_replace('.', '', $file->Clasificacion),
                 'header' => $mimeType,
             ];
@@ -4338,7 +4327,9 @@ class CedulasController extends Controller
                 'idUsuarioCreo' => $userId,
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
-            $file->move('subidos', $uniqueName);
+            // $file->move('subidos', $uniqueName);
+
+            Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
 
             if ($program > 1) {
                 $tableArchivos = 'calentadores_cedulas_archivos';
@@ -4425,14 +4416,21 @@ class CedulasController extends Controller
                     'tiff',
                 ])
             ) {
+                //Ruta temporal para reducción de tamaño
                 $file->move('subidos/tmp', $uniqueName);
                 $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
                 $img->readImage($img_tmp_path);
                 $img->adaptiveResizeImage($width, $height);
-                $img->writeImage(sprintf('subidos/%s', $uniqueName));
+
+                //Guardar en el nuevo storage
+                $url_storage = Storage::disk('subidos')->path($uniqueName);
+                // $img->writeImage(sprintf('subidos/%s', $uniqueName));
+                $img->writeImage($url_storage);
                 File::delete($img_tmp_path);
+
             } else {
-                $file->move('subidos', $uniqueName);
+                // $file->move('subidos', $uniqueName);
+                Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
             }
             $tableArchivos = 'solicitud_archivos';
             DB::table($tableArchivos)->insert($fileObject);
@@ -4499,7 +4497,7 @@ class CedulasController extends Controller
         $id = $params['id'];
         $files = $params['NewFiles'];
         $arrayClasifiacion = $params['ArrayClasificacion'];
-        $fullPath = public_path('/subidos/');
+        // $fullPath = public_path('/subidos/');
         $extension = $params['ArrayExtension'];
         $names = $params['NamesFiles'];
         try {
@@ -4522,7 +4520,8 @@ class CedulasController extends Controller
                 $clasification = $arrayClasifiacion[$key];
                 $originalName = $names[$key];
 
-                File::put($fullPath . $uniqueName, $imageContent);
+                // File::put($fullPath . $uniqueName, $imageContent);
+                Storage::disk('subidos')->put($uniqueName, $imageContent, 'public');
 
                 $fileObject = [
                     'idSolicitud' => intval($id),

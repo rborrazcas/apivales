@@ -11,6 +11,13 @@
 |
 */
 
+use Illuminate\Support\Facades\Storage;
+
 Route::get('/', function () {
     return response()->json(['redireccionado al inicio']);
+});
+
+Route::get('/subidos/{filename}', function ($filename) {
+    $path = Storage::disk('subidos')->path($filename);
+    return response()->file($path);
 });
