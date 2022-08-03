@@ -12,18 +12,20 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use Illuminate\Contracts\Validation\ValidationException;
 
-use App\Cedula;
-use GuzzleHttp\Client;
-use App\VNegociosFiltros;
-use Carbon\Carbon as time;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Arr;
 
-use DB;
-use Arr;
-use File;
+use GuzzleHttp\Client;
+use Carbon\Carbon as time;
 use Zipper;
 use JWTAuth;
 use Validator;
 use HTTP_Request2;
+
+use App\VNegociosFiltros;
+use App\Cedula;
 
 class ProyectosController extends Controller
 {
@@ -1069,11 +1071,7 @@ class ProyectosController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos3 = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1129,11 +1127,7 @@ class ProyectosController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1208,11 +1202,7 @@ class ProyectosController extends Controller
             }, $archivos2->toArray());
 
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1811,7 +1801,9 @@ class ProyectosController extends Controller
                 'idUsuarioCreo' => $userId,
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
-            $file->move('subidos', $uniqueName);
+
+            Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
+
             DB::table('proyectos_cedula_archivos')->insert($fileObject);
         }
     }
@@ -3005,7 +2997,7 @@ class ProyectosController extends Controller
             } elseif ($file->idClasificacion == 5) {
                 $file->Clasificacion = 'Acuse';
             }
-            //$fileConverted = fopen('subidos/' . $file->NombreSistema, 'r');
+
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
                 'nombre' => $file->Clasificacion,
@@ -3034,14 +3026,10 @@ class ProyectosController extends Controller
             } elseif ($file->idClasificacion == 5) {
                 $file->Clasificacion = 'Acuse';
             }
-            //$fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
+            
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
-                'ruta' =>
-                    //'/var/www/html/plataforma/apivales/public/subidos/' .
-                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
-                    $file->NombreSistema,
-                //'content' => $fileContent,
+                'ruta' => Storage::disk('subidos')->path($file->NombreSistema),
                 'nombre' => $file->Clasificacion,
                 'header' => '<Content-Type Header>',
             ];
@@ -3069,18 +3057,20 @@ class ProyectosController extends Controller
             return response()->json($response, 200);
         }
 
-        $params = $request->all();
-        $id = $params['id'];
-        $files = $params['NewFiles'];
-        $arrayClasifiacion = $params['ArrayClasificacion'];
-        $fullPath = public_path('/subidos/');
-        $extension = $params['ArrayExtension'];
-        $names = $params['NamesFiles'];
+        $params             = $request->all();
+        $id                 = $params['id'];
+        $files              = $params['NewFiles'];
+        $arrayClasifiacion  = $params['ArrayClasificacion'];
+        $extension          = $params['ArrayExtension'];
+        $names              = $params['NamesFiles'];
+
         try {
+
             $solicitud = DB::table('proyectos_cedulas')
                 ->select('idUsuarioCreo', 'id')
                 ->where('proyectos_cedulas.idSolicitud', $id)
                 ->first();
+
             if ($solicitud == null) {
                 $response = [
                     'success' => true,
@@ -3089,13 +3079,16 @@ class ProyectosController extends Controller
                 ];
                 return response()->json($response, 200);
             }
-            foreach ($files as $key => $file) {
-                $imageContent = $this->imageBase64Content($file);
-                $uniqueName = uniqid() . $extension[$key];
-                $clasification = $arrayClasifiacion[$key];
-                $originalName = $names[$key];
 
-                File::put($fullPath . $uniqueName, $imageContent);
+            foreach ($files as $key => $file) {
+
+                $imageContent   = $this->imageBase64Content($file);
+                $uniqueName     = uniqid() . $extension[$key];
+                $clasification  = $arrayClasifiacion[$key];
+                $originalName   = $names[$key];
+
+                Storage::disk('subidos')->put($uniqueName, $imageContent, 'public');
+
                 $fileObject = [
                     'idCedula' => intval($solicitud->id),
                     'idClasificacion' => intval($clasification),
