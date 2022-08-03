@@ -51,7 +51,7 @@ return [
         'subidos' => [
             'driver' => 'local',
             // 'root' => '/Volumes/ADATAHV620/apiVales/storageVales',
-            'root' => '/media/storagevales',
+            'root' => '/media/storagevales/subidos',
             'url' => env('APP_URL').'/subidos',
             'visibility' => 'public',
         ],
