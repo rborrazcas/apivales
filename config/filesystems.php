@@ -48,6 +48,14 @@ return [
             'root' => storage_path('app'),
         ],
 
+        'subidos' => [
+            'driver' => 'local',
+            // 'root' => '/Volumes/ADATAHV620/apiVales/storageVales',
+            'root' => '/media/storagevales/subidos',
+            'url' => env('APP_URL').'/subidos',
+            'visibility' => 'public',
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

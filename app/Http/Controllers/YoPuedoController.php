@@ -1469,10 +1469,7 @@ class YoPuedoController extends Controller
             }, $archivos2->toArray());
 
             $archivos3 = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1534,9 +1531,7 @@ class YoPuedoController extends Controller
             }, $archivos2->toArray());
 
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1611,9 +1606,7 @@ class YoPuedoController extends Controller
             }, $archivos2->toArray());
 
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -2251,7 +2244,9 @@ class YoPuedoController extends Controller
                 'idUsuarioCreo' => $userId,
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
-            $file->move('subidos', $uniqueName);
+
+            Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
+
             DB::table('yopuedo_cedula_archivos')->insert($fileObject);
         }
     }
@@ -3450,7 +3445,7 @@ class YoPuedoController extends Controller
             } elseif ($file->idClasificacion == 5) {
                 $file->Clasificacion = 'Acuse';
             }
-            //$fileConverted = fopen('subidos/' . $file->NombreSistema, 'r');
+
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
                 'nombre' => $file->Clasificacion,
@@ -3487,14 +3482,9 @@ class YoPuedoController extends Controller
                 $mimeType = 'image/png';
             }
 
-            //$fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
-                'ruta' =>
-                    '/var/www/html/plataforma/apivales/public/subidos/' .
-                    //'/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
-                    $file->NombreSistema,
-                //'content' => $fileContent,
+                'ruta' => Storage::disk('subidos')->path($file->NombreSistema),
                 'nombre' => $file->Clasificacion,
                 'header' => $mimeType,
             ];
@@ -3522,18 +3512,20 @@ class YoPuedoController extends Controller
             return response()->json($response, 200);
         }
 
-        $params = $request->all();
-        $id = $params['id'];
-        $files = $params['NewFiles'];
-        $arrayClasifiacion = $params['ArrayClasificacion'];
-        $fullPath = public_path('/subidos/');
-        $extension = $params['ArrayExtension'];
-        $names = $params['NamesFiles'];
+        $params             = $request->all();
+        $id                 = $params['id'];
+        $files              = $params['NewFiles'];
+        $arrayClasifiacion  = $params['ArrayClasificacion'];
+        $extension          = $params['ArrayExtension'];
+        $names              = $params['NamesFiles'];
+
         try {
+
             $solicitud = DB::table('yopuedo_cedulas')
                 ->select('idUsuarioCreo', 'id')
                 ->where('yopuedo_cedulas.idSolicitud', $id)
                 ->first();
+
             if ($solicitud == null) {
                 $response = [
                     'success' => true,
@@ -3542,13 +3534,16 @@ class YoPuedoController extends Controller
                 ];
                 return response()->json($response, 200);
             }
-            foreach ($files as $key => $file) {
-                $imageContent = $this->imageBase64Content($file);
-                $uniqueName = uniqid() . $extension[$key];
-                $clasification = $arrayClasifiacion[$key];
-                $originalName = $names[$key];
 
-                File::put($fullPath . $uniqueName, $imageContent);
+            foreach ($files as $key => $file) {
+
+                $imageContent   = $this->imageBase64Content($file);
+                $uniqueName     = uniqid() . $extension[$key];
+                $clasification  = $arrayClasifiacion[$key];
+                $originalName   = $names[$key];
+
+                Storage::disk('subidos')->put($uniqueName, $imageContent, 'public');
+
                 $fileObject = [
                     'idCedula' => intval($solicitud->id),
                     'idClasificacion' => intval($clasification),
@@ -4087,7 +4082,7 @@ class YoPuedoController extends Controller
 
     public function getArchivosBeneficiaroYoPuedo(Request $request)
     {
-        $fullPath = public_path('/subidos/');
+        // $fullPath = public_path('/subidos/');
         ini_set('max_execution_time', 800);
         $inicio = date('Y-m-d H:i:s');
         $client = new Client();
@@ -4144,7 +4139,8 @@ class YoPuedoController extends Controller
                             ]
                         );
                         $f = $requestD->getBody()->getContents();
-                        File::put($fullPath . $uniqueName, $f);
+                        // File::put($fullPath . $uniqueName, $f);
+                        Storage::disk('subidos')->put($uniqueName, $f, 'public');
 
                         $fileObject = [
                             'idCurp' => $r->id,

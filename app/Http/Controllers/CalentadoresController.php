@@ -12,19 +12,22 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use Illuminate\Contracts\Validation\ValidationException;
 
-use App\Cedula;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Arr;
+
 use GuzzleHttp\Client;
-use App\VNegociosFiltros;
 use Carbon\Carbon as time;
 
-use DB;
-use Arr;
-use File;
 use Zipper;
 use Imagick;
 use JWTAuth;
 use Validator;
 use HTTP_Request2;
+
+use App\VNegociosFiltros;
+use App\Cedula;
 
 class CalentadoresController extends Controller
 {
@@ -1291,11 +1294,7 @@ class CalentadoresController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos3 = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1351,11 +1350,7 @@ class CalentadoresController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1430,11 +1425,7 @@ class CalentadoresController extends Controller
             }, $archivos2->toArray());
 
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -2070,14 +2061,20 @@ class CalentadoresController extends Controller
                     'tiff',
                 ])
             ) {
+                //Ruta temporal para reducción de tamaño
                 $file->move('subidos/tmp', $uniqueName);
                 $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
                 $img->readImage($img_tmp_path);
                 $img->adaptiveResizeImage($width, $height);
-                $img->writeImage(sprintf('subidos/%s', $uniqueName));
+                
+                //Guardar en el nuevo storage
+                $url_storage = Storage::disk('subidos')->path($uniqueName);
+                $img->writeImage($url_storage);
+
+                //Eliminar el archivo original después de guardar el archivo reducido
                 File::delete($img_tmp_path);
             } else {
-                $file->move('subidos', $uniqueName);
+                Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
             }
 
             DB::table('calentadores_cedula_archivos')->insert($fileObject);
@@ -3398,7 +3395,7 @@ class CalentadoresController extends Controller
             } elseif ($file->idClasificacion == 5) {
                 $file->Clasificacion = 'Acuse';
             }
-            //$fileConverted = fopen('subidos/' . $file->NombreSistema, 'r');
+            
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
                 'nombre' => $file->Clasificacion,
@@ -3435,16 +3432,11 @@ class CalentadoresController extends Controller
                 $mimeType = 'image/png';
             }
 
-            //$fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
             $formatedFile = [
-                'llave' => $formato . '_' . $file->Clasificacion,
-                'ruta' =>
-                    '/var/www/html/plataforma/apivales/public/subidos/' .
-                    //'/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
-                    $file->NombreSistema,
-                //'content' => $fileContent,
-                'nombre' => $file->Clasificacion,
-                'header' => $mimeType,
+                'llave'     => $formato . '_' . $file->Clasificacion,
+                'ruta'      => Storage::disk('subidos')->path($file->NombreSistema), // '/var/www/html/plataforma/apivales/public/subidos/' .$file->NombreSistema,
+                'nombre'    => $file->Clasificacion,
+                'header'    => $mimeType,
             ];
             array_push($files, $formatedFile);
         }
@@ -3455,24 +3447,25 @@ class CalentadoresController extends Controller
     {
         $formatedFile = [];
         try {
-            $files = [];
-            $fileName = $idCedula . '-' . $idSolicitud . '.zip';
+
+            $files      = [];
+            $fileName   = $idCedula . '-' . $idSolicitud . '.zip';
+
             foreach ($archivos as $file) {
                 $files[] = $file['ruta'];
             }
-            Zipper::make(public_path('subidos/' . $fileName))
-                ->add($files)
-                ->close();
+
+            $path = Storage::disk('subidos')->path($fileName); // '/var/www/html/plataforma/apivales/public/subidos/' .$fileName,
+            // Zipper::make(public_path('subidos/' . $fileName))
+            Zipper::make($path)->add($files)->close();
 
             $formatedFile = [
-                'llave' => 'estandar_Evidencia Fotográfica',
-                'ruta' =>
-                    '/var/www/html/plataforma/apivales/public/subidos/' .
-                    //'/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
-                    $fileName,
-                'nombre' => 'Evidencia Fotográfica',
-                'header' => '<Content-Type Header>',
+                'llave'     => 'estandar_Evidencia Fotográfica',
+                'ruta'      => $path,
+                'nombre'    => 'Evidencia Fotográfica',
+                'header'    => '<Content-Type Header>',
             ];
+
             return $formatedFile;
         } catch (Exception $e) {
             return $formatedFile;
@@ -3498,13 +3491,13 @@ class CalentadoresController extends Controller
             return response()->json($response, 200);
         }
 
-        $params = $request->all();
-        $id = $params['id'];
-        $files = $params['NewFiles'];
-        $arrayClasifiacion = $params['ArrayClasificacion'];
-        $fullPath = public_path('/subidos/');
-        $extension = $params['ArrayExtension'];
-        $names = $params['NamesFiles'];
+        $params             = $request->all();
+        $id                 = $params['id'];
+        $files              = $params['NewFiles'];
+        $arrayClasifiacion  = $params['ArrayClasificacion'];
+        $extension          = $params['ArrayExtension'];
+        $names              = $params['NamesFiles'];
+
         try {
             $solicitud = DB::table('calentadores_cedulas')
                 ->select('idUsuarioCreo', 'id')
@@ -3519,12 +3512,14 @@ class CalentadoresController extends Controller
                 return response()->json($response, 200);
             }
             foreach ($files as $key => $file) {
-                $imageContent = $this->imageBase64Content($file);
-                $uniqueName = uniqid() . $extension[$key];
-                $clasification = $arrayClasifiacion[$key];
-                $originalName = $names[$key];
 
-                File::put($fullPath . $uniqueName, $imageContent);
+                $imageContent   = $this->imageBase64Content($file);
+                $uniqueName     = uniqid() . $extension[$key];
+                $clasification  = $arrayClasifiacion[$key];
+                $originalName   = $names[$key];
+
+                Storage::disk('subidos')->put($uniqueName, $imageContent, 'public');
+
                 $fileObject = [
                     'idCedula' => intval($solicitud->id),
                     'idClasificacion' => intval($clasification),

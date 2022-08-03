@@ -12,18 +12,20 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use Illuminate\Contracts\Validation\ValidationException;
 
-use App\Cedula;
-use GuzzleHttp\Client;
-use App\VNegociosFiltros;
-use Carbon\Carbon as time;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Arr;
 
-use DB;
-use Arr;
-use File;
+use GuzzleHttp\Client;
+use Carbon\Carbon as time;
 use Zipper;
 use JWTAuth;
 use Validator;
 use HTTP_Request2;
+
+use App\Cedula;
+use App\VNegociosFiltros;
 
 class DiagnosticoController extends Controller
 {
@@ -846,11 +848,7 @@ class DiagnosticoController extends Controller
             }, $archivos2->toArray());
 
             $archivos3 = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -906,9 +904,7 @@ class DiagnosticoController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -986,9 +982,7 @@ class DiagnosticoController extends Controller
             }, $archivos2->toArray());
 
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1581,7 +1575,9 @@ class DiagnosticoController extends Controller
                 'idUsuarioCreo' => $userId,
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
-            $file->move('subidos', $uniqueName);
+
+            Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
+
             DB::table('diagnostico_cedula_archivos')->insert($fileObject);
         }
     }
@@ -1635,18 +1631,19 @@ class DiagnosticoController extends Controller
             return response()->json($response, 200);
         }
 
-        $params = $request->all();
-        $id = $params['id'];
-        $files = $params['NewFiles'];
-        $arrayClasifiacion = $params['ArrayClasificacion'];
-        $fullPath = public_path('/subidos/');
-        $extension = $params['ArrayExtension'];
-        $names = $params['NamesFiles'];
+        $params             = $request->all();
+        $id                 = $params['id'];
+        $files              = $params['NewFiles'];
+        $arrayClasifiacion  = $params['ArrayClasificacion'];
+        $extension          = $params['ArrayExtension'];
+        $names              = $params['NamesFiles'];
+
         try {
             $solicitud = DB::table('diagnostico_cedula')
                 ->select('idUsuarioCreo', 'id')
                 ->where('id', $id)
                 ->first();
+
             if ($solicitud == null) {
                 $response = [
                     'success' => true,
@@ -1655,13 +1652,16 @@ class DiagnosticoController extends Controller
                 ];
                 return response()->json($response, 200);
             }
-            foreach ($files as $key => $file) {
-                $imageContent = $this->imageBase64Content($file);
-                $uniqueName = uniqid() . $extension[$key];
-                $clasification = $arrayClasifiacion[$key];
-                $originalName = $names[$key];
 
-                File::put($fullPath . $uniqueName, $imageContent);
+            foreach ($files as $key => $file) {
+
+                $imageContent   = $this->imageBase64Content($file);
+                $uniqueName     = uniqid() . $extension[$key];
+                $clasification  = $arrayClasifiacion[$key];
+                $originalName   = $names[$key];
+
+                Storage::disk('subidos')->put($uniqueName, $imageContent, 'public');
+
                 $fileObject = [
                     'idCedula' => intval($solicitud->id),
                     'idClasificacion' => intval($clasification),
