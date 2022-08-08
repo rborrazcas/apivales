@@ -355,6 +355,11 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getArticuladoresVentanilla'
     );
 
+    Route::post(
+        '/getArticuladoresYoPuedo',
+        'YoPuedoController@getArticuladoresVentanilla'
+    );
+
     Route::post('/getUsersRecepcionoV2', 'UserController@getUsersRecepcionoV2');
 
     Route::post('/getEstatusGlobal', 'ValesStatusController@getEstatusGlobal');
@@ -486,6 +491,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/updateSolicitudCedula', 'CedulasController@updateSolicitud');
     Route::post('/deleteSolicitudCedula', 'CedulasController@deleteSolicitud');
     Route::get('/getCatalogsCedula', 'CedulasController@getCatalogsCedula');
+    Route::get(
+        '/getCatalogsCedulaYoPuedo',
+        'YoPuedoController@getCatalogsCedula'
+    );
 
     Route::post(
         '/createSolicitudCalentador',
