@@ -63,7 +63,7 @@ Route::post(
 Route::get('/hashPassword', 'ZisController@hashPassword');
 
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
-
+Route::post('/convertirImagenes', 'CedulasController@convertImage');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/register', 'AuthController@register');
@@ -563,6 +563,11 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::get(
             '/getLocalidadesByMunicipio/{id}',
             'CedulasController@getLocalidadesByMunicipio'
+        );
+
+        Route::get(
+            '/getTipoAsentamiento/{id}',
+            'CedulasController@getTipoAsentamientoLocalidad'
         );
         Route::get(
             '/getAgebsManzanasByLocalidad/{id}',

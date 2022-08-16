@@ -303,6 +303,43 @@ class CedulasController extends Controller
         }
     }
 
+    function getTipoAsentamientoLocalidad(Request $request, $id)
+    {
+        try {
+            $params = $request->all();
+            $localidades = DB::table('et_cat_localidad')
+                ->select('Ambito')
+                ->where('id', $id)
+                ->get()
+                ->first();
+
+            $data = '';
+            if ($localidades != null) {
+                if ($localidades->Ambito == 'R') {
+                    $data = 'RURAL';
+                } else {
+                    $data = 'URBANO';
+                }
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $data,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
     function getAgebsManzanasByLocalidad(Request $request, $id)
     {
         try {
@@ -765,6 +802,8 @@ class CedulasController extends Controller
                     'RegionM' => $data->RegionM,
                     'CreadoPor' => $data->CreadoPor,
                     'ActualizadoPor' => $data->ActualizadoPor,
+                    'FechaINE' => $data->FechaINE,
+                    'TipoAsentamiento' => $data->TipoAsentamiento,
                 ];
 
                 array_push($array_res, $temp);
@@ -1001,6 +1040,59 @@ class CedulasController extends Controller
                         ];
                         return response()->json($response, 200);
                     }
+                }
+            }
+
+            if ($user->id != '1312') {
+                $tipoAsentamiento = DB::table('et_cat_localidad')
+                    ->select('Ambito')
+                    ->where('Nombre', $params['LocalidadVive'])
+                    ->get()
+                    ->first();
+
+                if ($tipoAsentamiento != null) {
+                    $montoMaximo = 0;
+                    if ($tipoAsentamiento->Ambito === 'R') {
+                        $montoMaximo = 2870;
+                    } else {
+                        $montoMaximo = 4042;
+                    }
+
+                    if ($params['IngresoPercapita'] > $montoMaximo) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'errors' =>
+                                'El Ingreso pércapita excede el límite permitido',
+                        ];
+                        return response()->json($response, 200);
+                    }
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'Ocurrio un error al actualizar la informacion de la solicitud',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
+
+            if (isset($params['FechaINE'])) {
+                $fechaINE = intval($params['FechaINE']);
+                $year_start = idate(
+                    'Y',
+                    strtotime('first day of January', time())
+                );
+
+                if ($year_start > $fechaINE) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'La vigencia de la Identificación Oficial no cumple con los requisitos',
+                    ];
+                    return response()->json($response, 200);
                 }
             }
 
@@ -1293,6 +1385,59 @@ class CedulasController extends Controller
             if (isset($params['ListaParaEnviar'])) {
                 if ($params['ListaParaEnviar'] == 1) {
                     $params['idEstatus'] = 9;
+                }
+            }
+
+            if (isset($params['FechaINE'])) {
+                $fechaINE = intval($params['FechaINE']);
+                $year_start = idate(
+                    'Y',
+                    strtotime('first day of January', time())
+                );
+
+                if ($year_start > $fechaINE) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'La vigencia de la Identificación Oficial no cumple con los requisitos',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
+
+            if ($user->id != '1312') {
+                $tipoAsentamiento = DB::table('et_cat_localidad')
+                    ->select('Ambito')
+                    ->where('Nombre', $params['LocalidadVive'])
+                    ->get()
+                    ->first();
+
+                if ($tipoAsentamiento != null) {
+                    $montoMaximo = 0;
+                    if ($tipoAsentamiento->Ambito === 'R') {
+                        $montoMaximo = 2870;
+                    } else {
+                        $montoMaximo = 4042;
+                    }
+
+                    if ($params['IngresoPercapita'] > $montoMaximo) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'errors' =>
+                                'El Ingreso pércapita excede el límite permitido',
+                        ];
+                        return response()->json($response, 200);
+                    }
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'Ocurrio un error al actualizar la informacion de la solicitud',
+                    ];
+                    return response()->json($response, 200);
                 }
             }
 
@@ -2464,7 +2609,10 @@ class CedulasController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos = array_map(function ($o) {
-                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema); // 'https://apivales.apisedeshu.com/subidos/' .$o->NombreSistema;
+                // $o->ruta =
+                //     'https://apivales.apisedeshu.com/subidos/' .
+                //     $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -3431,14 +3579,6 @@ class CedulasController extends Controller
 
         $cUsuario = $this->getCampoUsuario($solicitud);
 
-        // $cUsuario = json_encode(
-        //     [
-        //         'nombre' => $solicitud->Enlace,
-        //         'observaciones' => '',
-        //     ],
-        //     JSON_UNESCAPED_UNICODE
-        // );
-
         if ($solicitud->idUsuarioCreo == 1312) {
             $authUsuario = $this->getAuthUsuario(
                 $solicitud->UsuarioAplicativo,
@@ -3447,32 +3587,6 @@ class CedulasController extends Controller
         } else {
             $authUsuario = $this->getAuthUsuario($solicitud->idUsuarioCreo, 2);
         }
-        // dd($authUsuario);
-        // $authUsuario = json_encode(
-        //     [
-        //         'uid' => '626c06d49c1fce80afa1faa6',
-        //         'name' => 'ALEJANDRA CAUDILLO OLMOS (RESPONSABLE Q)', //Cambiar a sedeshu
-        //         'email' => 'acaudilloo@guanajuato.gob.mx',
-        //         'role' => [
-        //             'key' => 'RESPONSABLE_Q_ROL',
-        //             'name' => 'Rol Responsable Programa VIM',
-        //         ],
-        //         'dependency' => [
-        //             'name' => 'Secretaría de Desarrollo Social y Humano',
-        //             'acronym' => 'SDSH',
-        //             'office' => [
-        //                 'address' =>
-        //                     'Bugambilias esquina con calle Irapuato Las Margaritas 37234 León, Guanajuato',
-        //                 'name' => 'Dirección de Articulación Regional IV',
-        //                 'georef' => [
-        //                     'type' => 'Point',
-        //                     'coordinates' => [21.1378241, -101.6541802],
-        //                 ],
-        //             ],
-        //         ],
-        //     ],
-        //     JSON_UNESCAPED_UNICODE
-        // );
 
         $dataCompleted = [
             'solicitud' => $solicitudJson['solicitud'],
@@ -3508,6 +3622,7 @@ class CedulasController extends Controller
                 $file['header']
             );
         }
+        dd($request2);
         try {
             $response = $request2->send();
             $resp = json_decode($response->getBody());
@@ -3609,6 +3724,11 @@ class CedulasController extends Controller
             ];
         }
         $curp = $responseBody->Resultado;
+        $cveLocalidad = DB::table('et_cat_localidad')
+            ->select('CveInegi')
+            ->where('Nombre', $solicitud->LocalidadVive)
+            ->get()
+            ->first();
 
         $json = [
             'solicitud' => json_encode(
@@ -3695,6 +3815,7 @@ class CedulasController extends Controller
                             ],
                         ],
                     ],
+
                     'datosContacto' => [
                         'telefonos' => $this->getTelefonos($solicitud),
                         'correos' => is_null($this->getCorreos($solicitud))
@@ -3702,7 +3823,7 @@ class CedulasController extends Controller
                             : $this->getCorreos($solicitud),
                         'cp' => $solicitud->CPVive,
                         'asentamiento' => [
-                            'tipo' => 'colonia',
+                            'tipo' => 'Colonia',
                             'nombre' => $solicitud->ColoniaVive,
                         ],
                         'numeroExt' =>
@@ -3711,7 +3832,13 @@ class CedulasController extends Controller
                                 : 'S/N',
                         'numeroInt' => $solicitud->NoIntVive,
                         'entidadFederativa' => $solicitud->EntidadVive,
-                        'localidad' => $solicitud->LocalidadVive,
+                        //'localidad' => $solicitud->LocalidadVive,
+                        'localidad' => [
+                            'nombre' => $solicitud->LocalidadVive
+                                ? $solicitud->LocalidadVive
+                                : '',
+                            'codigo' => $cveLocalidad->CveInegi,
+                        ],
                         'municipio' => $solicitud->MunicipioVive,
                         'calle' => $solicitud->CalleVive,
                         'referencias' => is_null($solicitud->Referencias)
@@ -4138,7 +4265,8 @@ class CedulasController extends Controller
         }
         foreach ($archivos as $file) {
             $formatedFile = [
-                'llave' => $formato . '_' . str_replace('.', '', $file->Clasificacion),
+                'llave' =>
+                    $formato . '_' . str_replace('.', '', $file->Clasificacion),
                 'nombre' => $file->Clasificacion,
                 'uid' => '',
                 'vigencia' => '',
@@ -4168,8 +4296,12 @@ class CedulasController extends Controller
             }
 
             $formatedFile = [
-                'llave' => $formato . '_' . str_replace('.', '', $file->Clasificacion),
-                'ruta' => Storage::disk('subidos')->path($file->NombreSistema), // '/var/www/html/plataforma/apivales/public/subidos/' .$file->NombreSistema,
+                'llave' =>
+                    $formato . '_' . str_replace('.', '', $file->Clasificacion),
+                'ruta' =>
+                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                    $file->NombreSistema,
+                //Storage::disk('subidos')->path($file->NombreSistema), // '/var/www/html/plataforma/apivales/public/subidos/' .$file->NombreSistema,
                 'nombre' => str_replace('.', '', $file->Clasificacion),
                 'header' => $mimeType,
             ];
@@ -4329,7 +4461,11 @@ class CedulasController extends Controller
             ];
             // $file->move('subidos', $uniqueName);
 
-            Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
+            Storage::disk('subidos')->put(
+                $uniqueName,
+                File::get($file->getRealPath()),
+                'public'
+            );
 
             if ($program > 1) {
                 $tableArchivos = 'calentadores_cedulas_archivos';
@@ -4427,10 +4563,13 @@ class CedulasController extends Controller
                 // $img->writeImage(sprintf('subidos/%s', $uniqueName));
                 $img->writeImage($url_storage);
                 File::delete($img_tmp_path);
-
             } else {
                 // $file->move('subidos', $uniqueName);
-                Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    File::get($file->getRealPath()),
+                    'public'
+                );
             }
             $tableArchivos = 'solicitud_archivos';
             DB::table($tableArchivos)->insert($fileObject);
@@ -4521,7 +4660,11 @@ class CedulasController extends Controller
                 $originalName = $names[$key];
 
                 // File::put($fullPath . $uniqueName, $imageContent);
-                Storage::disk('subidos')->put($uniqueName, $imageContent, 'public');
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    $imageContent,
+                    'public'
+                );
 
                 $fileObject = [
                     'idSolicitud' => intval($id),
@@ -4569,8 +4712,6 @@ class CedulasController extends Controller
 
     public function imageBase64Content($image)
     {
-        $image = str_replace('data:image/png;base64,', '', $image);
-        $image = str_replace(' ', '+', $image);
         return base64_decode($image);
     }
 
@@ -5430,39 +5571,6 @@ class CedulasController extends Controller
         $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
 
         $largo = count($res);
-        //colocar los bordes
-        // self::crearBordes($largo, 'B', $sheet);
-        // self::crearBordes($largo, 'C', $sheet);
-        // self::crearBordes($largo, 'D', $sheet);
-        // self::crearBordes($largo, 'E', $sheet);
-        // self::crearBordes($largo, 'F', $sheet);
-        // self::crearBordes($largo, 'G', $sheet);
-        // self::crearBordes($largo, 'H', $sheet);
-        // self::crearBordes($largo, 'I', $sheet);
-        // self::crearBordes($largo, 'J', $sheet);
-        // self::crearBordes($largo, 'K', $sheet);
-        // self::crearBordes($largo, 'L', $sheet);
-        // self::crearBordes($largo, 'M', $sheet);
-        // self::crearBordes($largo, 'N', $sheet);
-        // self::crearBordes($largo, 'O', $sheet);
-        // self::crearBordes($largo, 'P', $sheet);
-        // self::crearBordes($largo, 'Q', $sheet);
-        // self::crearBordes($largo, 'R', $sheet);
-        // self::crearBordes($largo, 'S', $sheet);
-        // self::crearBordes($largo, 'T', $sheet);
-        // self::crearBordes($largo, 'U', $sheet);
-        // self::crearBordes($largo, 'V', $sheet);
-        // self::crearBordes($largo, 'W', $sheet);
-        // self::crearBordes($largo, 'X', $sheet);
-        // self::crearBordes($largo, 'Y', $sheet);
-        // self::crearBordes($largo, 'Z', $sheet);
-        // self::crearBordes($largo, 'AA', $sheet);
-        // self::crearBordes($largo, 'AB', $sheet);
-        // self::crearBordes($largo, 'AC', $sheet);
-        // self::crearBordes($largo, 'AD', $sheet);
-        // self::crearBordes($largo, 'AE', $sheet);
-        // self::crearBordes($largo, 'AF', $sheet);
-        // self::crearBordes($largo, 'AG', $sheet);
 
         //Llenar excel con el resultado del query
         $sheet->fromArray($res, null, 'C11');
@@ -5587,7 +5695,7 @@ class CedulasController extends Controller
         );
     }
 
-    function getArticuladoresVentanilla(Request $request)
+    public function getArticuladoresVentanilla(Request $request)
     {
         $parameters = $request->all();
         $user = auth()->user();
@@ -5648,6 +5756,144 @@ class CedulasController extends Controller
             ];
 
             return response()->json($response, 200);
+        }
+    }
+
+    public function convertImage(Request $request)
+    {
+        $solicitudesCollect = DB::table('solicitud_ines')
+            ->select('id')
+            ->whereNULL('Procesada')
+            ->get()
+            ->chunk(500);
+
+        $flag = false;
+
+        foreach ($solicitudesCollect as $solicitudes) {
+            foreach ($solicitudes as $s) {
+                $flag = $this->convert($s->id);
+                if ($flag) {
+                    DB::table('solicitud_ines')
+                        ->where('id', $s->id)
+                        ->update(['Procesada' => 1]);
+                }
+            }
+        }
+
+        $response = [
+            'success' => true,
+            'results' => true,
+            'message' => 'Archivos Procesados',
+        ];
+
+        return response()->json($response, 200);
+    }
+
+    public function convert($id)
+    {
+        try {
+            $files = DB::table('solicitud_archivos')
+                ->where('idSolicitud', $id)
+                ->whereIN('idClasificacion', ['3', '9'])
+                ->whereIN('Extension', ['jpg', 'jpeg', 'png'])
+                ->whereNull('FechaElimino')
+                ->get();
+
+            if ($files != null) {
+                $img = new Imagick();
+                $width = 1500;
+                $height = 1500;
+                $arrayFiles = [];
+                foreach ($files as $file) {
+                    $img_tmp_path = Storage::disk('subidos')->path(
+                        $file->NombreSistema
+                    );
+                    $img->readImage($img_tmp_path);
+                    $img->adaptiveResizeImage($width, $height);
+                    $newFileName = $file->NombreSistema . '_adaptative';
+                    $url_storage = Storage::disk('subidos')->path($newFileName);
+                    $img->writeImage($url_storage);
+                    $img2 = file_get_contents($url_storage);
+                    $data = base64_encode($img2);
+                    $arrayFiles[] = $data;
+                    File::delete($url_storage);
+                }
+
+                if (count($arrayFiles) > 0) {
+                    try {
+                        $request = new HTTP_Request2();
+                        $request->setUrl(
+                            'http://seguimiento.guanajuato.gob.mx/Validacion/api/Images64ToPDF'
+                        );
+                        $request->setMethod(HTTP_Request2::METHOD_POST);
+                        $request->setConfig([
+                            'follow_redirects' => true,
+                        ]);
+                        $request->setHeader([
+                            'Content-Type' => 'application/json',
+                        ]);
+
+                        $request->setBody(
+                            json_encode(
+                                [
+                                    'lstPDF' => $arrayFiles,
+                                ],
+                                JSON_UNESCAPED_UNICODE
+                            )
+                        );
+                        try {
+                            $response = $request->send();
+
+                            if ($response->getStatus() == 200) {
+                                $f = $response->getBody();
+                                //$imageContent = $this->imageBase64Content($f);
+                                $uniqueName = uniqid() . '.pdf';
+                                $clasification = '3';
+                                $originalName = 'INE';
+
+                                Storage::disk('subidos')->put(
+                                    $uniqueName,
+                                    $f,
+                                    'public'
+                                );
+
+                                DB::table('solicitud_archivos')
+                                    ->where('idSolicitud', $id)
+                                    ->whereIn('idClasificacion', [3, 9])
+                                    ->update(['idClasificacion' => 8]);
+
+                                $fileObject = [
+                                    'idSolicitud' => intval($id),
+                                    'idClasificacion' => intval($clasification),
+                                    'NombreOriginal' => $originalName,
+                                    'NombreSistema' => $uniqueName,
+                                    'Extension' => 'pdf',
+                                    'Tipo' => 'pdf',
+                                    'Tamanio' => '',
+                                    'idUsuarioCreo' => '1312',
+                                    'FechaCreo' => date('Y-m-d H:i:s'),
+                                ];
+                                $tableArchivos = 'solicitud_archivos';
+                                DB::table($tableArchivos)->insert($fileObject);
+
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        } catch (HTTP_Request2_Exception $e) {
+                            return false;
+                            //dd('Error: ' . $e->getMessage());
+                        }
+
+                        return false;
+                    } catch (Exception $e) {
+                        return false;
+                    }
+                }
+                return false;
+            }
+        } catch (Exception $e) {
+            return false;
         }
     }
 }
