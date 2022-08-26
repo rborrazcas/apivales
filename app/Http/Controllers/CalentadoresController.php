@@ -568,7 +568,7 @@ class CalentadoresController extends Controller
                     $response = [
                         'success' => true,
                         'results' => false,
-                        'errors' =>
+                        'message' =>
                             'El Folio ' .
                             $params['Folio'] .
                             ' ya esta registrado para la persona ' .

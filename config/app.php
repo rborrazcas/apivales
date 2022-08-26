@@ -161,6 +161,7 @@ return [
         Illuminate\View\ViewServiceProvider::class,
         Chumper\Zipper\ZipperServiceProvider::class,
         Milon\Barcode\BarcodeServiceProvider::class,
+        Barryvdh\DomPDF\ServiceProvider::class,
 
         /*
          * Package Service Providers...
@@ -227,5 +228,6 @@ return [
         'Zipper' => Chumper\Zipper\Zipper::class,
         'DNS1D' => Milon\Barcode\Facades\DNS1DFacade::class,
         'DNS2D' => Milon\Barcode\Facades\DNS2DFacade::class,
+        'PDF' => Barryvdh\DomPDF\Facade::class,
     ],
 ];

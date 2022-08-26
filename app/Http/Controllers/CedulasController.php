@@ -16,16 +16,15 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
-
-use Carbon\Carbon as time;
-use GuzzleHttp\Client;
+use PDF;
 use JWTAuth;
-use Validator;
-use HTTP_Request2;
 use Imagick;
-
+use Validator;
 use App\Cedula;
+use HTTP_Request2;
+use GuzzleHttp\Client;
 use App\VNegociosFiltros;
+use Carbon\Carbon as time;
 
 class CedulasController extends Controller
 {
@@ -956,19 +955,23 @@ class CedulasController extends Controller
                 ? $params['NewClasificacion']
                 : [];
             $files = isset($params['NewFiles']) ? $params['NewFiles'] : [];
+
             $params['idEstatus'] = 1;
+
             $params['Correo'] =
                 isset($params['Correo']) && $params['Correo'] != ''
                     ? ($params['Correo'] == 'correo@electronico'
                         ? ''
                         : $params['Correo'])
                     : '';
+
             $params['TelRecados'] =
                 isset($params['TelRecados']) && $params['TelRecados'] != ''
                     ? ($params['TelRecados'] == '0'
                         ? ''
                         : $params['TelRecados'])
                     : '';
+
             if ($program != 3) {
                 $params['NecesidadSolicitante'] = $necesidad;
                 $params['CostoNecesidad'] = $costo;
@@ -1044,9 +1047,18 @@ class CedulasController extends Controller
             }
 
             if ($user->id != '1312') {
+                $idMunicipio = DB::table('et_cat_municipio')
+                    ->select('id')
+                    ->where('Nombre', $params['MunicipioVive'])
+                    ->get()
+                    ->first();
+
                 $tipoAsentamiento = DB::table('et_cat_localidad')
                     ->select('Ambito')
-                    ->where('Nombre', $params['LocalidadVive'])
+                    ->where([
+                        'Nombre' => $params['LocalidadVive'],
+                        'IdMunicipio' => $idMunicipio->id,
+                    ])
                     ->get()
                     ->first();
 
@@ -1072,7 +1084,7 @@ class CedulasController extends Controller
                         'success' => true,
                         'results' => false,
                         'errors' =>
-                            'Ocurrio un error al actualizar la informacion de la solicitud',
+                            'No se puede obtener el tipo de asentamiento de la localidad',
                     ];
                     return response()->json($response, 200);
                 }
@@ -1113,7 +1125,8 @@ class CedulasController extends Controller
                             )
                             ->first();
                         if (
-                            $folioRegistradoCalentadores->ListaParaEnviar == 1
+                            //$folioRegistradoCalentadores->ListaParaEnviar == 1
+                            $folioRegistradoCalentadores != null
                         ) {
                             $response = [
                                 'success' => true,
@@ -1162,7 +1175,7 @@ class CedulasController extends Controller
                         $folioRegistradoVales = DB::table($tableSol)
                             ->where(['Folio' => $params['Folio']])
                             ->whereRaw('FechaElimino IS NULL')
-                            ->whereRaw('ListaParaEnviar = "1"')
+                            //->whereRaw('ListaParaEnviar = "1"')
                             ->first();
 
                         if ($folioRegistradoVales != null) {
@@ -1407,9 +1420,18 @@ class CedulasController extends Controller
             }
 
             if ($user->id != '1312') {
+                $idMunicipio = DB::table('et_cat_municipio')
+                    ->select('id')
+                    ->where('Nombre', $params['MunicipioVive'])
+                    ->get()
+                    ->first();
+
                 $tipoAsentamiento = DB::table('et_cat_localidad')
                     ->select('Ambito')
-                    ->where('Nombre', $params['LocalidadVive'])
+                    ->where([
+                        'Nombre' => $params['LocalidadVive'],
+                        'IdMunicipio' => $idMunicipio->id,
+                    ])
                     ->get()
                     ->first();
 
@@ -3596,12 +3618,23 @@ class CedulasController extends Controller
             'campoUsuario' => $cUsuario,
         ];
 
+        $url = '';
+
+        if ($solicitud->idVersion == 2) {
+            $url =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register/v2';
+        } else {
+            $url =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register';
+        }
+
         $request2 = new HTTP_Request2();
         $request2->setUrl(
-            //QA
-            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
-            //Productivo
-            'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            // //QA
+            // //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            // //Productivo
+            // 'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
+            $url
         );
         $request2->setMethod(HTTP_Request2::METHOD_POST);
         $request2->setConfig([
@@ -3622,7 +3655,7 @@ class CedulasController extends Controller
                 $file['header']
             );
         }
-        dd($request2);
+        //dd($request2);
         try {
             $response = $request2->send();
             $resp = json_decode($response->getBody());
@@ -3630,23 +3663,23 @@ class CedulasController extends Controller
             if ($response->getStatus() == 200) {
                 if ($resp->success) {
                     try {
-                        $infoVale = $this->setVales($id);
-                        $idVale = DB::table('vales')->insertGetId($infoVale);
+                        // $infoVale = $this->setVales($id);
+                        // $idVale = DB::table('vales')->insertGetId($infoVale);
 
-                        $vale = DB::table('vales')
-                            ->select(
-                                'vales.*',
-                                DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica')
-                            )
-                            ->where('vales.id', '=', $idVale)
-                            ->first();
+                        // $vale = DB::table('vales')
+                        //     ->select(
+                        //         'vales.*',
+                        //         DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica')
+                        //     )
+                        //     ->where('vales.id', '=', $idVale)
+                        //     ->first();
 
                         DB::table('cedulas_solicitudes')
                             ->where('id', $id)
                             ->update([
                                 'idEstatus' => '8',
                                 'ListaParaEnviar' => '2',
-                                'idVale' => $idVale,
+                                //'idVale' => $idVale,
                                 'UsuarioEnvio' => $user->id,
                                 'FechaEnvio' => date('Y-m-d H:i:s'),
                             ]);
@@ -3654,7 +3687,8 @@ class CedulasController extends Controller
                         return [
                             'success' => true,
                             'results' => true,
-                            'message' => $vale->ClaveUnica,
+                            //'message' => $vale->ClaveUnica,
+                            'message' => 'Enviada',
                         ];
                         return response()->json($response2, 200);
                     } catch (Exception $e) {
@@ -3724,135 +3758,318 @@ class CedulasController extends Controller
             ];
         }
         $curp = $responseBody->Resultado;
+
+        $idMunicipio = DB::table('et_cat_municipio')
+            ->select('id')
+            ->where('Nombre', $solicitud->MunicipioVive)
+            ->get()
+            ->first();
+
         $cveLocalidad = DB::table('et_cat_localidad')
-            ->select('CveInegi')
+            ->select('CveInegi', 'Nombre')
+            ->where('idMunicipio', $idMunicipio->id)
             ->where('Nombre', $solicitud->LocalidadVive)
             ->get()
             ->first();
 
-        $json = [
-            'solicitud' => json_encode(
-                [
-                    'tipoSolicitud' => 'Ciudadana',
-                    'origen' => 'F',
-                    'tutor' => [
-                        'respuesta' => false,
-                    ],
+        if ($solicitud->idVersion == 1) {
+            $json = [
+                'solicitud' => json_encode(
+                    [
+                        'tipoSolicitud' => 'Ciudadana',
+                        'origen' => 'F',
+                        'tutor' => [
+                            'respuesta' => false,
+                        ],
 
-                    'datosCurp' => [
-                        'folio' => $solicitud->Folio,
-                        'curp' => $solicitud->CURP,
-                        'entidadNacimiento' => $solicitud->EntidadNacimiento,
-                        'fechaNacimientoDate' => date(
-                            $solicitud->FechaNacimiento
-                        ),
-                        'fechaNacimientoTexto' => $solicitud->FechaNacimiento,
-                        'genero' =>
-                            strtoupper($solicitud->Sexo) == 'H'
-                                ? 'MASCULINO'
-                                : 'FEMENINO',
-                        'nacionalidad' => $curp->nacionalidad,
-                        'nombre' => $solicitud->Nombre,
-                        'primerApellido' =>
-                            $solicitud->Paterno != 'XX'
-                                ? $solicitud->Paterno
-                                : 'X',
-                        'segundoApellido' =>
-                            $solicitud->Materno != 'XX'
-                                ? $solicitud->Materno
-                                : 'X',
-                        'anioRegistro' => $curp->anioReg,
-                        'descripcion' => $solicitud->NecesidadSolicitante,
-                        'costoAproximado' => $solicitud->CostoNecesidad,
-                    ],
-                    'datosComplementarios' => [
-                        'estadoCivil' => $solicitud->EstadoCivil,
-                        'parentescoJefeHogar' => [
-                            'codigo' =>
-                                $solicitud->idParentescoJefeHogar < 3
-                                    ? $solicitud->idParentescoJefeHogar
-                                    : $solicitud->idParentescoJefeHogar - 1,
-                            'descripcion' => $solicitud->ParentescoJefeHogar,
+                        'datosCurp' => [
+                            'folio' => $solicitud->Folio,
+                            'curp' => $solicitud->CURP,
+                            'entidadNacimiento' =>
+                                $solicitud->EntidadNacimiento,
+                            'fechaNacimientoDate' => date(
+                                $solicitud->FechaNacimiento
+                            ),
+                            'fechaNacimientoTexto' =>
+                                $solicitud->FechaNacimiento,
+                            'genero' =>
+                                strtoupper($solicitud->Sexo) == 'H'
+                                    ? 'MASCULINO'
+                                    : 'FEMENINO',
+                            'nacionalidad' => $curp->nacionalidad,
+                            'nombre' => $solicitud->Nombre,
+                            'primerApellido' =>
+                                $solicitud->Paterno != 'XX'
+                                    ? $solicitud->Paterno
+                                    : 'X',
+                            'segundoApellido' =>
+                                $solicitud->Materno != 'XX'
+                                    ? $solicitud->Materno
+                                    : 'X',
+                            'anioRegistro' => $curp->anioReg,
+                            'descripcion' => $solicitud->NecesidadSolicitante,
+                            'costoAproximado' => $solicitud->CostoNecesidad,
                         ],
-                        'migrante' => [
-                            'respuesta' =>
-                                $solicitud->idSituacionActual !== 5 &&
-                                $solicitud->idSituacionActual !== null,
-                            'codigo' =>
-                                $solicitud->idSituacionActual !== 5
-                                    ? $solicitud->idSituacionActual
-                                    : 0,
-                            'descripcion' =>
-                                $solicitud->idSituacionActual !== 5
-                                    ? $solicitud->SituacionActual
-                                    : 'No Aplica',
-                        ],
-                        'afroMexicano' => $solicitud->Afromexicano > 0,
-                        'comunidadIndigena' => [
-                            'respuesta' =>
-                                $solicitud->ComunidadIndigena !== null,
-                            'codigo' => 0,
-                            'descripcion' =>
-                                $solicitud->ComunidadIndigena !== null
-                                    ? $solicitud->ComunidadIndigena
-                                    : '',
-                        ],
-                        'hablaDialecto' => [
-                            'respuesta' => $solicitud->Dialecto !== null,
-                            'codigo' => 0,
-                            'descripcion' =>
-                                $solicitud->Dialecto !== null
-                                    ? $solicitud->Dialecto
-                                    : '',
-                        ],
-                        'tieneHijos' => [
-                            'respuesta' =>
-                                $solicitud->NumHijos > 0 ||
-                                $solicitud->NumHijas > 0,
-                            'descripcion' => [
-                                'hombres' => $solicitud->NumHijos,
-                                'mujeres' => $solicitud->NumHijas,
+                        'datosComplementarios' => [
+                            'estadoCivil' => $solicitud->EstadoCivil,
+                            'parentescoJefeHogar' => [
+                                'codigo' =>
+                                    $solicitud->idParentescoJefeHogar < 3
+                                        ? $solicitud->idParentescoJefeHogar
+                                        : $solicitud->idParentescoJefeHogar - 1,
+                                'descripcion' =>
+                                    $solicitud->ParentescoJefeHogar,
+                            ],
+                            'migrante' => [
+                                'respuesta' =>
+                                    $solicitud->idSituacionActual !== 5 &&
+                                    $solicitud->idSituacionActual !== null,
+                                'codigo' =>
+                                    $solicitud->idSituacionActual !== 5
+                                        ? $solicitud->idSituacionActual
+                                        : 0,
+                                'descripcion' =>
+                                    $solicitud->idSituacionActual !== 5
+                                        ? $solicitud->SituacionActual
+                                        : 'No Aplica',
+                            ],
+                            'afroMexicano' => $solicitud->Afromexicano > 0,
+                            'comunidadIndigena' => [
+                                'respuesta' =>
+                                    $solicitud->ComunidadIndigena !== null,
+                                'codigo' => 0,
+                                'descripcion' =>
+                                    $solicitud->ComunidadIndigena !== null
+                                        ? $solicitud->ComunidadIndigena
+                                        : '',
+                            ],
+                            'hablaDialecto' => [
+                                'respuesta' => $solicitud->Dialecto !== null,
+                                'codigo' => 0,
+                                'descripcion' =>
+                                    $solicitud->Dialecto !== null
+                                        ? $solicitud->Dialecto
+                                        : '',
+                            ],
+                            'tieneHijos' => [
+                                'respuesta' =>
+                                    $solicitud->NumHijos > 0 ||
+                                    $solicitud->NumHijas > 0,
+                                'descripcion' => [
+                                    'hombres' => $solicitud->NumHijos,
+                                    'mujeres' => $solicitud->NumHijas,
+                                ],
                             ],
                         ],
-                    ],
 
-                    'datosContacto' => [
-                        'telefonos' => $this->getTelefonos($solicitud),
-                        'correos' => is_null($this->getCorreos($solicitud))
-                            ? []
-                            : $this->getCorreos($solicitud),
-                        'cp' => $solicitud->CPVive,
-                        'asentamiento' => [
-                            'tipo' => 'Colonia',
-                            'nombre' => $solicitud->ColoniaVive,
+                        'datosContacto' => [
+                            'telefonos' => $this->getTelefonos($solicitud),
+                            'correos' => is_null($this->getCorreos($solicitud))
+                                ? []
+                                : $this->getCorreos($solicitud),
+                            'cp' => $solicitud->CPVive,
+                            'asentamiento' => [
+                                'tipo' => 'Colonia',
+                                'nombre' => $solicitud->ColoniaVive,
+                            ],
+                            'numeroExt' =>
+                                $solicitud->NoExtVive != null
+                                    ? $solicitud->NoExtVive
+                                    : 'S/N',
+                            'numeroInt' => $solicitud->NoIntVive,
+                            'entidadFederativa' => $solicitud->EntidadVive,
+                            //'localidad' => $solicitud->LocalidadVive,
+                            'localidad' => [
+                                'nombre' => $solicitud->LocalidadVive
+                                    ? $solicitud->LocalidadVive
+                                    : '',
+                                'codigo' => $cveLocalidad->CveInegi,
+                            ],
+                            'municipio' => $solicitud->MunicipioVive,
+                            'calle' => $solicitud->CalleVive,
+                            'referencias' => is_null($solicitud->Referencias)
+                                ? ''
+                                : $solicitud->Referencias,
+                            'solicitudImpulso' =>
+                                $solicitud->TarjetaImpulso == 1,
+                            'autorizaContacto' =>
+                                $solicitud->ContactoTarjetaImpulso == 1,
                         ],
-                        'numeroExt' =>
-                            $solicitud->NoExtVive != null
-                                ? $solicitud->NoExtVive
-                                : 'S/N',
-                        'numeroInt' => $solicitud->NoIntVive,
-                        'entidadFederativa' => $solicitud->EntidadVive,
-                        //'localidad' => $solicitud->LocalidadVive,
-                        'localidad' => [
-                            'nombre' => $solicitud->LocalidadVive
-                                ? $solicitud->LocalidadVive
+                    ],
+                    JSON_UNESCAPED_UNICODE
+                ),
+            ];
+        } else {
+            $json = [
+                'solicitud' => json_encode(
+                    [
+                        'tipoSolicitud' => 'Ciudadana',
+                        'origen' => 'F',
+                        'tutor' => [
+                            'respuesta' => false,
+                        ],
+
+                        'datosCurp' => [
+                            'folio' => $solicitud->Folio,
+                            'curp' => $solicitud->CURP,
+                            'entidadNacimiento' =>
+                                $solicitud->EntidadNacimiento,
+                            'fechaNacimientoDate' => date(
+                                $solicitud->FechaNacimiento
+                            ),
+                            'fechaNacimientoTexto' =>
+                                $solicitud->FechaNacimiento,
+                            'genero' =>
+                                strtoupper($solicitud->Sexo) == 'H'
+                                    ? 'MASCULINO'
+                                    : 'FEMENINO',
+                            'nacionalidad' => $curp->nacionalidad,
+                            'nombre' => $solicitud->Nombre,
+                            'primerApellido' =>
+                                $solicitud->Paterno != 'XX'
+                                    ? $solicitud->Paterno
+                                    : 'X',
+                            'segundoApellido' =>
+                                $solicitud->Materno != 'XX'
+                                    ? $solicitud->Materno
+                                    : 'X',
+                            'anioRegistro' => $curp->anioReg,
+                            'descripcion' => $solicitud->NecesidadSolicitante,
+                            'costoAproximado' => $solicitud->CostoNecesidad,
+                        ],
+                        'datosComplementarios' => [
+                            'estadoCivil' => $solicitud->EstadoCivil,
+                            'parentescoJefeHogar' => [
+                                'codigo' =>
+                                    $solicitud->idParentescoJefeHogar < 3
+                                        ? $solicitud->idParentescoJefeHogar
+                                        : $solicitud->idParentescoJefeHogar - 1,
+                                'descripcion' =>
+                                    $solicitud->ParentescoJefeHogar,
+                            ],
+                            'migrante' => [
+                                'respuesta' =>
+                                    $solicitud->idSituacionActual !== 5 &&
+                                    $solicitud->idSituacionActual !== null,
+                                'codigo' =>
+                                    $solicitud->idSituacionActual !== 5
+                                        ? $solicitud->idSituacionActual
+                                        : 0,
+                                'descripcion' =>
+                                    $solicitud->idSituacionActual !== 5
+                                        ? $solicitud->SituacionActual
+                                        : 'No Aplica',
+                            ],
+                            'afroMexicano' => $solicitud->Afromexicano > 0,
+                            'comunidadIndigena' => [
+                                'respuesta' =>
+                                    $solicitud->ComunidadIndigena !== null,
+                                'codigo' => 0,
+                                'descripcion' =>
+                                    $solicitud->ComunidadIndigena !== null
+                                        ? $solicitud->ComunidadIndigena
+                                        : '',
+                            ],
+                            'hablaDialecto' => [
+                                'respuesta' => $solicitud->Dialecto !== null,
+                                'codigo' => 0,
+                                'descripcion' =>
+                                    $solicitud->Dialecto !== null
+                                        ? $solicitud->Dialecto
+                                        : '',
+                            ],
+                            'tieneHijos' => [
+                                'respuesta' =>
+                                    $solicitud->NumHijos > 0 ||
+                                    $solicitud->NumHijas > 0,
+                                'descripcion' => [
+                                    'hombres' => $solicitud->NumHijos,
+                                    'mujeres' => $solicitud->NumHijas,
+                                ],
+                            ],
+                        ],
+
+                        'datosContacto' => [
+                            'telefonos' => $this->getTelefonos($solicitud),
+                            'correos' => is_null($this->getCorreos($solicitud))
+                                ? []
+                                : $this->getCorreos($solicitud),
+                            'cp' => $solicitud->CPVive,
+                            'tipoAsentamiento' => [
+                                'codigo' => $solicitud->CveTipoColonia
+                                    ? $solicitud->CveTipoColonia
+                                    : ' ',
+                                'nombre' => $solicitud->TipoColonia,
+                            ],
+                            'asentamiento' => $solicitud->ColoniaVive,
+                            'numeroExt' =>
+                                $solicitud->NoExtVive != null
+                                    ? $solicitud->NoExtVive
+                                    : 'S/N',
+                            'numeroInt' => $solicitud->NoIntVive,
+                            'entidadFederativa' => $solicitud->EntidadVive,
+                            //'localidad' => $solicitud->LocalidadVive,
+                            'localidad' => [
+                                'codigo' => strval($cveLocalidad->CveInegi),
+                                'nombre' => $cveLocalidad->Nombre
+                                    ? $cveLocalidad->Nombre
+                                    : '',
+                            ],
+                            'municipio' => [
+                                'codigo' => substr(
+                                    $cveLocalidad->CveInegi,
+                                    0,
+                                    5
+                                ),
+                                'nombre' => $solicitud->MunicipioVive
+                                    ? $solicitud->MunicipioVive
+                                    : '',
+                            ],
+                            'zonaImpulso' => [
+                                'codigo' => $solicitud->CveZAP
+                                    ? substr($solicitud->CveZAP, 7, 5)
+                                    : 'Z',
+                                'nombre' => $solicitud->CveZAP
+                                    ? $solicitud->CveZAP
+                                    : 'Z',
+                            ],
+                            'tipoVialidad' => [
+                                'codigo' => $solicitud->CveTipoVialidad
+                                    ? $solicitud->CveTipoVialidad
+                                    : ' ',
+                                'nombre' => $solicitud->TipoVialidad
+                                    ? $solicitud->TipoVialidad
+                                    : ' ',
+                            ],
+                            'calle' => $solicitud->CalleVive,
+                            'referencias' => is_null($solicitud->Referencias)
+                                ? ''
+                                : $solicitud->Referencias,
+                            'coordenadas' => [
+                                'latitud' => $solicitud->Latitud
+                                    ? intval($solicitud->Latitud)
+                                    : 0,
+                                'longitud' => $solicitud->Longitud
+                                    ? intval($solicitud->Longitud)
+                                    : 0,
+                            ],
+                            'ageb' => $solicitud->AGEB ? $solicitud->AGEB : '',
+                            'manzana' => $solicitud->Manzana
+                                ? $solicitud->Manzana
                                 : '',
-                            'codigo' => $cveLocalidad->CveInegi,
+                            'zona' => $solicitud->TipoZona
+                                ? $solicitud->TipoZona
+                                : '',
+                            'solicitudImpulso' =>
+                                $solicitud->TarjetaImpulso == 1,
+                            'autorizaContacto' =>
+                                $solicitud->ContactoTarjetaImpulso == 1,
                         ],
-                        'municipio' => $solicitud->MunicipioVive,
-                        'calle' => $solicitud->CalleVive,
-                        'referencias' => is_null($solicitud->Referencias)
-                            ? ''
-                            : $solicitud->Referencias,
-                        'solicitudImpulso' => $solicitud->TarjetaImpulso == 1,
-                        'autorizaContacto' =>
-                            $solicitud->ContactoTarjetaImpulso == 1,
                     ],
-                ],
-                JSON_UNESCAPED_UNICODE
-            ),
-        ];
-
+                    JSON_UNESCAPED_UNICODE
+                ),
+            ];
+        }
         return ['success' => true, 'data' => $json];
     }
 
@@ -4298,10 +4515,10 @@ class CedulasController extends Controller
             $formatedFile = [
                 'llave' =>
                     $formato . '_' . str_replace('.', '', $file->Clasificacion),
-                'ruta' =>
-                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
-                    $file->NombreSistema,
-                //Storage::disk('subidos')->path($file->NombreSistema), // '/var/www/html/plataforma/apivales/public/subidos/' .$file->NombreSistema,
+                'ruta' => Storage::disk('subidos')->path($file->NombreSistema),
+                //     '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                //     $file->NombreSistema,
+                // '/var/www/html/plataforma/apivales/public/subidos/' .$file->NombreSistema,
                 'nombre' => str_replace('.', '', $file->Clasificacion),
                 'header' => $mimeType,
             ];
@@ -4725,7 +4942,7 @@ class CedulasController extends Controller
             $arrayEnviadas = [];
             $solicitudesAEnviar = DB::table('valesrvii_ventanilla_completos')
                 ->select('id')
-                ->where('Enviada', 3)
+                ->whereNULL('Enviada')
                 ->get();
 
             foreach ($solicitudesAEnviar as $key) {
@@ -4973,9 +5190,18 @@ class CedulasController extends Controller
         ];
         //dd($infoFiles);
         $request2 = new HTTP_Request2();
-        $request2->setUrl(
-            'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register'
-        );
+
+        $url = '';
+
+        if ($solicitud->idVersion == 2) {
+            $url =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register/v2';
+        } else {
+            $url =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register';
+        }
+
+        $request2->setUrl($url);
         $request2->setMethod(HTTP_Request2::METHOD_POST);
         $request2->setConfig([
             'follow_redirects' => true,
@@ -5008,7 +5234,7 @@ class CedulasController extends Controller
                             ->update([
                                 'idEstatus' => '8',
                                 'ListaParaEnviar' => '2',
-                                //'UsuarioEnvio' => $user->id,
+                                'UsuarioEnvio' => '1',
                                 'FechaEnvio' => date('Y-m-d H:i:s'),
                             ]);
 
@@ -5860,6 +6086,213 @@ class CedulasController extends Controller
                                 DB::table('solicitud_archivos')
                                     ->where('idSolicitud', $id)
                                     ->whereIn('idClasificacion', [3, 9])
+                                    ->update(['idClasificacion' => 8]);
+
+                                $fileObject = [
+                                    'idSolicitud' => intval($id),
+                                    'idClasificacion' => intval($clasification),
+                                    'NombreOriginal' => $originalName,
+                                    'NombreSistema' => $uniqueName,
+                                    'Extension' => 'pdf',
+                                    'Tipo' => 'pdf',
+                                    'Tamanio' => '',
+                                    'idUsuarioCreo' => '1312',
+                                    'FechaCreo' => date('Y-m-d H:i:s'),
+                                ];
+                                $tableArchivos = 'solicitud_archivos';
+                                DB::table($tableArchivos)->insert($fileObject);
+
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        } catch (HTTP_Request2_Exception $e) {
+                            return false;
+                            //dd('Error: ' . $e->getMessage());
+                        }
+
+                        return false;
+                    } catch (Exception $e) {
+                        return false;
+                    }
+                }
+                return false;
+            }
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function getFile(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'id' => 'required',
+            ]);
+
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+            $params = $request->all();
+
+            $solicitudVale = DB::table('cedulas_solicitudes')
+                ->selectRaw('*,lpad(hex(idVale),6,0)AS idValeHex')
+                ->where('id', $params['id'])
+                ->whereNull('FechaElimino')
+                ->get()
+                ->first();
+
+            if ($solicitudVale == null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Solicitud no encontrada',
+                    'message' => 'Solicitud no encontrada',
+                ];
+                return response()->json($response, 200);
+            }
+
+            //$id = $solicitudVale->idValeHex;
+            $id = '02B9E8';
+            $folio = $solicitudVale->Folio;
+            $acuerdo = 'ACUERDO 01/ORD01/2022';
+            $region = $solicitudVale->Region;
+            $enlace = 'Diego Alejandro Lopez Puente';
+            $nombre =
+                $solicitudVale->Nombre .
+                ' ' .
+                $solicitudVale->Paterno .
+                ' ' .
+                $solicitudVale->Materno;
+            $curp = $solicitudVale->CURP;
+            $domicilio =
+                $solicitudVale->CalleVive .
+                ' NoExt ' .
+                $solicitudVale->NoExtVive .
+                ' NoInt ' .
+                $solicitudVale->NoIntVive;
+            $municipio = $solicitudVale->MunicipioVive;
+            $localidad = $solicitudVale->LocalidadVive;
+            $colonia = $solicitudVale->ColoniaVive;
+            $cp = $solicitudVale->CPVive;
+            $folioinicial = '1';
+            $foliofinal = '10';
+
+            $nombreArchivo = 'acuse_' . $solicitudVale->Folio;
+
+            $pdf = \PDF::loadView(
+                'pdf',
+                compact(
+                    'id',
+                    'folio',
+                    'acuerdo',
+                    'region',
+                    'enlace',
+                    'nombre',
+                    'curp',
+                    'domicilio',
+                    'municipio',
+                    'localidad',
+                    'colonia',
+                    'cp',
+                    'folioinicial',
+                    'foliofinal'
+                )
+            );
+
+            return $pdf->download($nombreArchivo . '.pdf');
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function convertImg($id, $clasificacion, $table)
+    {
+        try {
+            $files = DB::table($table)
+                ->where('', $id)
+                ->whereIN('idClasificacion', [$clasificacion])
+                ->whereIN('Extension', ['jpg', 'jpeg', 'png'])
+                ->whereNull('FechaElimino')
+                ->get();
+
+            if ($files != null) {
+                $img = new Imagick();
+                $width = 1200;
+                $height = 1200;
+                $arrayFiles = [];
+                foreach ($files as $file) {
+                    $img_tmp_path = Storage::disk('subidos')->path(
+                        $file->NombreSistema
+                    );
+                    $img->readImage($img_tmp_path);
+                    $img->adaptiveResizeImage($width, $height);
+                    $newFileName = $file->NombreSistema . '_adaptative';
+                    $url_storage = Storage::disk('subidos')->path($newFileName);
+                    $img->writeImage($url_storage);
+                    $img2 = file_get_contents($url_storage);
+                    $data = base64_encode($img2);
+                    $arrayFiles[] = $data;
+                    File::delete($url_storage);
+                }
+
+                if (count($arrayFiles) > 0) {
+                    try {
+                        $request = new HTTP_Request2();
+                        $request->setUrl(
+                            'http://seguimiento.guanajuato.gob.mx/Validacion/api/Images64ToPDF'
+                        );
+                        $request->setMethod(HTTP_Request2::METHOD_POST);
+                        $request->setConfig([
+                            'follow_redirects' => true,
+                        ]);
+                        $request->setHeader([
+                            'Content-Type' => 'application/json',
+                        ]);
+
+                        $request->setBody(
+                            json_encode(
+                                [
+                                    'lstPDF' => $arrayFiles,
+                                ],
+                                JSON_UNESCAPED_UNICODE
+                            )
+                        );
+                        try {
+                            $response = $request->send();
+
+                            if ($response->getStatus() == 200) {
+                                $f = $response->getBody();
+                                //$imageContent = $this->imageBase64Content($f);
+                                $uniqueName = uniqid() . '.pdf';
+                                $clasification = $clasifiacion;
+                                $originalName = 'INE';
+
+                                Storage::disk('subidos')->put(
+                                    $uniqueName,
+                                    $f,
+                                    'public'
+                                );
+
+                                DB::table('solicitud_archivos')
+                                    ->where('idSolicitud', $id)
+                                    ->whereIn('idClasificacion', [
+                                        $clasificacion,
+                                    ])
                                     ->update(['idClasificacion' => 8]);
 
                                 $fileObject = [

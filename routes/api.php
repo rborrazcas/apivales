@@ -62,6 +62,13 @@ Route::post(
 
 Route::get('/hashPassword', 'ZisController@hashPassword');
 
+Route::post('/acuse', 'CedulasController@getFile');
+
+Route::post(
+    '/envioMasivoVentanilla',
+    'CedulasController@envioMasivoVentanilla'
+);
+
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
 Route::post('/convertirImagenes', 'CedulasController@convertImage');
 // estas rutas requiren de un token válido para poder accederse.
@@ -192,7 +199,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getReporteFoliosValidar',
         'ReportesController@getReporteFoliosValidar'
     );
-
+    Route::get('/getReporteAcuseVales', 'ReportesController@getAcuseVales');
     Route::get(
         '/getReporteNominaVales',
         'ReportesController@getReporteNominaVales'
@@ -686,11 +693,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         );
         Route::post('/enviarIGTO', 'YoPuedoController@enviarIGTO');
     });
-
-    Route::post(
-        '/envioMasivoVentanilla',
-        'CedulasController@envioMasivoVentanilla'
-    );
 
     Route::post(
         '/envioMasivoVentanillaC',
