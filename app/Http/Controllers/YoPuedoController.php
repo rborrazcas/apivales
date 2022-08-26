@@ -3061,7 +3061,7 @@ class YoPuedoController extends Controller
                 $file['header']
             );
         }
-        //dd($request2);
+        dd($request2);
         try {
             $response = $request2->send();
             $message = json_decode($response->getBody());
@@ -4223,10 +4223,10 @@ class YoPuedoController extends Controller
 
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
-                'ruta' =>
-                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
-                    $file->NombreSistema,
-                //'ruta' => Storage::disk('subidos')->path($file->NombreSistema),
+                // 'ruta' =>
+                //     '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                //     $file->NombreSistema,
+                'ruta' => Storage::disk('subidos')->path($file->NombreSistema),
                 'nombre' => $file->Clasificacion,
                 'header' => $mimeType,
             ];

@@ -568,7 +568,7 @@ class CalentadoresController extends Controller
                     $response = [
                         'success' => true,
                         'results' => false,
-                        'errors' =>
+                        'message' =>
                             'El Folio ' .
                             $params['Folio'] .
                             ' ya esta registrado para la persona ' .
@@ -2066,7 +2066,7 @@ class CalentadoresController extends Controller
                 $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
                 $img->readImage($img_tmp_path);
                 $img->adaptiveResizeImage($width, $height);
-                
+
                 //Guardar en el nuevo storage
                 $url_storage = Storage::disk('subidos')->path($uniqueName);
                 $img->writeImage($url_storage);
@@ -2074,7 +2074,11 @@ class CalentadoresController extends Controller
                 //Eliminar el archivo original después de guardar el archivo reducido
                 File::delete($img_tmp_path);
             } else {
-                Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    File::get($file->getRealPath()),
+                    'public'
+                );
             }
 
             DB::table('calentadores_cedula_archivos')->insert($fileObject);
@@ -2609,7 +2613,7 @@ class CalentadoresController extends Controller
                 $file['header']
             );
         }
-        //dd($request2);
+
         try {
             $response = $request2->send();
             $message = json_decode($response->getBody());
@@ -3395,7 +3399,7 @@ class CalentadoresController extends Controller
             } elseif ($file->idClasificacion == 5) {
                 $file->Clasificacion = 'Acuse';
             }
-            
+
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
                 'nombre' => $file->Clasificacion,
@@ -3433,10 +3437,13 @@ class CalentadoresController extends Controller
             }
 
             $formatedFile = [
-                'llave'     => $formato . '_' . $file->Clasificacion,
-                'ruta'      => Storage::disk('subidos')->path($file->NombreSistema), // '/var/www/html/plataforma/apivales/public/subidos/' .$file->NombreSistema,
-                'nombre'    => $file->Clasificacion,
-                'header'    => $mimeType,
+                'llave' => $formato . '_' . $file->Clasificacion,
+                'ruta' =>
+                    // '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                    // $file->NombreSistema,
+                    Storage::disk('subidos')->path($file->NombreSistema),
+                'nombre' => $file->Clasificacion,
+                'header' => $mimeType,
             ];
             array_push($files, $formatedFile);
         }
@@ -3447,9 +3454,8 @@ class CalentadoresController extends Controller
     {
         $formatedFile = [];
         try {
-
-            $files      = [];
-            $fileName   = $idCedula . '-' . $idSolicitud . '.zip';
+            $files = [];
+            $fileName = $idCedula . '-' . $idSolicitud . '.zip';
 
             foreach ($archivos as $file) {
                 $files[] = $file['ruta'];
@@ -3457,13 +3463,15 @@ class CalentadoresController extends Controller
 
             $path = Storage::disk('subidos')->path($fileName); // '/var/www/html/plataforma/apivales/public/subidos/' .$fileName,
             // Zipper::make(public_path('subidos/' . $fileName))
-            Zipper::make($path)->add($files)->close();
+            Zipper::make($path)
+                ->add($files)
+                ->close();
 
             $formatedFile = [
-                'llave'     => 'estandar_Evidencia Fotográfica',
-                'ruta'      => $path,
-                'nombre'    => 'Evidencia Fotográfica',
-                'header'    => '<Content-Type Header>',
+                'llave' => 'estandar_Evidencia Fotográfica',
+                'ruta' => $path,
+                'nombre' => 'Evidencia Fotográfica',
+                'header' => '<Content-Type Header>',
             ];
 
             return $formatedFile;
@@ -3491,12 +3499,12 @@ class CalentadoresController extends Controller
             return response()->json($response, 200);
         }
 
-        $params             = $request->all();
-        $id                 = $params['id'];
-        $files              = $params['NewFiles'];
-        $arrayClasifiacion  = $params['ArrayClasificacion'];
-        $extension          = $params['ArrayExtension'];
-        $names              = $params['NamesFiles'];
+        $params = $request->all();
+        $id = $params['id'];
+        $files = $params['NewFiles'];
+        $arrayClasifiacion = $params['ArrayClasificacion'];
+        $extension = $params['ArrayExtension'];
+        $names = $params['NamesFiles'];
 
         try {
             $solicitud = DB::table('calentadores_cedulas')
@@ -3512,13 +3520,16 @@ class CalentadoresController extends Controller
                 return response()->json($response, 200);
             }
             foreach ($files as $key => $file) {
+                $imageContent = $this->imageBase64Content($file);
+                $uniqueName = uniqid() . $extension[$key];
+                $clasification = $arrayClasifiacion[$key];
+                $originalName = $names[$key];
 
-                $imageContent   = $this->imageBase64Content($file);
-                $uniqueName     = uniqid() . $extension[$key];
-                $clasification  = $arrayClasifiacion[$key];
-                $originalName   = $names[$key];
-
-                Storage::disk('subidos')->put($uniqueName, $imageContent, 'public');
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    $imageContent,
+                    'public'
+                );
 
                 $fileObject = [
                     'idCedula' => intval($solicitud->id),
@@ -4178,30 +4189,30 @@ class CalentadoresController extends Controller
         } catch (Exception $e) {
             return false;
         }
-        // try {
-        //     if ($folio != null) {
-        //         $urlValidacionFolio =
-        //             'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
-        //             $folio->Folio;
-        //         $client = new Client();
-        //         $response = $client->request('GET', $urlValidacionFolio, [
-        //             'verify' => false,
-        //             'headers' => [
-        //                 'Content-Type' => 'multipart/form-data',
-        //                 'Authorization' => '616c818fe33268648502f962',
-        //             ],
-        //         ]);
+        try {
+            if ($folio != null) {
+                $urlValidacionFolio =
+                    'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    $folio->Folio;
+                $client = new Client();
+                $response = $client->request('GET', $urlValidacionFolio, [
+                    'verify' => false,
+                    'headers' => [
+                        'Content-Type' => 'multipart/form-data',
+                        'Authorization' => '616c818fe33268648502f962',
+                    ],
+                ]);
 
-        //         $responseBody = json_decode($response->getBody());
-        //         if (!$responseBody->success) {
-        //             return false;
-        //         }
-        //     } else {
-        //         return false;
-        //     }
-        // } catch (Exception $e) {
-        //     return false;
-        // }
+                $responseBody = json_decode($response->getBody());
+                if (!$responseBody->success) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        } catch (Exception $e) {
+            return false;
+        }
 
         $cedula = DB::table('calentadores_cedulas as cedulas')
             ->selectRaw(
