@@ -65,7 +65,7 @@ class CedulasController extends Controller
 
         $seguimiento = $permisos->Seguimiento;
         $viewall = $permisos->ViewAll;
-        $procedimiento = '';
+        $procedimiento = 'call getEstatusGlobalVentanillaValesGeneral';
 
         if ($viewall < 1 && $seguimiento < 1) {
             $usuarioApp = DB::table('users_aplicativo_web')
@@ -89,10 +89,6 @@ class CedulasController extends Controller
                 " call getEstatusGlobalVentanillaValesRegional('" .
                 $idUserOwner->idUserOwner .
                 "')";
-        }
-
-        if ($procedimiento === '') {
-            $procedimiento = 'call getEstatusGlobalVentanillaValesGeneral';
         }
 
         try {
@@ -2241,42 +2237,57 @@ class CedulasController extends Controller
                             ->delete();
                         $formatedPrestaciones = [];
                         foreach ($prestaciones as $prestacion) {
-                            array_push($formatedPrestaciones, [
-                                'idCedula' => $id,
-                                'idPrestacion' => $prestacion,
-                            ]);
+                            if ($prestacion != null) {
+                                array_push($formatedPrestaciones, [
+                                    'idCedula' => $id,
+                                    'idPrestacion' => $prestacion,
+                                ]);
+                            }
                         }
-                        DB::table($tablePrestaciones)->insert(
-                            $formatedPrestaciones
-                        );
+
+                        if (count($formatedPrestaciones) > 0) {
+                            DB::table($tablePrestaciones)->insert(
+                                $formatedPrestaciones
+                            );
+                        }
 
                         DB::table($tableEnfermedades)
                             ->where('idCedula', $id)
                             ->delete();
                         $formatedEnfermedades = [];
                         foreach ($enfermedades as $enfermedad) {
-                            array_push($formatedEnfermedades, [
-                                'idCedula' => $id,
-                                'idEnfermedad' => $enfermedad,
-                            ]);
+                            if ($enfermedad != null) {
+                                array_push($formatedEnfermedades, [
+                                    'idCedula' => $id,
+                                    'idEnfermedad' => $enfermedad,
+                                ]);
+                            }
                         }
-                        DB::table($tableEnfermedades)->insert(
-                            $formatedEnfermedades
-                        );
+
+                        if (count($formatedEnfermedades) > 0) {
+                            DB::table($tableEnfermedades)->insert(
+                                $formatedEnfermedades
+                            );
+                        }
 
                         DB::table($tableAtnMedica)
                             ->where('idCedula', $id)
                             ->delete();
                         $formatedAtencionesMedicas = [];
                         foreach ($atencionesMedicas as $atencion) {
-                            array_push($formatedAtencionesMedicas, [
-                                'idCedula' => $id,
-                                'idAtencionMedica' => $atencion,
-                            ]);
+                            if ($atencion != null) {
+                                array_push($formatedAtencionesMedicas, [
+                                    'idCedula' => $id,
+                                    'idAtencionMedica' => $atencion,
+                                ]);
+                            }
                         }
-                        DB::table($tableAtnMedica)->insert(
-                            $formatedAtencionesMedicas
-                        );
+
+                        if (count($formatedAtencionesMedicas) > 0) {
+                            DB::table($tableAtnMedica)->insert(
+                                $formatedAtencionesMedicas
+                            );
+                        }
 
                         $response = [
                             'success' => true,
@@ -2349,34 +2360,54 @@ class CedulasController extends Controller
             if (count($prestaciones) > 0) {
                 $formatedPrestaciones = [];
                 foreach ($prestaciones as $prestacion) {
-                    $formatedPrestaciones[] = [
-                        'idCedula' => $id,
-                        'idPrestacion' => $prestacion,
-                    ];
+                    if ($prestacion != null) {
+                        $formatedPrestaciones[] = [
+                            'idCedula' => $id,
+                            'idPrestacion' => $prestacion,
+                        ];
+                    }
                 }
-                DB::table($tablePrestaciones)->insert($formatedPrestaciones);
+                if (count($formatedPrestaciones) > 0) {
+                    DB::table($tablePrestaciones)->insert(
+                        $formatedPrestaciones
+                    );
+                }
             }
 
             if (count($enfermedades) > 0) {
                 $formatedEnfermedades = [];
                 foreach ($enfermedades as $enfermedad) {
-                    $formatedEnfermedades[] = [
-                        'idCedula' => $id,
-                        'idEnfermedad' => $enfermedad,
-                    ];
+                    if ($enfermedad != null) {
+                        $formatedEnfermedades[] = [
+                            'idCedula' => $id,
+                            'idEnfermedad' => $enfermedad,
+                        ];
+                    }
                 }
-                DB::table($tableEnfermedades)->insert($formatedEnfermedades);
+
+                if (count($formatedEnfermedades) > 0) {
+                    DB::table($tableEnfermedades)->insert(
+                        $formatedEnfermedades
+                    );
+                }
             }
 
             if (count($atencionesMedicas) > 0) {
                 $formatedAtencionesMedicas = [];
                 foreach ($atencionesMedicas as $atencion) {
-                    $formatedAtencionesMedicas[] = [
-                        'idCedula' => $id,
-                        'idAtencionMedica' => $atencion,
-                    ];
+                    if ($atencion != null) {
+                        $formatedAtencionesMedicas[] = [
+                            'idCedula' => $id,
+                            'idAtencionMedica' => $atencion,
+                        ];
+                    }
                 }
-                DB::table($tableAtnMedica)->insert($formatedAtencionesMedicas);
+
+                if (count($formatedAtencionesMedicas) > 0) {
+                    DB::table($tableAtnMedica)->insert(
+                        $formatedAtencionesMedicas
+                    );
+                }
             }
 
             if (isset($request->NewFiles)) {
