@@ -5501,23 +5501,27 @@ class CedulasController extends Controller
         $tableSol = 'vales';
         $res = DB::table('cedulas_solicitudes as vales')
             ->select(
+                DB::raw('LPAD(HEX(vales.id),6,0) as Id'),
                 'et_cat_municipio.SubRegion AS Region',
-                //DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
-                'vales.Folio AS Folio',
+                'vales.Folio AS FolioImpulso',
+                DB::raw('LPAD(HEX(vales.idVale),6,0) as FolioVales'),
                 'vales.FechaSolicitud',
                 'vales.CURP',
                 DB::raw(
-                    "concat_ws(' ',vales.Nombre, vales.Paterno, vales.Materno) as NombreCompleto"
+                    "concat_ws(' ',vales.Nombre, IFNULL(vales.Paterno,''), IFNULL(vales.Materno,'')) as NombreCompleto"
                 ),
                 'vales.Sexo',
                 'vales.FechaNacimiento',
                 'vales.OcupacionJefeHogar',
-                DB::raw(
-                    "concat_ws(' ',vales.CalleVive, concat('Num. ', vales.NoExtVive), if(vales.NoIntVive is not null,concat('NumInt. ',vales.NoIntVive), ''), concat('Col. ',vales.ColoniaVive)) as Direccion"
-                ),
+                'vales.ColoniaVive',
+                'vales.CalleVive',
+                'vales.NoExtVive',
+                'vales.NoIntVive',
                 'vales.CPVive',
                 'vales.MunicipioVive AS Municipio',
                 'vales.LocalidadVive AS Localidad',
+                'vales.Latitud',
+                'vales.Longitud',
                 'vales.Telefono',
                 'vales.Celular',
                 'vales.TelRecados',
@@ -5551,6 +5555,9 @@ class CedulasController extends Controller
                     AS UserInfoCapturo"
                 ),
                 DB::raw(
+                    "CONCAT_WS( ' ', actualizo.Nombre, actualizo.Paterno, actualizo.Materno ) AS UserUpdated"
+                ),
+                DB::raw(
                     "CASE 
                         WHEN 
                             vales.idEnlace IS NULL 
@@ -5564,6 +5571,12 @@ class CedulasController extends Controller
             )
             ->leftJoin('vales_status', 'vales_status.id', '=', 'idEstatus')
             ->leftJoin('users', 'users.id', '=', 'vales.idUsuarioCreo')
+            ->leftJoin(
+                'users as actualizo',
+                'actualizo.id',
+                '=',
+                'vales.idUsuarioActualizo'
+            )
             ->leftJoin(
                 'et_cat_municipio',
                 'et_cat_municipio.Nombre',

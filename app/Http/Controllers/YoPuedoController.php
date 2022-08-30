@@ -5054,4 +5054,127 @@ class YoPuedoController extends Controller
             return response()->json($response, 200);
         }
     }
+
+    function updateEstatus(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'idEstatus' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'Debe indicar el estatus a actualizar',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+
+        if (
+            !isset($params['id']) &&
+            !isset($params['idSolicitudAplicativo']) &&
+            !isset($params['CURP']) &&
+            !isset($params['Folio'])
+        ) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'Debe indicar el registro a actualizar',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $user = auth()->user();
+        $estatus = $params['idEstatus'];
+        $campo = '';
+
+        try {
+            if (isset($params['id'])) {
+                $id = $params['id'];
+                $campo = 'id';
+            } elseif (isset($params['idSolicitudAplicativo'])) {
+                $id = $params['idSolicitudAplicativo'];
+                $campo = 'idSolicitudAplicativo';
+            } elseif (isset($params['CURP'])) {
+                $id = $params['CURP'];
+                $campo = 'CURP';
+            } elseif (isset($params['Folio'])) {
+                $id = $params['Folio'];
+                $campo = 'Folio';
+            }
+
+            if ($campo == '') {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No existe campo para actualizar información',
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($estatus == null || $estatus == '') {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No indico el estatus a actualizar',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $res = DB::table('yopuedo_solicitudes')
+                ->select('id')
+                ->where($campo, '=', $id)
+                ->whereNull('FechaElimino')
+                ->get()
+                ->first();
+
+            if ($res == null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No se encuentra la solicitud a actualizar',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            try {
+                DB::table('yopuedo_solicitudes')
+                    ->where($campo, $id)
+                    ->update(['idEstatusGrupo' => $estatus]);
+
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'message' => 'Actualizado con éxito',
+                ];
+
+                return response()->json($response, 200);
+            } catch (Exception $e) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $e,
+                ];
+
+                return response()->json($response, 200);
+            }
+        } catch (QueryException $e) {
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'filtros' => $parameters['filtered'],
+                'errors' => $e->getMessage(),
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
 }

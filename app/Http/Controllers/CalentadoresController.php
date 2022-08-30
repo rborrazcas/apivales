@@ -2166,6 +2166,7 @@ class CalentadoresController extends Controller
                         'success' => true,
                         'results' => false,
                         'message' => 'El Folio de la cedula no es válido',
+                        'errors' => $responseBody,
                     ];
                     return response()->json($response, 200);
                 }
