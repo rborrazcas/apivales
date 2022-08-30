@@ -538,6 +538,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/getCedulasDiagnostico', 'DiagnosticoController@getCedulas');
     Route::post('/getSolicitudesYoPuedo', 'YoPuedoController@getSolicitudes');
     Route::post('/createSolicitudYoPuedo', 'YoPuedoController@createSolicitud');
+    Route::post('/updateEstatusYoPuedo', 'YoPuedoController@updateEstatus');
     Route::post('/updateSolicitudYoPuedo', 'YoPuedoController@updateSolicitud');
     Route::post('/deleteSolicitudYoPuedo', 'YoPuedoController@deleteSolicitud');
     Route::post(
