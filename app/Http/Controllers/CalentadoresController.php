@@ -224,17 +224,17 @@ class CalentadoresController extends Controller
                         ' calentadores_cedulas.id AS idCedula, ' .
                         ' calentadores_cedulas.ListaParaEnviar as ListaParaEnviarC'
                 )
-                ->join(
+                ->leftJoin(
                     'cat_entidad AS entidadesNacimiento',
                     'entidadesNacimiento.id',
                     'calentadores_solicitudes.idEntidadNacimiento'
                 )
-                ->join(
+                ->leftJoin(
                     'cat_estado_civil',
                     'cat_estado_civil.id',
                     'calentadores_solicitudes.idEstadoCivil'
                 )
-                ->join(
+                ->leftJoin(
                     'cat_parentesco_jefe_hogar',
                     'cat_parentesco_jefe_hogar.id',
                     'calentadores_solicitudes.idParentescoJefeHogar'
@@ -244,12 +244,12 @@ class CalentadoresController extends Controller
                     'cat_parentesco_tutor.id',
                     'calentadores_solicitudes.idParentescoTutor'
                 )
-                ->join(
+                ->leftJoin(
                     'cat_entidad AS entidadesVive',
                     'entidadesVive.id',
                     'calentadores_solicitudes.idEntidadVive'
                 )
-                ->join(
+                ->leftJoin(
                     'users AS creadores',
                     'creadores.id',
                     'calentadores_solicitudes.idUsuarioCreo'
@@ -2708,8 +2708,15 @@ class CalentadoresController extends Controller
             ];
         }
         $curp = $responseBody->Resultado;
+        $idMunicipio = DB::table('et_cat_municipio')
+            ->select('id')
+            ->where('Nombre', $solicitud->MunicipioVive)
+            ->get()
+            ->first();
+
         $cveLocalidad = DB::table('et_cat_localidad')
-            ->select('CveInegi')
+            ->select('CveInegi', 'Nombre')
+            ->where('idMunicipio', $idMunicipio->id)
             ->where('Nombre', $solicitud->LocalidadVive)
             ->get()
             ->first();

@@ -477,6 +477,7 @@ class YoPuedoController extends Controller
 
             $parameters_serializado = serialize($params);
 
+            DB::beginTransaction();
             //Insertamos los filtros
             DB::table('users_filtros')->insert([
                 'UserCreated' => $userId,
@@ -484,6 +485,7 @@ class YoPuedoController extends Controller
                 'Consulta' => $parameters_serializado,
                 'created_at' => date('Y-m-d h-m-s'),
             ]);
+            DB::commit();
 
             $tableSol = 'yopuedo_solicitudes';
             $tableCedulas =
@@ -582,7 +584,7 @@ class YoPuedoController extends Controller
                     'entidadesVive.id',
                     'yopuedo_solicitudes.idEntidadVive'
                 )
-                ->join(
+                ->leftJoin(
                     'users AS creadores',
                     'creadores.id',
                     'yopuedo_solicitudes.idUsuarioCreo'
@@ -618,7 +620,7 @@ class YoPuedoController extends Controller
             $usersApp = '';
 
             if (isset($params['filtered']) && count($params['filtered']) > 0) {
-                $filtersCedulas = ['.id', '.MunicipioVive'];
+                $filtersCedulas = ['ListaParaEnviar'];
 
                 foreach ($params['filtered'] as $filtro) {
                     if ($filtro['id'] == '.articulador') {
@@ -680,7 +682,7 @@ class YoPuedoController extends Controller
                     if (in_array($id, $filtersCedulas)) {
                         $id = 'yopuedo_solicitudes' . $id;
                     } else {
-                        $id = 'yopuedo_solicitudes' . $id;
+                        $id = 'yopuedo_cedulas' . $id;
                     }
 
                     switch (gettype($value)) {
@@ -3155,8 +3157,16 @@ class YoPuedoController extends Controller
             ];
         }
         $curp = $responseBody->Resultado;
+
+        $idMunicipio = DB::table('et_cat_municipio')
+            ->select('id')
+            ->where('Nombre', $solicitud->MunicipioVive)
+            ->get()
+            ->first();
+
         $cveLocalidad = DB::table('et_cat_localidad')
-            ->select('CveInegi')
+            ->select('CveInegi', 'Nombre')
+            ->where('idMunicipio', $idMunicipio->id)
             ->where('Nombre', $solicitud->LocalidadVive)
             ->get()
             ->first();
@@ -3263,9 +3273,7 @@ class YoPuedoController extends Controller
                             'nombre' => $solicitud->LocalidadVive
                                 ? $solicitud->LocalidadVive
                                 : '',
-                            'codigo' => $cveLocalidad->CveInegi
-                                ? $cveLocalidad->CveInegi
-                                : '',
+                            'codigo' => $cveLocalidad->CveInegi,
                         ],
                         'municipio' => $solicitud->MunicipioVive,
                         'calle' => $solicitud->CalleVive,
