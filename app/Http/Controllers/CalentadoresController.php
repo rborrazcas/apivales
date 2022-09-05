@@ -587,7 +587,7 @@ class CalentadoresController extends Controller
             $user = auth()->user();
             $params['idUsuarioCreo'] = $user->id;
             $params['FechaCreo'] = date('Y-m-d');
-            $params['idEstatus'] = 1;
+            $params['idEstatus'] = 3;
 
             unset($params['Files']);
             unset($params['ArchivosClasificacion']);
@@ -1159,6 +1159,7 @@ class CalentadoresController extends Controller
             $user = auth()->user();
             $params['idUsuarioCreo'] = $user->id;
             $params['FechaCreo'] = date('Y-m-d');
+            $params['idEstatus'] = 3;
             $params['Correo'] =
                 isset($params['Correo']) && $params['Correo'] != ''
                     ? $params['Correo']
@@ -1573,6 +1574,35 @@ class CalentadoresController extends Controller
             $user = auth()->user();
             $id = $params['id'];
             unset($params['id']);
+
+            if (isset($params['Habilitar'])) {
+                unset($params['Habilitar']);
+                DB::table('calentadores_solicitudes')
+                    ->where('id', $params['idSolicitud'])
+                    ->update([
+                        'idEstatus' => '1',
+                        'ListaParaEnviar' => '0',
+                        'idUsuarioActualizo' => $user->id,
+                        'FechaActualizo' => date('Y-m-d H:i:s'),
+                    ]);
+
+                DB::table('calentadores_cedulas')
+                    ->where('id', $id)
+                    ->update([
+                        'idEstatus' => '1',
+                        'ListaParaEnviar' => '0',
+                        'idUsuarioActualizo' => $user->id,
+                        'FechaActualizo' => date('Y-m-d H:i:s'),
+                    ]);
+
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'errors' => 'Cédula Habilitada con Éxito',
+                ];
+                return response()->json($response, 200);
+            }
+            unset($params['Habilitar']);
 
             $cedula = DB::table('calentadores_cedulas')
                 ->where('id', $id)
@@ -2696,18 +2726,21 @@ class CalentadoresController extends Controller
             'verify' => false,
         ]);
         $responseBody = json_decode($response->getBody());
-        if ($responseBody->Mensaje !== 'OK') {
-            return [
-                'success' => false,
-                'error' =>
-                    $responseBody->Mensaje .
-                    ' - ' .
-                    $solicitud->CURP .
-                    ' - ' .
-                    $solicitud->Folio,
-            ];
-        }
-        $curp = $responseBody->Resultado;
+
+        // if ($responseBody->Mensaje !== 'OK') {
+        //     return [
+        //         'success' => false,
+        //         'error' =>
+        //             $responseBody->Mensaje .
+        //             ' - ' .
+        //             $solicitud->CURP .
+        //             ' - ' .
+        //             $solicitud->Folio,
+        //     ];
+        // }
+        //$curp = $responseBody->Resultado;
+
+        $fechaComoEntero = strtotime($solicitud->FechaNacimiento);
         $idMunicipio = DB::table('et_cat_municipio')
             ->select('id')
             ->where('Nombre', $solicitud->MunicipioVive)
@@ -2741,7 +2774,8 @@ class CalentadoresController extends Controller
                             strtoupper($solicitud->Sexo) == 'H'
                                 ? 'MASCULINO'
                                 : 'FEMENINO',
-                        'nacionalidad' => $curp->nacionalidad,
+                        // 'nacionalidad' => $curp->nacionalidad,
+                        'nacionalidad' => 'MEX',
                         'nombre' => $solicitud->Nombre,
                         'primerApellido' =>
                             $solicitud->Paterno != 'XX'
@@ -2751,7 +2785,8 @@ class CalentadoresController extends Controller
                             $solicitud->Materno != 'XX'
                                 ? $solicitud->Materno
                                 : 'X',
-                        'anioRegistro' => $curp->anioReg,
+                        //'anioRegistro' => $curp->anioReg,
+                        'anioRegistro' => $fechaComoEntero,
                         'descripcion' => $solicitud->NecesidadSolicitante,
                         'costoAproximado' => $solicitud->CostoNecesidad,
                     ],
@@ -3680,6 +3715,7 @@ class CalentadoresController extends Controller
         $tableSol = 'vales';
         $res = DB::table('calentadores_solicitudes as vales')
             ->select(
+                DB::raw('LPAD(HEX(vales.id),6,0) as ID'),
                 'et_cat_municipio.SubRegion AS Region',
                 //DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
                 'vales.Folio AS Folio',
@@ -3690,11 +3726,10 @@ class CalentadoresController extends Controller
                 ),
                 'vales.Sexo',
                 'vales.FechaNacimiento',
-                DB::raw(
-                    "concat_ws(' ',vales.CalleVive, concat('Num. ', vales.NoExtVive), if(vales.NoIntVive is not null,concat('NumInt. ',vales.NoIntVive), ''), concat('Col. ',vales.ColoniaVive)) as Direccion"
-                ),
-                'calentadores_cedulas.AGEBVive AS ClaveAGEB',
-                'calentadores_cedulas.ManzanaVive AS Manzana',
+                'vales.ColoniaVive',
+                'vales.CalleVive',
+                'vales.NoExtVive',
+                'vales.NoIntVive',
                 'vales.CPVive',
                 'vales.MunicipioVive AS Municipio',
                 'vales.LocalidadVive AS Localidad',
@@ -3740,6 +3775,7 @@ class CalentadoresController extends Controller
                     "),
                 'calentadores_cedulas.PersonaJefaFamilia',
                 'vales_status.Estatus',
+                'vales.Enlace AS Enlace',
                 DB::raw(
                     "CASE 
                         WHEN 
@@ -3751,10 +3787,11 @@ class CalentadoresController extends Controller
                         END 
                     AS UserInfoCapturo"
                 ),
-                'vales.Enlace AS Enlace'
+                DB::raw("CONCAT_WS( ' ', us.Nombre, us.Paterno, us.Materno)")
             )
             ->leftJoin('vales_status', 'vales_status.id', '=', 'idEstatus')
             ->leftJoin('users', 'users.id', '=', 'vales.idUsuarioCreo')
+            ->leftJoin('users AS us', 'us.id', '=', 'vales.idUsuarioActualizo')
             ->leftJoin(
                 'et_cat_municipio',
                 'et_cat_municipio.Nombre',

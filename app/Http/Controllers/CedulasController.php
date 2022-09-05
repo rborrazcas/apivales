@@ -952,7 +952,7 @@ class CedulasController extends Controller
                 : [];
             $files = isset($params['NewFiles']) ? $params['NewFiles'] : [];
 
-            $params['idEstatus'] = 1;
+            $params['idEstatus'] = 3;
 
             $params['Correo'] =
                 isset($params['Correo']) && $params['Correo'] != ''
@@ -2146,7 +2146,7 @@ class CedulasController extends Controller
                         ? ''
                         : $params['TelRecados'])
                     : '';
-            $params['idEstatus'] = 1;
+            $params['idEstatus'] = 3;
             if (isset($params['MunicipioVive'])) {
                 $region = DB::table('et_cat_municipio')
                     ->where('Nombre', $params['MunicipioVive'])
