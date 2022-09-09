@@ -1905,7 +1905,10 @@ class ProyectosController extends Controller
         try {
             if ($folio != null) {
                 $urlValidacionFolio =
-                    'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    //Para QA
+                    //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    //Para Prod
+                    'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
                     $folio->Folio;
                 $client = new Client();
                 $response = $client->request('GET', $urlValidacionFolio, [
@@ -3273,9 +3276,9 @@ class ProyectosController extends Controller
                 'proyectos.Folio AS Folio',
                 'proyectos.FechaSolicitud',
                 'proyectos.CURP',
-                DB::raw(
-                    "concat_ws(' ',proyectos.Nombre, proyectos.Paterno, proyectos.Materno) as NombreCompleto"
-                ),
+                'proyectos.Nombre',
+                DB::raw("IFNULL(proyectos.Paterno,'')"),
+                DB::raw("IFNULL(proyectos.Materno,'')"),
                 'proyectos.Sexo',
                 'proyectos.FechaNacimiento',
                 'proyectos_cedulas.ColoniaVive',

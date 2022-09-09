@@ -7095,6 +7095,10 @@ class ReportesController extends Controller
         $parameters = $request->all();
         $user = auth()->user();
 
+        if ($user->id == 1) {
+            $this->getAcuseValesD($request);
+        }
+
         if (!isset($request->idGrupo)) {
             return response()->json([
                 'success' => true,
@@ -7257,6 +7261,191 @@ class ReportesController extends Controller
                 date('Y-m-d H:i:s') .
                 '.xlsx'
         );
+    }
+
+    public function getAcuseValesD(Request $request)
+    {
+        // ,'d.FechaNacimientoC','d.SexoC as Sexo'
+        $parameters = $request->all();
+        $user = auth()->user();
+
+        if (!isset($request->idGrupo)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados del Grupo.',
+            ]);
+        }
+
+        $resGpo = DB::table('vales_grupos as G')
+            ->select(
+                'G.id',
+                'R.NumAcuerdo',
+                'R.Leyenda',
+                'R.FechaAcuerdo',
+                'G.UserOwned',
+                'G.idMunicipio',
+                'M.Nombre AS Municipio',
+                'G.Remesa',
+                DB::raw(
+                    "concat_ws(' ',UOC.Nombre, UOC.Paterno, UOC.Materno) as UserInfoOwned"
+                )
+            )
+            ->leftJoin('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
+            ->leftJoin('users as UOC', 'UOC.id', '=', 'G.UserOwned')
+            ->leftJoin('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
+            ->where('G.id', '=', $request->idGrupo)
+            ->first();
+
+        //dd($resGpo);
+
+        if (!$resGpo) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados del Grupo.',
+            ]);
+        }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'c.Folio AS folio',
+                'vr.NumAcuerdo AS acuerdo',
+                'M.SubRegion AS region',
+                DB::raw(
+                    "concat_ws(' ',UOC.Nombre, UOC.Paterno, UOC.Materno) as enlace"
+                ),
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                ),
+                'N.curp',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                ),
+                'M.Nombre AS municipio',
+                'L.Nombre AS localidad',
+                'N.Colonia AS colonia',
+                'N.CP AS cp',
+                'VS.SerieInicial AS folioinicial',
+                'VS.SerieFinal AS foliofinal'
+            )
+            ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
+            ->Join('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+            ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
+            ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+            ->leftJoin('cedulas_solicitudes AS c', 'c.idVale', '=', 'N.id')
+            ->where('N.UserOwned', '=', $resGpo->UserOwned)
+            ->where('N.idMunicipio', '=', $resGpo->idMunicipio)
+            ->where('N.Remesa', '=', $resGpo->Remesa);
+
+        // $resGrupo = DB::table('v_giros as G')
+        // ->select('G.Giro', 'NG.idNegocio', 'NG.idGiro')
+        // ->join('v_negocios_giros as NG','NG.idGiro','=','G.id');
+
+        $data = $res
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.Colonia', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get()
+            ->chunk(30);
+        //$data2 = $resGrupo->first();
+        // dd($resGpo);
+        //     dd($data);
+
+        if (count($data) == 0) {
+            //return response()->json(['success'=>false,'results'=>false,'message'=>$res->toSql()])
+
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx'
+            );
+
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setCellValue('N6', $resGpo->Municipio);
+            $sheet->setCellValue('N7', $resGpo->UserInfoOwned);
+            $sheet->setCellValue('N3', $resGpo->NumAcuerdo);
+            $sheet->setCellValue('N4', $resGpo->FechaAcuerdo);
+            $sheet->setCellValue('A2', $resGpo->Leyenda);
+            $sheet->setCellValue(
+                'A3',
+                'Aprobados mediante ' .
+                    $resGpo->NumAcuerdo .
+                    ' de fecha ' .
+                    $resGpo->FechaAcuerdo
+            );
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save(
+                'archivos/' .
+                    $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->UserOwned .
+                    '_formatoNominaVales.xlsx'
+            );
+            $file =
+                public_path() .
+                '/archivos/' .
+                $resGpo->Remesa .
+                '_' .
+                $resGpo->idMunicipio .
+                '_' .
+                $resGpo->UserOwned .
+                '_formatoNominaVales.xlsx';
+
+            return response()->download(
+                $file,
+                $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->UserOwned .
+                    '_NominaValesGrandeza' .
+                    date('Y-m-d') .
+                    '.xlsx'
+            );
+        }
+
+        $nombreArchivo =
+            'acuses_vales_' .
+            $resGpo->id .
+            '_' .
+            $resGpo->idMunicipio .
+            '_' .
+            $resGpo->Remesa;
+
+        $path =
+            public_path() .
+            '/subidos/' .
+            $resGpo->id .
+            $resGpo->idMunicipio .
+            $resGpo->Remesa;
+
+        if (!file_exists($path)) {
+            File::makeDirectory($path, $mode = 0777, true, true);
+        }
+
+        foreach ($data as $arrayData) {
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf', compact('vales'))->save(
+                $path . '/' . $nombreArchivo
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'results' => true,
+            'message' => 'Exito',
+        ]);
+        //return $pdf->download($nombreArchivo . '.pdf');
     }
 
     public function getSumaVoluntadesWord(Request $request)

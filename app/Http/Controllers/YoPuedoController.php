@@ -937,7 +937,7 @@ class YoPuedoController extends Controller
             $user = auth()->user();
             $params['idUsuarioCreo'] = $user->id;
             $params['FechaCreo'] = date('Y-m-d H:i:s');
-            $params['idEstatus'] = 3;
+            $params['idEstatus'] = 1;
             if (isset($params['MunicipioVive'])) {
                 $region = DB::table('et_cat_municipio')
                     ->where('Nombre', $params['MunicipioVive'])
@@ -1499,7 +1499,7 @@ class YoPuedoController extends Controller
             }
 
             $user = auth()->user();
-            $params['idEstatus'] = 3;
+            $params['idEstatus'] = 1;
             $params['idUsuarioCreo'] = $user->id;
             $params['FechaCreo'] = date('Y-m-d H:i:s');
             $params['Correo'] =
@@ -3181,18 +3181,18 @@ class YoPuedoController extends Controller
             'verify' => false,
         ]);
         $responseBody = json_decode($response->getBody());
-        // if ($responseBody->Mensaje !== 'OK') {
-        //     return [
-        //         'success' => false,
-        //         'error' =>
-        //             $responseBody->Mensaje .
-        //             ' - ' .
-        //             $solicitud->CURP .
-        //             ' - ' .
-        //             $solicitud->Folio,
-        //     ];
-        // }
-        // $curp = $responseBody->Resultado;
+        if ($responseBody->Mensaje !== 'OK') {
+            return [
+                'success' => false,
+                'error' =>
+                    $responseBody->Mensaje .
+                    ' - ' .
+                    $solicitud->CURP .
+                    ' - ' .
+                    $solicitud->Folio,
+            ];
+        }
+        $curp = $responseBody->Resultado;
         $fechaComoEntero = strtotime($solicitud->FechaNacimiento);
 
         $idMunicipio = DB::table('et_cat_municipio')
@@ -3278,8 +3278,8 @@ class YoPuedoController extends Controller
                             strtoupper($solicitud->Sexo) == 'H'
                                 ? 'MASCULINO'
                                 : 'FEMENINO',
-                        //'nacionalidad' => $curp->nacionalidad,
-                        'nacionalidad' => 'MEX',
+                        'nacionalidad' => $curp->nacionalidad,
+                        //'nacionalidad' => 'MEX',
                         'nombre' => $solicitud->Nombre,
                         'primerApellido' =>
                             $solicitud->Paterno != 'XX'
@@ -3289,8 +3289,8 @@ class YoPuedoController extends Controller
                             $solicitud->Materno != 'XX'
                                 ? $solicitud->Materno
                                 : 'X',
-                        //'anioRegistro' => $curp->anioReg,
-                        'anioRegistro' => $fechaComoEntero,
+                        'anioRegistro' => $curp->anioReg,
+                        //'anioRegistro' => $fechaComoEntero,
                         'descripcion' => $solicitud->NecesidadSolicitante,
                         'costoAproximado' => $solicitud->CostoNecesidad,
                     ],
@@ -4470,14 +4470,15 @@ class YoPuedoController extends Controller
                 'vales.Folio AS Folio',
                 'vales.FechaSolicitud',
                 'vales.CURP',
-                DB::raw(
-                    "concat_ws(' ',vales.Nombre, vales.Paterno, vales.Materno) as NombreCompleto"
-                ),
+                'vales.Nombre',
+                DB::raw("IFNULL(vales.Paterno,'')"),
+                DB::raw("IFNULL(vales.Materno,'')"),
                 'vales.Sexo',
                 'vales.FechaNacimiento',
-                DB::raw(
-                    "concat_ws(' ',vales.CalleVive, concat('Num. ', vales.NoExtVive), if(vales.NoIntVive is not null,concat('NumInt. ',vales.NoIntVive), ''), concat('Col. ',vales.ColoniaVive)) as Direccion"
-                ),
+                'proyectos_cedulas.ColoniaVive',
+                'proyectos_cedulas.CalleVive',
+                'proyectos_cedulas.NoExtVive',
+                'proyectos_cedulas.NoIntVive',
                 'yopuedo_cedulas.AGEBVive AS ClaveAGEB',
                 'yopuedo_cedulas.ManzanaVive AS Manzana',
                 'vales.CPVive',

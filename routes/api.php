@@ -69,6 +69,11 @@ Route::post(
     'CedulasController@envioMasivoVentanilla'
 );
 
+Route::post(
+    '/envioMasivoVentanillaC',
+    'CalentadoresController@envioMasivoVentanillaC'
+);
+
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
 Route::post('/convertirImagenes', 'CedulasController@convertImage');
 // estas rutas requiren de un token válido para poder accederse.
@@ -694,11 +699,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         );
         Route::post('/enviarIGTO', 'YoPuedoController@enviarIGTO');
     });
-
-    Route::post(
-        '/envioMasivoVentanillaC',
-        'CalentadoresController@envioMasivoVentanillaC'
-    );
 
     Route::post(
         '/descargarArchivosMasivo',
