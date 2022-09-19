@@ -718,134 +718,52 @@ class VValesController extends Controller
         }
     }
 
-    function getValesAvances2021(Request $request)
+    
+    function getValesAvances(Request $request)
     {
         $parameters = $request->all();
-
-        try {
-            $tablaMeta = "(
-                Select M.Id, M.Subregion as Region, M.Nombre as Municipio, MM.ApoyoAmpliado as Apoyos
-                from et_cat_municipio as M inner join meta_municipio as MM on (M.Id = MM.idMunicipio)
-                where MM.Ejercicio=2021) as M ";
-
-            $tabla1 = "(
-                    select idMunicipio, count(id) as SolicitudesPorAprobar
-                    from vales
-                    where Remesa is null and YEAR(FechaSolicitud) = 2021 and  isDocumentacionEntrega=0
-                    group by idMunicipio
-                    ) as S ";
-
-            $tabla2 = "(
-                select idMunicipio, count(id) as ExpedientesRecibidos
-                from vales
-                where Remesa is null and isDocumentacionEntrega=1 and YEAR(FechaSolicitud) = 2021
-                group by idMunicipio) as E";
-
-            $tabla3 = "(
-                    select idMunicipio, count(id) as AprobadosComite
-                    from vales
-                    where Remesa is not null and YEAR(FechaSolicitud) = 2021
-                    group by idMunicipio) as AC";
-
-            $tabla4 = "(
-                        select idMunicipio, count(id) as Entregados
-                        from vales
-                        where Remesa is not null and YEAR(FechaSolicitud) = 2021 and isEntregado=1
-                        group by idMunicipio) as ET";
-
-            $tablaIncidencias = "(
-                    select idMunicipio, count(id) as Incidencias
-                    from vales
-                    where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = 2021
-                    group by idMunicipio) as VI";
-
-            $queryGeneral = DB::table(DB::raw($tablaMeta))
-                ->selectRaw(
-                    'M.Region, M.Municipio, M.Apoyos, AC.AprobadosComite, if(VI.Incidencias is null, 0, VI.Incidencias) as Incidencias, (M.Apoyos + if(VI.Incidencias is null, 0, VI.Incidencias) - if(AC.AprobadosComite is null, 0, AC.AprobadosComite)) as ApoyosMenosApronadosComite, if(ET.Entregados is null, 0, ET.Entregados) as Entregados, S.SolicitudesPorAprobar, E.ExpedientesRecibidos'
-                )
-                //   ->leftJoin(DB::raw($tablaMeta),'M.idMunicipio','=','M.Id')
-                ->leftJoin(DB::raw($tabla1), 'S.idMunicipio', '=', 'M.Id')
-                ->leftJoin(DB::raw($tabla2), 'E.idMunicipio', '=', 'M.Id')
-                ->leftJoin(DB::raw($tabla3), 'AC.idMunicipio', '=', 'M.Id')
-                ->leftJoin(DB::raw($tabla4), 'ET.idMunicipio', '=', 'M.Id')
-                ->leftJoin(
-                    DB::raw($tablaIncidencias),
-                    'VI.idMunicipio',
-                    '=',
-                    'M.Id'
-                );
-
-            if (isset($parameters['Regiones'])) {
-                $resMunicipio = DB::table('et_cat_municipio')
-                    ->whereIn('SubRegion', $parameters['Regiones'])
-                    ->pluck('Id');
-
-                //dd($resMunicipio);
-
-                $queryGeneral->whereIn('M.Id', $resMunicipio);
-            }
-
-            $queryGeneral
-                ->orderBy('M.Region', 'ASC')
-                ->orderBy('M.Municipio', 'ASC');
-
-            $Items = $queryGeneral->get();
-
-            return ['success' => true, 'results' => true, 'data' => $Items];
-        } catch (QueryException $e) {
-            $errors = [
-                'Clave' => '01',
-            ];
-            $response = [
-                'success' => true,
-                'results' => false,
-                'errors' => $e->getMessage(),
-                'message' => 'Campo de consulta incorrecto',
-            ];
-
-            return response()->json($response, 200);
+        $anio=2022;
+        if (isset($parameters['Anio'])) {
+            $anio= $parameters['Anio'];
+               
         }
-    }
 
-    function getValesAvances2022(Request $request)
-    {
-        $parameters = $request->all();
 
         try {
             $tablaMeta = "(
                 Select M.Id, M.Subregion as Region, M.Nombre as Municipio, MM.ApoyoAmpliado as Apoyos
                 from et_cat_municipio as M inner join meta_municipio as MM on (M.Id = MM.idMunicipio)
-                where MM.Ejercicio=2022) as M ";
+                where MM.Ejercicio=$anio) as M ";
 
             $tabla1 = "(
                     select idMunicipio, count(id) as SolicitudesPorAprobar
                     from vales
-                    where Remesa is null and YEAR(FechaSolicitud) = 2022 and  isDocumentacionEntrega=0
+                    where Remesa is null and YEAR(FechaSolicitud) = $anio and  isDocumentacionEntrega=0
                     group by idMunicipio
                     ) as S ";
 
             $tabla2 = "(
                 select idMunicipio, count(id) as ExpedientesRecibidos
                 from vales
-                where Remesa is null and isDocumentacionEntrega=1 and YEAR(FechaSolicitud) = 2022
+                where Remesa is null and isDocumentacionEntrega=1 and YEAR(FechaSolicitud) = $anio
                 group by idMunicipio) as E";
 
             $tabla3 = "(
                     select idMunicipio, count(id) as AprobadosComite
                     from vales
-                    where Remesa is not null and YEAR(FechaSolicitud) = 2022
+                    where Remesa is not null and YEAR(FechaSolicitud) = $anio
                     group by idMunicipio) as AC";
 
             $tabla4 = "(
                         select idMunicipio, count(id) as Entregados
                         from vales
-                        where Remesa is not null and YEAR(FechaSolicitud) = 2022 and isEntregado=1
+                        where Remesa is not null and YEAR(FechaSolicitud) = $anio and isEntregado=1
                         group by idMunicipio) as ET";
 
             $tablaIncidencias = "(
                     select idMunicipio, count(id) as Incidencias
                     from vales
-                    where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = 2022
+                    where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = $anio
                     group by idMunicipio) as VI";
 
             $queryGeneral = DB::table(DB::raw($tablaMeta))
