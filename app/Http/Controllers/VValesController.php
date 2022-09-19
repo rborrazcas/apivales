@@ -768,7 +768,11 @@ class VValesController extends Controller
 
             $queryGeneral = DB::table(DB::raw($tablaMeta))
                 ->selectRaw(
-                    'M.Region, M.Municipio, M.Apoyos, AC.AprobadosComite, if(VI.Incidencias is null, 0, VI.Incidencias) as Incidencias, (M.Apoyos + if(VI.Incidencias is null, 0, VI.Incidencias) - if(AC.AprobadosComite is null, 0, AC.AprobadosComite)) as ApoyosMenosApronadosComite, if(ET.Entregados is null, 0, ET.Entregados) as Entregados, S.SolicitudesPorAprobar, E.ExpedientesRecibidos'
+                    'M.Region, M.Municipio, M.Apoyos, AC.AprobadosComite, if(VI.Incidencias is null, 0, VI.Incidencias) as Incidencias
+                    , (M.Apoyos + if(VI.Incidencias is null, 0, VI.Incidencias) - if(AC.AprobadosComite is null, 0, AC.AprobadosComite)) as ApoyosMenosApronadosComite
+                    , if(ET.Entregados is null, 0, ET.Entregados) as Entregados
+                    , S.SolicitudesPorAprobar
+                    , E.ExpedientesRecibidos'
                 )
                 //   ->leftJoin(DB::raw($tablaMeta),'M.idMunicipio','=','M.Id')
                 ->leftJoin(DB::raw($tabla1), 'S.idMunicipio', '=', 'M.Id')
