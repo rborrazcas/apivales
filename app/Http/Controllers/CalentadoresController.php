@@ -2686,6 +2686,33 @@ class CalentadoresController extends Controller
                         return response()->json($response2, 200);
                     }
                 } else {
+                    $flag = $this->ValidarCalentadorVentanilla($cedula->id);
+                    if ($flag) {
+                        DB::table('calentadores_solicitudes')
+                            ->where('id', $cedula->idSolicitud)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                                'UsuarioEnvio' => $user->id,
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+
+                        DB::table('calentadores_cedulas')
+                            ->where('id', $cedula->id)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                                'UsuarioEnvio' => $user->id,
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+                        $response2 = [
+                            'success' => true,
+                            'results' => true,
+                            'message' => 'Enviada Correctamente',
+                        ];
+                        return response()->json($response2, 200);
+                    }
+
                     $response2 = [
                         'success' => false,
                         'results' => false,

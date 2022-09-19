@@ -1578,10 +1578,6 @@ class CedulasController extends Controller
             }
 
             try {
-                DB::table($tableSol)
-                    ->where('id', $id)
-                    ->update($params);
-
                 $idVale = DB::table($tableSol)
                     ->select('idVale')
                     ->where('id', $id)
@@ -1589,12 +1585,35 @@ class CedulasController extends Controller
                     ->first();
 
                 if ($idVale != null) {
-                    $infoVale = $this->setVales($id);
-                    DB::beginTransaction();
-                    DB::table('vales')
+                    $remesa = DB::table('vales')
                         ->where('id', $idVale->idVale)
-                        ->update($infoVale);
-                    DB::commit();
+                        ->get()
+                        ->first();
+
+                    if ($remesa->Remesa != null) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'errors' =>
+                                'El beneficiario ya fue aprobado, ¡No se puede modificar la solicitud!',
+                        ];
+                        return response()->json($response, 200);
+                    } else {
+                        DB::table($tableSol)
+                            ->where('id', $id)
+                            ->update($params);
+
+                        $infoVale = $this->setVales($id);
+                        DB::beginTransaction();
+                        DB::table('vales')
+                            ->where('id', $idVale->idVale)
+                            ->update($infoVale);
+                        DB::commit();
+                    }
+                } else {
+                    DB::table($tableSol)
+                        ->where('id', $id)
+                        ->update($params);
                 }
             } catch (Exception $e) {
                 $response = [
