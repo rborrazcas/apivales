@@ -273,7 +273,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/getVales', 'VValesController@getVales');
     Route::post('/getValesResumen', 'VValesController@getValesResumen');
 
-    Route::post('/getValesAvances2021', 'VValesController@getValesAvances2021');
+    Route::post('/getValesAvances', 'VValesController@getValesAvances');
     Route::post('/getHistoryVales', 'VValesController@getHistoryVales');
     Route::post('/getValesInHistory', 'VValesController@getValesInHistory');
     Route::post('/getValesV2', 'VValesController@getValesV2');
