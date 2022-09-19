@@ -21,6 +21,7 @@ use DB;
 use Arr;
 use File;
 use Zipper;
+use Imagick;
 use JWTAuth;
 use Storage;
 use Validator;
@@ -470,13 +471,13 @@ class YoPuedoController extends Controller
 
             $userId = JWTAuth::parseToken()->toUser()->id;
 
+            DB::beginTransaction();
             DB::table('users_filtros')
                 ->where('UserCreated', $userId)
                 ->where('api', 'getYoPuedoVentanilla')
                 ->delete();
 
             $parameters_serializado = serialize($params);
-
             //Insertamos los filtros
             DB::table('users_filtros')->insert([
                 'UserCreated' => $userId,
@@ -484,6 +485,7 @@ class YoPuedoController extends Controller
                 'Consulta' => $parameters_serializado,
                 'created_at' => date('Y-m-d h-m-s'),
             ]);
+            DB::commit();
 
             $tableSol = 'yopuedo_solicitudes';
             $tableCedulas =
@@ -582,7 +584,7 @@ class YoPuedoController extends Controller
                     'entidadesVive.id',
                     'yopuedo_solicitudes.idEntidadVive'
                 )
-                ->join(
+                ->leftJoin(
                     'users AS creadores',
                     'creadores.id',
                     'yopuedo_solicitudes.idUsuarioCreo'
@@ -618,7 +620,7 @@ class YoPuedoController extends Controller
             $usersApp = '';
 
             if (isset($params['filtered']) && count($params['filtered']) > 0) {
-                $filtersCedulas = ['.id', '.MunicipioVive'];
+                $filtersCedulas = ['.ListaParaEnviar'];
 
                 foreach ($params['filtered'] as $filtro) {
                     if ($filtro['id'] == '.articulador') {
@@ -678,7 +680,7 @@ class YoPuedoController extends Controller
                     }
 
                     if (in_array($id, $filtersCedulas)) {
-                        $id = 'yopuedo_solicitudes' . $id;
+                        $id = 'yopuedo_cedulas' . $id;
                     } else {
                         $id = 'yopuedo_solicitudes' . $id;
                     }
@@ -2583,6 +2585,10 @@ class YoPuedoController extends Controller
         $clasificationArray,
         $userId
     ) {
+        $img = new Imagick();
+        $width = 1920;
+        $height = 1920;
+
         foreach ($files as $key => $file) {
             $originalName = $file->getClientOriginalName();
             $extension = explode('.', $originalName);
@@ -2602,11 +2608,34 @@ class YoPuedoController extends Controller
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
 
-            Storage::disk('subidos')->put(
-                $uniqueName,
-                File::get($file->getRealPath()),
-                'public'
-            );
+            if (
+                in_array(mb_strtolower($extension, 'utf-8'), [
+                    'png',
+                    'jpg',
+                    'jpeg',
+                    'gif',
+                    'tiff',
+                ])
+            ) {
+                //Ruta temporal para reducción de tamaño
+                $file->move('subidos/tmp', $uniqueName);
+                $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
+                $img->readImage($img_tmp_path);
+                $img->adaptiveResizeImage($width, $height);
+
+                //Guardar en el nuevo storage
+                $url_storage = Storage::disk('subidos')->path($uniqueName);
+                // $img->writeImage(sprintf('subidos/%s', $uniqueName));
+                $img->writeImage($url_storage);
+                File::delete($img_tmp_path);
+            } else {
+                // $file->move('subidos', $uniqueName);
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    File::get($file->getRealPath()),
+                    'public'
+                );
+            }
 
             DB::table('yopuedo_cedula_archivos')->insert($fileObject);
         }
@@ -3037,11 +3066,20 @@ class YoPuedoController extends Controller
         }
 
         $request2 = new HTTP_Request2();
-        $request2->setUrl(
-            'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
-            //'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register'
-        );
+        if ($cedula->Edad > 17) {
+            $url =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register';
+            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register';
+        } else {
+            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register';
+            //'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register/v2';
+            $url =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register';
+            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register';
+            //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register/v2';
+        }
 
+        $request2->setUrl($url);
         $request2->setMethod(HTTP_Request2::METHOD_POST);
         $request2->setConfig([
             'follow_redirects' => true,
@@ -3061,7 +3099,7 @@ class YoPuedoController extends Controller
                 $file['header']
             );
         }
-        dd($request2);
+        //dd($request2);
         try {
             $response = $request2->send();
             $message = json_decode($response->getBody());
@@ -3106,7 +3144,7 @@ class YoPuedoController extends Controller
                     $response2 = [
                         'success' => false,
                         'results' => false,
-                        'errors' => $e->errors,
+                        'errors' => $message,
                         'message' => 'La Cedula no fue enviada',
                     ];
                     return response()->json($response2, 200);
@@ -3155,20 +3193,79 @@ class YoPuedoController extends Controller
             ];
         }
         $curp = $responseBody->Resultado;
+        $fechaComoEntero = strtotime($solicitud->FechaNacimiento);
+
+        $idMunicipio = DB::table('et_cat_municipio')
+            ->select('id')
+            ->where('Nombre', $solicitud->MunicipioVive)
+            ->get()
+            ->first();
+
         $cveLocalidad = DB::table('et_cat_localidad')
-            ->select('CveInegi')
+            ->select('CveInegi', 'Nombre')
+            ->where('idMunicipio', $idMunicipio->id)
             ->where('Nombre', $solicitud->LocalidadVive)
             ->get()
             ->first();
+
+        if ($solicitud->Edad < 18) {
+            $parentesco = DB::table('cat_parentesco_tutor')
+                ->where('id', $solicitud->idParentescoTutor)
+                ->get()
+                ->first();
+        }
+
+        if ($solicitud->Edad < 18) {
+            $entidadTutor = DB::table('cat_entidad')
+                ->where('id', $solicitud->idEntidadNacimientoTutor)
+                ->get()
+                ->first();
+        }
+
+        if ($solicitud->Edad < 18) {
+            $tut = [
+                'respuesta' => true,
+                'datosGenerales' => [
+                    'curp' => $solicitud->CURPTutor,
+                    'parentesco' => [
+                        'codigo' => $parentesco->id,
+                        'descripcion' => $parentesco->Parentesco,
+                    ],
+                    'nombre' => $solicitud->NombreTutor,
+                    'primerApellido' => $solicitud->PaternoTutor,
+                    'segundoApellido' => $solicitud->MaternoTutor,
+                    'genero' =>
+                        strtoupper($solicitud->SexoTutor) == 'H'
+                            ? 'MASCULINO'
+                            : 'FEMENINO',
+                    'fechaNacimientoTexto' => $solicitud->FechaNacimientoTutor,
+                    'fechaNacimientoDate' => date(
+                        $solicitud->FechaNacimientoTutor
+                    ),
+                    'entidadNacimiento' => $entidadTutor->Entidad,
+                    'nacionalidad' => 'MEX',
+                    'telefono' => [
+                        'descripcion' => $solicitud->TelefonoTutor,
+                        'tipo' => 'Celular',
+                    ],
+                    'correo' => [
+                        'tipo' => 'personal',
+                        'descripcion' => $solicitud->CorreoTutor,
+                    ],
+                ],
+            ];
+        } else {
+            $tut = [
+                'respuesta' => false,
+            ];
+        }
 
         $json = [
             'solicitud' => json_encode(
                 [
                     'tipoSolicitud' => 'Ciudadana',
                     'origen' => 'F',
-                    'tutor' => [
-                        'respuesta' => $solicitud->NombreTutor ? true : false,
-                    ],
+                    'tutor' => $tut,
                     'datosCurp' => [
                         'folio' => $solicitud->Folio,
                         'curp' => $solicitud->CURP,
@@ -3182,6 +3279,7 @@ class YoPuedoController extends Controller
                                 ? 'MASCULINO'
                                 : 'FEMENINO',
                         'nacionalidad' => $curp->nacionalidad,
+                        //'nacionalidad' => 'MEX',
                         'nombre' => $solicitud->Nombre,
                         'primerApellido' =>
                             $solicitud->Paterno != 'XX'
@@ -3192,6 +3290,7 @@ class YoPuedoController extends Controller
                                 ? $solicitud->Materno
                                 : 'X',
                         'anioRegistro' => $curp->anioReg,
+                        //'anioRegistro' => $fechaComoEntero,
                         'descripcion' => $solicitud->NecesidadSolicitante,
                         'costoAproximado' => $solicitud->CostoNecesidad,
                     ],
@@ -3263,9 +3362,7 @@ class YoPuedoController extends Controller
                             'nombre' => $solicitud->LocalidadVive
                                 ? $solicitud->LocalidadVive
                                 : '',
-                            'codigo' => $cveLocalidad->CveInegi
-                                ? $cveLocalidad->CveInegi
-                                : '',
+                            'codigo' => $cveLocalidad->CveInegi,
                         ],
                         'municipio' => $solicitud->MunicipioVive,
                         'calle' => $solicitud->CalleVive,
@@ -3278,7 +3375,6 @@ class YoPuedoController extends Controller
                 JSON_UNESCAPED_UNICODE
             ),
         ];
-
         return ['success' => true, 'data' => $json];
     }
 
@@ -4374,14 +4470,15 @@ class YoPuedoController extends Controller
                 'vales.Folio AS Folio',
                 'vales.FechaSolicitud',
                 'vales.CURP',
-                DB::raw(
-                    "concat_ws(' ',vales.Nombre, vales.Paterno, vales.Materno) as NombreCompleto"
-                ),
+                'vales.Nombre',
+                DB::raw("IFNULL(vales.Paterno,'')"),
+                DB::raw("IFNULL(vales.Materno,'')"),
                 'vales.Sexo',
                 'vales.FechaNacimiento',
-                DB::raw(
-                    "concat_ws(' ',vales.CalleVive, concat('Num. ', vales.NoExtVive), if(vales.NoIntVive is not null,concat('NumInt. ',vales.NoIntVive), ''), concat('Col. ',vales.ColoniaVive)) as Direccion"
-                ),
+                'proyectos_cedulas.ColoniaVive',
+                'proyectos_cedulas.CalleVive',
+                'proyectos_cedulas.NoExtVive',
+                'proyectos_cedulas.NoIntVive',
                 'yopuedo_cedulas.AGEBVive AS ClaveAGEB',
                 'yopuedo_cedulas.ManzanaVive AS Manzana',
                 'vales.CPVive',

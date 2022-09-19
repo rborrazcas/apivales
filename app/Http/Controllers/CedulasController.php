@@ -1086,23 +1086,23 @@ class CedulasController extends Controller
                 }
             }
 
-            if (isset($params['FechaINE'])) {
-                $fechaINE = intval($params['FechaINE']);
-                $year_start = idate(
-                    'Y',
-                    strtotime('first day of January', time())
-                );
+            // if (isset($params['FechaINE'])) {
+            //     $fechaINE = intval($params['FechaINE']);
+            //     $year_start = idate(
+            //         'Y',
+            //         strtotime('first day of January', time())
+            //     );
 
-                if ($year_start > $fechaINE) {
-                    $response = [
-                        'success' => true,
-                        'results' => false,
-                        'errors' =>
-                            'La vigencia de la Identificación Oficial no cumple con los requisitos',
-                    ];
-                    return response()->json($response, 200);
-                }
-            }
+            //     if ($year_start > $fechaINE) {
+            //         $response = [
+            //             'success' => true,
+            //             'results' => false,
+            //             'errors' =>
+            //                 'La vigencia de la Identificación Oficial no cumple con los requisitos',
+            //         ];
+            //         return response()->json($response, 200);
+            //     }
+            // }
 
             if (isset($params['Folio'])) {
                 $folioRegistrado = DB::table($tableSol)
@@ -1236,6 +1236,20 @@ class CedulasController extends Controller
                 $params['FechaCreo'] = date('Y-m-d');
                 DB::beginTransaction();
                 $id = DB::table($tableSol)->insertGetId($params);
+                DB::commit();
+
+                //Se envía a Vales
+                $infoVale = $this->setVales($id);
+                DB::beginTransaction();
+                $idVale = DB::table('vales')->insertGetId($infoVale);
+                DB::commit();
+
+                DB::beginTransaction();
+                DB::table('cedulas_solicitudes')
+                    ->where('id', $id)
+                    ->update([
+                        'idVale' => $idVale,
+                    ]);
                 DB::commit();
             } else {
                 $id = $idSol->id;
@@ -1564,9 +1578,43 @@ class CedulasController extends Controller
             }
 
             try {
-                DB::table($tableSol)
+                $idVale = DB::table($tableSol)
+                    ->select('idVale')
                     ->where('id', $id)
-                    ->update($params);
+                    ->get()
+                    ->first();
+
+                if ($idVale != null) {
+                    $remesa = DB::table('vales')
+                        ->where('id', $idVale->idVale)
+                        ->get()
+                        ->first();
+
+                    if ($remesa->Remesa != null) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'errors' =>
+                                'El beneficiario ya fue aprobado, ¡No se puede modificar la solicitud!',
+                        ];
+                        return response()->json($response, 200);
+                    } else {
+                        DB::table($tableSol)
+                            ->where('id', $id)
+                            ->update($params);
+
+                        $infoVale = $this->setVales($id);
+                        DB::beginTransaction();
+                        DB::table('vales')
+                            ->where('id', $idVale->idVale)
+                            ->update($infoVale);
+                        DB::commit();
+                    }
+                } else {
+                    DB::table($tableSol)
+                        ->where('id', $id)
+                        ->update($params);
+                }
             } catch (Exception $e) {
                 $response = [
                     'success' => true,
@@ -5381,7 +5429,7 @@ class CedulasController extends Controller
                         : $solicitud->idUsuarioCreo),
 
             'TotalIngresos' => $solicitud->TotalIngreso,
-            'OcupacionOtro' => 0,
+            //'OcupacionOtro' => 0,
             'UserCreated' =>
                 $solicitud->idUsuarioCreo == 1312 && $userCreo != null
                     ? $userCreo->idUser
@@ -5393,8 +5441,8 @@ class CedulasController extends Controller
             'INEVencida' => 0,
             'isDocumentacionEntrega' => 0,
             'Bloqueado' => 1,
-            'BloqueadoUser' => $user->id,
-            'BloqueadoDate' => date('Y-m-d H:i:s'),
+            // 'BloqueadoUser' => $user->id,
+            // 'BloqueadoDate' => date('Y-m-d H:i:s'),
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
@@ -5507,9 +5555,9 @@ class CedulasController extends Controller
                 DB::raw('LPAD(HEX(vales.idVale),6,0) as FolioVales'),
                 'vales.FechaSolicitud',
                 'vales.CURP',
-                DB::raw(
-                    "concat_ws(' ',vales.Nombre, IFNULL(vales.Paterno,''), IFNULL(vales.Materno,'')) as NombreCompleto"
-                ),
+                'vales.Nombre',
+                DB::raw("IFNULL(vales.Paterno,'')"),
+                DB::raw("IFNULL(vales.Materno,'')"),
                 'vales.Sexo',
                 'vales.FechaNacimiento',
                 'vales.OcupacionJefeHogar',
