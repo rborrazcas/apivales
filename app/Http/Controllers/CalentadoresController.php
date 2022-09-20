@@ -4207,8 +4207,8 @@ class CalentadoresController extends Controller
     public function envioMasivoVentanillaC(Request $request)
     {
         try {
-            $solicitudesAEnviar = DB::table('calentadores_cedulas')
-                ->whereRaw('Folio IS NOT NULL')
+            $solicitudesAEnviar = DB::table('EnvioMasivoCalentadores19Sep')
+                ->where('Enviado', '0')
                 ->get();
 
             if ($solicitudesAEnviar->count() == 0) {
@@ -4220,25 +4220,61 @@ class CalentadoresController extends Controller
                 return response()->json($response, 200);
             }
 
-            foreach ($solicitudesAEnviar as $key) {
-                $flag = $this->ValidarCalentadorVentanilla($key->id);
-                if ($flag) {
-                    DB::table('calentadores_cedulas')
-                        ->where('id', $key->id)
-                        ->update(['EnVentanilla' => '1']);
-                }
-            }
-
             // foreach ($solicitudesAEnviar as $key) {
-            //     $flag = $this->enviarIGTOMasivo($key->id);
-            //     if ($flag) {
+            //     $idCedula = DB::table('calentadores_cedulas')
+            //         ->select('id')
+            //         ->where('idSolicitud', $key->ID)
+            //         ->whereNull('FechaElimino')
+            //         ->get()
+            //         ->first();
+            //     if ($idCedula != null) {
+            //         $flag = $this->ValidarCalentadorVentanilla($idCedula->id);
+            //         if ($flag) {
+            //             DB::table('EnvioMasivoCalentadores19Sep')
+            //                 ->where('id', $key->ID)
+            //                 ->update(['Enviado' => '1']);
+
+            //             DB::table('calentadores_solicitudes')
+            //                 ->where('id', $key->ID)
+            //                 ->update([
+            //                     'idEstatus' => '8',
+            //                     'ListaParaEnviar' => '2',
+            //                     'FechaEnvio' => date('Y-m-d H:i:s'),
+            //                 ]);
+
+            //             DB::table('calentadores_cedulas')
+            //                 ->where('id', $idCedula->id)
+            //                 ->update([
+            //                     'idEstatus' => '8',
+            //                     'ListaParaEnviar' => '2',
+            //                     'FechaEnvio' => date('Y-m-d H:i:s'),
+            //                 ]);
+            //         }
             //     }
             // }
+
+            foreach ($solicitudesAEnviar as $key) {
+                $idCedula = DB::table('calentadores_cedulas')
+                    ->select('id')
+                    ->where('idSolicitud', $key->ID)
+                    ->whereNull('FechaElimino')
+                    ->get()
+                    ->first();
+
+                if ($idCedula != null) {
+                    $flag = $this->enviarIGTOMasivo($idCedula->id);
+                    if ($flag) {
+                        DB::table('EnvioMasivoCalentadores19Sep')
+                            ->where('id', $key->ID)
+                            ->update(['Enviado' => '1']);
+                    }
+                }
+            }
 
             $response = [
                 'success' => true,
                 'results' => true,
-                'message' => 'Validadas con exito',
+                'message' => 'Enviadas con exito',
             ];
             return response()->json($response, 200);
         } catch (QueryException $errors) {

@@ -718,16 +718,13 @@ class VValesController extends Controller
         }
     }
 
-    
     function getValesAvances(Request $request)
     {
         $parameters = $request->all();
-        $anio=2022;
+        $anio = 2022;
         if (isset($parameters['Anio'])) {
-            $anio= $parameters['Anio'];
-               
+            $anio = $parameters['Anio'];
         }
-
 
         try {
             $tablaMeta = "(

@@ -932,7 +932,8 @@ class CedulasController extends Controller
                 case 4:
                     $tableCedulas = 'yopuedo_cedulas';
                     $tableSol = 'yopuedo_solicitudes';
-                    $necesidad = 'CAPACITACION YO PUEDO GUANAJUATO PUEDE';
+                    $necesidad =
+                        'CAPACITACIÓN DEL PROGRAMA YO PUEDO, GTO PUEDE';
                     $costo = 'NO APLICA';
                     break;
             }

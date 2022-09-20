@@ -557,7 +557,14 @@ class YoPuedoController extends Controller
                         'END AS CreadoPor, ' .
                         " CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor, " .
                         ' yopuedo_cedulas.id AS idCedula, ' .
-                        ' yopuedo_cedulas.ListaParaEnviar as ListaParaEnviarY'
+                        'CASE ' .
+                        'WHEN ' .
+                        'yopuedo_cedulas.ListaParaEnviar IS NULL ' .
+                        'THEN ' .
+                        '0 ' .
+                        'ELSE ' .
+                        'yopuedo_cedulas.ListaParaEnviar ' .
+                        'END AS ListaParaEnviarY '
                 )
                 ->leftjoin(
                     'cat_entidad AS entidadesNacimiento',
@@ -974,6 +981,10 @@ class YoPuedoController extends Controller
                     return response()->json($response, 200);
                 }
             }
+
+            $params['NecesidadSolicitante'] =
+                'CAPACITACIÓN DEL PROGRAMA YO PUEDO, GTO PUEDE';
+            $params['CostoNecesidad'] = 'NO APLICA';
 
             unset($params['Files']);
             unset($params['ArchivosClasificacion']);
@@ -1514,6 +1525,10 @@ class YoPuedoController extends Controller
             unset($params['idCedula']);
             unset($params['id']);
             unset($params['Boiler']);
+
+            $params['NecesidadSolicitante'] =
+                'CAPACITACIÓN DEL PROGRAMA YO PUEDO, GTO PUEDE';
+            $params['CostoNecesidad'] = 'NO APLICA';
 
             DB::beginTransaction();
 
