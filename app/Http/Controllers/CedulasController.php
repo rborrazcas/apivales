@@ -1087,23 +1087,23 @@ class CedulasController extends Controller
                 }
             }
 
-            // if (isset($params['FechaINE'])) {
-            //     $fechaINE = intval($params['FechaINE']);
-            //     $year_start = idate(
-            //         'Y',
-            //         strtotime('first day of January', time())
-            //     );
+            if (isset($params['FechaINE'])) {
+                $fechaINE = intval($params['FechaINE']);
+                $year_start = idate(
+                    'Y',
+                    strtotime('first day of January', time())
+                );
 
-            //     if ($year_start > $fechaINE) {
-            //         $response = [
-            //             'success' => true,
-            //             'results' => false,
-            //             'errors' =>
-            //                 'La vigencia de la Identificación Oficial no cumple con los requisitos',
-            //         ];
-            //         return response()->json($response, 200);
-            //     }
-            // }
+                if ($year_start > $fechaINE) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'La vigencia de la Identificación Oficial no cumple con los requisitos',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
 
             if (isset($params['Folio'])) {
                 $folioRegistrado = DB::table($tableSol)

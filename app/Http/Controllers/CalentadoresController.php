@@ -4291,6 +4291,76 @@ class CalentadoresController extends Controller
         }
     }
 
+    function getMunicipiosVales(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        $userName = DB::table('users_aplicativo_web')
+            ->selectRaw('UserName,Region')
+            ->where('idUser', $user->id)
+            ->get()
+            ->first();
+        $permisos = $this->getPermisos();
+        try {
+            if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
+                $res_Vales = DB::table('calentadores_solicitudes')
+                    ->select('MunicipioVive as municipio')
+                    ->where('idUsuarioCreo', $user->id)
+                    ->orWhere('UsuarioAplicativo', $userName->UserName);
+            } elseif ($permisos->ViewAll < 1) {
+                $region = '';
+                if ($userName->Region == 'I') {
+                    $region = 1;
+                } elseif ($userName->Region == 'II') {
+                    $region = 2;
+                } elseif ($userName->Region == 'III') {
+                    $region = 3;
+                } elseif ($userName->Region == 'IV') {
+                    $region = 4;
+                } elseif ($userName->Region == 'V') {
+                    $region = 5;
+                } elseif ($userName->Region == 'VI') {
+                    $region = 6;
+                } elseif ($userName->Region == 'VII') {
+                    $region = 7;
+                }
+
+                $res_Vales = DB::table('et_cat_municipio')
+                    ->select('Nombre as municipio')
+                    ->where('SubRegion', $region);
+            } else {
+                $res_Vales = DB::table('et_cat_municipio')->select(
+                    'Nombre as municipio'
+                );
+            }
+
+            $res_Vales = $res_Vales->groupBy('municipio');
+            $res_Vales = $res_Vales->get();
+
+            $arrayMPios = [];
+
+            foreach ($res_Vales as $data) {
+                $arrayMPios[] = $data->municipio;
+            }
+
+            $res = DB::table('et_cat_municipio')
+                ->select('Id', 'Nombre', 'Region', 'SubRegion')
+                ->whereIn('Nombre', $arrayMPios)
+                ->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            return [
+                'success' => false,
+                'errors' => $e->getMessage(),
+            ];
+        }
+    }
+
     public function enviarIGTOMasivo($id)
     {
         try {
