@@ -749,7 +749,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('/create', 'DiagnosticoV2Controller@create');
         Route::get('/getById/{id}', 'DiagnosticoV2Controller@getById');
         Route::get(
-            '/getArchivosByIdY/{id}',
+            '/getArchivosByIdD/{id}',
             'DiagnosticoV2Controller@getFilesById'
         );
         Route::get(
