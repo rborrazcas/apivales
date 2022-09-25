@@ -192,11 +192,7 @@ class CedulasController extends Controller
             }
 
             $articuladores
-                ->where(
-                    'programa',
-                    '=',
-                    'YO PUEDO, GTO PUEDEVALES / CALENTADORES'
-                )
+                ->where('programa', '=', 'VALES / CALENTADORES')
                 ->where('Activo', '1')
                 ->orderBy('label')
                 ->get();
@@ -1247,7 +1243,7 @@ class CedulasController extends Controller
             $message = 'Solicitud creada con exito';
             if ($idVale != null) {
                 $folioImpulso = str_pad(dechex($idVale), 6, '0', STR_PAD_LEFT);
-                $message = $message . ' Folio PVG ' . $folioImpulso;
+                $message = $message . ' Folio PVG ' . strtoupper($folioImpulso);
             }
 
             $response = [
@@ -5454,7 +5450,7 @@ class CedulasController extends Controller
             'isDocumentacionEntrega' => 0,
             'Bloqueado' => 1,
             // 'BloqueadoUser' => $user->id,
-            // 'BloqueadoDate' => date('Y-m-d H:i:s'),
+            'BloqueadoDate' => date('Y-m-d H:i:s'),
             'created_at' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
@@ -5563,16 +5559,16 @@ class CedulasController extends Controller
             ->select(
                 DB::raw('LPAD(HEX(vales.id),6,0) as Id'),
                 'et_cat_municipio.SubRegion AS Region',
-                'vales.Folio AS FolioImpulso',
                 DB::raw('LPAD(HEX(vales.idVale),6,0) as FolioVales'),
+                // DB::raw('LPAD(HEX(vales.idVale),6,0) as FolioVales'),
                 'vales.FechaSolicitud',
                 'vales.CURP',
                 'vales.Nombre',
                 DB::raw("IFNULL(vales.Paterno,'')"),
                 DB::raw("IFNULL(vales.Materno,'')"),
                 'vales.Sexo',
-                'vales.FechaNacimiento',
-                'vales.OcupacionJefeHogar',
+                //'vales.FechaNacimiento',
+                //'vales.OcupacionJefeHogar',
                 'vales.ColoniaVive',
                 'vales.CalleVive',
                 'vales.NoExtVive',
@@ -5584,12 +5580,12 @@ class CedulasController extends Controller
                 'vales.Longitud',
                 'vales.Telefono',
                 'vales.Celular',
-                'vales.TelRecados',
+                //'vales.TelRecados',
                 'vales.Correo',
-                'vales.IngresoMensual',
-                'vales.OtrosIngresos',
-                'vales.TotalIngreso',
-                'vales.PersonasDependientes',
+                //'vales.IngresoMensual',
+                //'vales.OtrosIngresos',
+                //'vales.TotalIngreso',
+                //'vales.PersonasDependientes',
                 DB::raw("'Sin Incidencia' AS Incidencia"),
                 DB::raw("
                     CASE
@@ -5766,6 +5762,11 @@ class CedulasController extends Controller
                             if ($id == '.FechaCreo') {
                                 $timestamp = strtotime($value);
                                 $value = date('Y-m-d', $timestamp);
+                            }
+
+                            if ($id == '.Folio') {
+                                $id = '.idVale';
+                                $value = hexdec($value);
                             }
 
                             if ($id == '.MunicipioVive') {
