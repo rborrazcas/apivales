@@ -578,6 +578,11 @@ class CedulasController extends Controller
                             $value = date('Y-m-d', $timestamp);
                         }
 
+                        if ($id == '.Folio') {
+                            $id = '.idVale';
+                            $value = hexdec($value);
+                        }
+
                         if ($id == '.FechaCreo') {
                             $timestamp = strtotime($value);
                             $value = date('Y-m-d', $timestamp);
@@ -1723,8 +1728,31 @@ class CedulasController extends Controller
                 return response()->json($response, 200);
             }
 
+            $idVale = DB::table($tableSol)
+                ->select('idVale')
+                ->where('id', $params['id'])
+                ->get()
+                ->first();
+
+            if ($idVale != null) {
+                $remesa = DB::table('vales')
+                    ->where('id', $idVale->idVale)
+                    ->get()
+                    ->first();
+
+                if ($remesa->Remesa != null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'El beneficiario ya fue aprobado, ¡No se puede eliminar la solicitud!',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
+
             DB::table('vales')
-                ->where('id', $solicitud->idVale)
+                ->where('id', $idVale->idVale)
                 ->delete();
 
             DB::table($tableSol)
