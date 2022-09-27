@@ -6467,10 +6467,19 @@ class CedulasController extends Controller
             ->first();
 
         if ($anexo == null) {
-            DB::table('cedulas_solicitudes')
-                ->where('id', $id)
-                ->update(['ExpedienteCompleto' => 0]);
-            return false;
+            $pvg = DB::table('solicitud_archivos')
+                ->where('idSolicitud', $id)
+                ->where('idClasificacion', '2')
+                ->whereNull('FechaElimino')
+                ->get()
+                ->first();
+
+            if ($pvg == null) {
+                DB::table('cedulas_solicitudes')
+                    ->where('id', $id)
+                    ->update(['ExpedienteCompleto' => 0]);
+                return false;
+            }
         }
 
         DB::table('cedulas_solicitudes')

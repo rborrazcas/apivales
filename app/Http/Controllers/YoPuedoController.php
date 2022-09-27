@@ -986,6 +986,11 @@ class YoPuedoController extends Controller
                 'CAPACITACIÓN DEL PROGRAMA YO PUEDO, GTO PUEDE';
             $params['CostoNecesidad'] = 'NO APLICA';
 
+            if ($user->id == 1578) {
+                $params['UsuarioAplicativo'] = $params['idEnlace'];
+                unset($params['idEnlace']);
+            }
+
             unset($params['Files']);
             unset($params['ArchivosClasificacion']);
 
@@ -1582,6 +1587,10 @@ class YoPuedoController extends Controller
                     $newClasificacion,
                     $user->id
                 );
+            }
+
+            if (isset($params['CURP'])) {
+                $this->getFiles($id, $params['CURP']);
             }
 
             DB::commit();
@@ -5164,6 +5173,97 @@ class YoPuedoController extends Controller
             ];
 
             return response()->json($response, 200);
+        }
+    }
+
+    public function getFiles($id, $CURP)
+    {
+        $curpRegistrada = DB::table('curps_yopuedo_archivos')
+            ->where('CURP', $CURP)
+            ->get()
+            ->first();
+
+        if ($curpRegistrada != null) {
+            $archivos = DB::table('curps_yopuedo_archivos AS c')
+                ->select(
+                    'c.curp AS CURP',
+                    'a.idClasificacion AS idClasificacion',
+                    'a.NombreOriginal AS NombreOriginal',
+                    'a.NombreSistema AS NombreSistema',
+                    'a.Extension AS Extension',
+                    'a.Tipo AS Tipo',
+                    'a.Tamanio AS Tamanio',
+                    'a.idUsuarioCreo AS idUsuarioCreo',
+                    'a.FechaCreo AS FechaCreo'
+                )
+                ->join('archivos_curp_yopuedo AS a', 'c.id', 'a.idCurp')
+                ->where('c.curp', $CURP)
+                ->get();
+
+            if ($archivos != null) {
+                foreach ($archivos as $a) {
+                    $archivoRegistrado = DB::table('yopuedo_cedula_archivos')
+                        ->where('idCedula', intval($id))
+                        ->where('idClasificacion', $a->idClasificacion)
+                        ->whereNull('FechaElimino')
+                        ->get()
+                        ->first();
+
+                    if ($archivoRegistrado == null) {
+                        $fileObject = [
+                            'idCedula' => intval($id),
+                            'idClasificacion' => intval($a->idClasificacion),
+                            'NombreOriginal' => $a->NombreOriginal,
+                            'NombreSistema' => $a->NombreSistema,
+                            'Extension' => $a->Extension,
+                            'Tipo' => $a->Tipo,
+                            'Tamanio' => '',
+                            'FechaCreo' => date('Y-m-d H:i:s'),
+                        ];
+
+                        DB::table('yopuedo_cedula_archivos')->insert(
+                            $fileObject
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    public function getFilesFromSocioeducativo(Request $request)
+    {
+        try {
+            $cedulas = DB::table('yopuedo_cedulas')
+                ->select(
+                    'yopuedo_cedulas.id',
+                    'yopuedo_cedulas.CURP',
+                    'yopuedo_cedula_archivos.id AS idArchivo'
+                )
+                ->whereNull('yopuedo_cedulas.FechaElimino')
+                ->whereNull('yopuedo_cedula_archivos.FechaElimino')
+                ->leftjoin(
+                    DB::raw(
+                        '(SELECT * FROM yopuedo_cedula_archivos WHERE idClasificacion = 4) AS yopuedo_cedula_archivos'
+                    ),
+                    'yopuedo_cedulas.id',
+                    'yopuedo_cedula_archivos.idCedula'
+                );
+
+            $cedulas = $cedulas->whereNull('yopuedo_cedula_archivos.id')->get();
+
+            foreach ($cedulas as $data) {
+                $this->getFiles($data->id, $data->CURP);
+            }
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $cedulas->getBindings(),
+            //         $cedulas->toSql()
+            //     )
+            // );
+            dd('Archivos cargados con éxito');
+        } catch (Exception $e) {
+            dd($e);
         }
     }
 

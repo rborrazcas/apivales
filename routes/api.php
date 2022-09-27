@@ -76,6 +76,7 @@ Route::post(
 
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
 Route::post('/convertirImagenes', 'CedulasController@convertImage');
+Route::post('/archivosYoPuedo', 'YopuedoController@getFilesFromSocioeducativo');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/register', 'AuthController@register');
