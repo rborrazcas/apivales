@@ -17,28 +17,10 @@ class VNegociosController extends Controller
 {
     function getNegocios(Request $request){
         $parameters = $request->all();
+        $parameters['filtered'] = isset($parameters['filtered']) ? $parameters['filtered'] : [];
+        // $parameters['idStatus'] = isset($parameters['idStatus']) ? $parameters['idStatus'] : 3;
 
         try {
-
-            // $usuario_permitido = DB::table('users_apis')
-            // ->select('idUser', 'Apis')
-            //     ->where('idUser','=',$user->id)
-            //     ->where('Apis','=','getNegocios')->first();
-
-            // if(!$usuario_permitido){
-            //     $errors = [
-            //         "Clave"=>"00"
-            //     ];
-            //     $response = ['success'=>true,'results'=>false, 
-            //     'total'=>0,'filtros'=>$parameters['filtered'],
-            //     'errors'=>$errors, 'message' =>'Este usuario no cuenta con permisos suficientes para ejecutar esta api.'];
-    
-            //     return  response()->json($response, 200);
-
-            // }
-            
-
-            
             $res = DB::table('v_negocios as N')
             ->select(
                 'N.id',
@@ -79,9 +61,7 @@ class VNegociosController extends Controller
                 'N.updated_at',
                 DB::raw('CONCAT(T.Nombre," ", T.Paterno," ", T.Materno) as UserCapturo'),
                 DB::raw('CONCAT(U.Nombre," ", U.Paterno," ", U.Materno) as UserActualizo'),
-                DB::raw('CONCAT(UR.Nombre," ", UR.Paterno," ", UR.Materno) as UserRefrendo')
-
-                
+                DB::raw('CONCAT(UR.Nombre," ", UR.Paterno," ", UR.Materno) as UserRefrendo')   
             )
             ->leftJoin('et_cat_municipio as M','M.Id','=','N.idMunicipio')
             ->leftJoin('v_negocios_tipo as NT','NT.id','=','N.idTipoNegocio')
@@ -91,10 +71,9 @@ class VNegociosController extends Controller
             ->leftJoin('users as UR','UR.id','=','N.UserRefrendo');
 
             if(isset($parameters['idStatus'])){
-            $res->where('N.idStatus','=',$parameters['idStatus']);
+                $res->where('N.idStatus','=',$parameters['idStatus']);
             }
-            
-            
+
             $flag = 0;
             if(isset($parameters['filtered'])){
                 for($i=0;$i<count($parameters['filtered']);$i++){
@@ -182,7 +161,7 @@ class VNegociosController extends Controller
                             case 'TipoNegocio':
                                 $res->where('NT.Tipo','LIKE','%'.$parameters['filtered'][$i]['value'].'%');   
                             break;
-                           
+                        
                             case 'Estatus':
                                 $res->where('Estatus','LIKE','%'.$parameters['filtered'][$i]['value'].'%');   
                             break;
@@ -268,7 +247,7 @@ class VNegociosController extends Controller
                                     }else{
                                         $res->where('M.SubRegion','=',$parameters['filtered'][$i]['value']);
                                     }  
-                                   
+                                
                                 break;
                                 case 'idTipoNegocio':
                                     if(is_array ($parameters['filtered'][$i]['value'])){
@@ -367,7 +346,7 @@ class VNegociosController extends Controller
                                     }else{
                                         $res->orWhere('M.SubRegion','=',$parameters['filtered'][$i]['value']);
                                     }  
-                                   
+                                
                                 break;
                                 case 'idTipoNegocio':
                                     if(is_array ($parameters['filtered'][$i]['value'])){
@@ -395,21 +374,16 @@ class VNegociosController extends Controller
                         }
                     }
                 }
-            
-
-            
             }
-            
+
             if(isset($parameters['NombreCompleto'])){
                 $filtro_recibido = $parameters['NombreCompleto'];
                 $filtro_recibido = str_replace(" ","",$filtro_recibido);
-
-              
+        
                 $res->where(
                     DB::raw("
                     REPLACE(
                     CONCAT(
-                        
                         N.NombreEmpresa,
                         N.Nombre,
                         N.Paterno,
@@ -506,19 +480,10 @@ class VNegociosController extends Controller
                         N.Paterno,
                         N.Nombre,
                         N.NombreEmpresa
-                        
-                    ), ' ', '')"
-                    )
-            
-            ,'like',"%".$filtro_recibido."%");
-            
-                
+                        ), ' ', '')"
+                    ),'like',"%".$filtro_recibido."%");
             }
 
-            $page = $parameters['page'];
-            $pageSize = $parameters['pageSize'];
-
-            $startIndex =  $page * $pageSize;
             if(isset($parameters['sorted'])){
 
                 for($i=0;$i<count($parameters['sorted']);$i++){
@@ -533,15 +498,12 @@ class VNegociosController extends Controller
                 }
             }
 
-            $total = $res->count(); 
-            $res = $res->offset($startIndex)
-            ->take($pageSize)
-            ->get();
+            $data = $res->get();
+            $total = $data->count();
 
+            $negocios_ids = $data->pluck('id');
 
-            foreach($res as $data){
-               
-            $res_cobradores = DB::table('v_negocios_pagadores as P')
+            $cobradores = DB::table('v_negocios_pagadores as P')
             ->select(
                 'P.id', 
                 'P.idNegocio', 
@@ -551,28 +513,32 @@ class VNegociosController extends Controller
                 'P.Materno', 
                 'P.idStatus'
             )
-            ->where('P.idNegocio','=',$data->id)->get();
+            ->whereIn('P.idNegocio',$negocios_ids)
+            ->get();
 
-            $data->Cobradores = $res_cobradores;
-            }
+            $negocios_giros = DB::table('v_negocios_giros as P')
+            ->select(
+                'P.idNegocio', 
+                'P.idGiro', 
+                'M.Giro'
+            )
+            ->leftJoin('v_giros as M','M.id','=','P.idGiro')
+            ->whereIn('P.idNegocio',$negocios_ids)
+            ->get();
 
-            foreach($res as $data){
-               
-                $res_giros = DB::table('v_negocios_giros as P')
-                ->select(
-                    'P.idNegocio', 
-                    'P.idGiro', 
-                    'M.Giro'
-                )
-                ->leftJoin('v_giros as M','M.id','=','P.idGiro')
-                ->where('P.idNegocio','=',$data->id)->get();
-    
-                $data->Giros = $res_giros;
-                }
-            
+            $data = $data->map(function($x) use($cobradores, $negocios_giros){
+                $idNegocio = $x->id;
+                $x->Cobradores = $cobradores->filter(function($y) use($idNegocio){ return $y->idNegocio == $idNegocio; })->values();
+                $x->Giros = $negocios_giros->filter(function($y) use($idNegocio){ return $y->idNegocio == $idNegocio; })->values();
+                return $x;
+            });
 
-            return ['success'=>true,'results'=>true, 'total'=>$total,'filtros'=>$parameters['filtered'],'data'=>$res];
+            // $data_gral = [
+            //     'Activos' => $data->filter(function($x) { return $x->idStatus == 3; })->values(),
+            //     'Inactivos' => $data->filter(function($x) { return $x->idStatus != 3; })->values(),
+            // ];
 
+            return ['success'=>true,'results'=>true, 'total'=>$total,'filtros'=>$parameters['filtered'],'data'=>$data];
         } catch(QueryException $e){
 
             $errors = [
@@ -964,9 +930,6 @@ class VNegociosController extends Controller
                             }
                         }
                     }
-                
-
-                
             }
             
             if(isset($parameters['NombreCompleto'])){
@@ -1106,10 +1069,10 @@ class VNegociosController extends Controller
 
             $total = $res->count(); 
             $res = $res->offset($startIndex)
-            ->take($pageSize)
-            ->get();
+            ->take($pageSize);
+            // ->get();
            // dd($res);
-
+            dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
 
             foreach($res as $data){
                
