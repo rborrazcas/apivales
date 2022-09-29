@@ -64,18 +64,18 @@ Route::get('/hashPassword', 'ZisController@hashPassword');
 
 Route::post('/acuse', 'CedulasController@getFile');
 
-Route::post(
-    '/envioMasivoVentanilla',
-    'CedulasController@envioMasivoVentanilla'
-);
+// Route::post(
+//     '/envioMasivoVentanilla',
+//     'CedulasController@envioMasivoVentanilla'
+// );
 
-Route::post(
-    '/envioMasivoVentanillaC',
-    'CalentadoresController@envioMasivoVentanillaC'
-);
+// Route::post(
+//     '/envioMasivoVentanillaC',
+//     'CalentadoresController@envioMasivoVentanillaC'
+// );
 
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
-Route::post('/convertirImagenes', 'CedulasController@convertImage');
+//Route::post('/convertirImagenes', 'CedulasController@convertImage');
 Route::post('/archivosYoPuedo', 'YopuedoController@getFilesFromSocioeducativo');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
@@ -771,6 +771,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
     Route::post(
         '/descargarArchivosMasivo',
-        'DiagnosticoV2Controller@getArchivosBeneficiaroYoPuedo'
+        'YoPuedoController@getArchivosBeneficiaroYoPuedo'
     );
 });

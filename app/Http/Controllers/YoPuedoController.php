@@ -76,31 +76,38 @@ class YoPuedoController extends Controller
 
             $estadoCivi = DB::table('cat_estado_civil')
                 ->select('id AS value', 'EstadoCivil AS label')
+                ->orderBy('label')
                 ->get();
 
             $entidades = DB::table('cat_entidad')
                 ->select('id AS value', 'Entidad AS label', 'Clave_CURP')
                 ->where('id', '<>', 1)
+                ->orderBy('label')
                 ->get();
 
             $parentescosJefe = DB::table('cat_parentesco_jefe_hogar')
                 ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
                 ->get();
 
             $parentescosTutor = DB::table('cat_parentesco_tutor')
                 ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
                 ->get();
 
             $situaciones = DB::table('cat_situacion_actual')
                 ->select('id AS value', 'Situacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $municipios = DB::table('et_cat_municipio')
                 ->select('id AS value', 'Nombre AS label')
+                ->orderBy('label')
                 ->get();
 
             $archivos_clasificacion = DB::table('cedula_archivos_clasificacion')
                 ->select('id AS value', 'Clasificacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $catalogs = [
@@ -233,7 +240,7 @@ class YoPuedoController extends Controller
                 );
             }
 
-            $res_Vales = $res_Vales->groupBy('municipio');
+            $res_Vales = $res_Vales->groupBy('municipio')->orderBy('municipio');
             $res_Vales = $res_Vales->get();
 
             $arrayMPios = [];
@@ -296,103 +303,128 @@ class YoPuedoController extends Controller
 
             $cat_estado_civil = DB::table('cat_estado_civil')
                 ->select('id AS value', 'EstadoCivil AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_estatus_persona = DB::table('cat_estatus_persona')
                 ->select('id AS value', 'Estatus AS label')
+                ->orderBy('label')
                 ->get();
 
             $entidades = DB::table('cat_entidad')
                 ->select('id AS value', 'Entidad AS label', 'Clave_CURP')
                 ->where('id', '<>', 1)
+                ->orderBy('label')
                 ->get();
 
             $cat_parentesco_jefe_hogar = DB::table('cat_parentesco_jefe_hogar')
                 ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_parentesco_tutor = DB::table('cat_parentesco_tutor')
                 ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_situacion_actual = DB::table('cat_situacion_actual')
                 ->select('id AS value', 'Situacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_actividades = DB::table('cat_actividades')
                 ->select('id AS value', 'Actividad AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_codigos_dificultad = DB::table('cat_codigos_dificultad')
                 ->select('id AS value', 'Grado AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_enfermedades = DB::table('cat_enfermedades')
                 ->select('id AS value', 'Enfermedad AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_grados_educacion = DB::table('cat_grados_educacion')
                 ->select('id AS value', 'Grado AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_niveles_educacion = DB::table('cat_niveles_educacion')
                 ->select('id AS value', 'Nivel AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_prestaciones = DB::table('cat_prestaciones')
                 ->select('id AS value', 'Prestacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_situacion_actual = DB::table('cat_situacion_actual')
                 ->select('id AS value', 'Situacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipo_seguro = DB::table('cat_tipo_seguro')
                 ->select('id AS value', 'Tipo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_agua = DB::table('cat_tipos_agua')
                 ->select('id AS value', 'Agua AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_combustibles = DB::table('cat_tipos_combustibles')
                 ->select('id AS value', 'Combustible AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_drenajes = DB::table('cat_tipos_drenajes')
                 ->select('id AS value', 'Drenaje AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_luz = DB::table('cat_tipos_luz')
                 ->select('id AS value', 'Luz AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_muros = DB::table('cat_tipos_muros')
                 ->select('id AS value', 'Muro AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_pisos = DB::table('cat_tipos_pisos')
                 ->select('id AS value', 'Piso AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_techos = DB::table('cat_tipos_techos')
                 ->select('id AS value', 'Techo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_viviendas = DB::table('cat_tipos_viviendas')
                 ->select('id AS value', 'Tipo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_periodicidad = DB::table('cat_periodicidad')
                 ->select('id AS value', 'Periodicidad AS label')
+                ->orderBy('label')
                 ->get();
 
             $archivos_clasificacion = DB::table('cedula_archivos_clasificacion')
                 ->select('id AS value', 'Clasificacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $municipios = DB::table('et_cat_municipio')
                 ->select('id AS value', 'Nombre AS label')
+                ->orderBy('label')
                 ->get();
 
             // $localidades = DB::table('cat_localidad_cedula')
@@ -1217,99 +1249,123 @@ class YoPuedoController extends Controller
         try {
             $cat_estado_civil = DB::table('cat_estado_civil')
                 ->select('id AS value', 'EstadoCivil AS label')
+                ->orderBy('label')
                 ->get();
 
             $entidades = DB::table('cat_entidad')
                 ->select('id AS value', 'Entidad AS label')
                 ->where('id', '<>', 1)
+                ->orderBy('label')
                 ->get();
 
             $cat_parentesco_jefe_hogar = DB::table('cat_parentesco_jefe_hogar')
                 ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_parentesco_tutor = DB::table('cat_parentesco_tutor')
                 ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_situacion_actual = DB::table('cat_situacion_actual')
                 ->select('id AS value', 'Situacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_actividades = DB::table('cat_actividades')
                 ->select('id AS value', 'Actividad AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_codigos_dificultad = DB::table('cat_codigos_dificultad')
                 ->select('id AS value', 'Grado AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_enfermedades = DB::table('cat_enfermedades')
                 ->select('id AS value', 'Enfermedad AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_grados_educacion = DB::table('cat_grados_educacion')
                 ->select('id AS value', 'Grado AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_niveles_educacion = DB::table('cat_niveles_educacion')
                 ->select('id AS value', 'Nivel AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_prestaciones = DB::table('cat_prestaciones')
                 ->select('id AS value', 'Prestacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_situacion_actual = DB::table('cat_situacion_actual')
                 ->select('id AS value', 'Situacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipo_seguro = DB::table('cat_tipo_seguro')
                 ->select('id AS value', 'Tipo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_agua = DB::table('cat_tipos_agua')
                 ->select('id AS value', 'Agua AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_combustibles = DB::table('cat_tipos_combustibles')
                 ->select('id AS value', 'Combustible AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_drenajes = DB::table('cat_tipos_drenajes')
                 ->select('id AS value', 'Drenaje AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_luz = DB::table('cat_tipos_luz')
                 ->select('id AS value', 'Luz AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_muros = DB::table('cat_tipos_muros')
                 ->select('id AS value', 'Muro AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_pisos = DB::table('cat_tipos_pisos')
                 ->select('id AS value', 'Piso AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_techos = DB::table('cat_tipos_techos')
                 ->select('id AS value', 'Techo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_viviendas = DB::table('cat_tipos_viviendas')
                 ->select('id AS value', 'Tipo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_periodicidad = DB::table('cat_periodicidad')
                 ->select('id AS value', 'Periodicidad AS label')
+                ->orderBy('label')
                 ->get();
 
             $archivos_clasificacion = DB::table('cedula_archivos_clasificacion')
                 ->select('id AS value', 'Clasificacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $municipios = DB::table('et_cat_municipio')
                 ->select('id AS value', 'Nombre AS label')
+                ->orderBy('label')
                 ->get();
 
             $catalogs = [
@@ -1591,6 +1647,11 @@ class YoPuedoController extends Controller
 
             if (isset($params['CURP'])) {
                 $this->getFiles($id, $params['CURP']);
+                $this->getFilesFromSocioeducativoGTO(
+                    $params['CURP'],
+                    $id,
+                    $user->id
+                );
             }
 
             DB::commit();
@@ -5388,5 +5449,95 @@ class YoPuedoController extends Controller
 
             return response()->json($response, 200);
         }
+    }
+
+    public function getFilesFromSocioeducativoGTO($curp, $id, $idUser)
+    {
+        $flag = DB::table('yopuedo_cedula_archivos')
+            ->whereNull('FechaElimino')
+            ->where('idClasifiacion', '4')
+            ->where('idCedula', $id)
+            ->get()
+            ->first();
+
+        if ($flag == null) {
+            ini_set('max_execution_time', 800);
+            $inicio = date('Y-m-d H:i:s');
+            $client = new Client();
+            $url =
+                'https://socioeducativo.guanajuato.gob.mx/api/idseWS/documentosPorCURP/';
+
+            try {
+                $request = $client->request('GET', $url . $curp, [
+                    'verify' => false,
+                    'headers' => [
+                        'content-type' => 'application/json',
+                        'Accept' => 'application/json',
+                    ],
+                ]);
+
+                $res = json_decode($request->getBody()->getContents());
+
+                foreach ($res as $file) {
+                    $archivo = explode('/', $file->Ruta);
+                    $originalName = end($archivo);
+                    $tipoArchivo = strtoupper($file->Tipo) == 'CURP' ? 4 : 5;
+                    $extensionArray = explode('.', $originalName);
+                    $extension = end($extensionArray);
+                    $uniqueName = uniqid() . '.' . $extension;
+                    $tipo = $this->getFileType($extension);
+
+                    $requestD = $client->request(
+                        'GET',
+                        'https://' . $file->Ruta,
+                        [
+                            'verify' => false,
+                            'headers' => [
+                                'content-type' => 'application/json',
+                                'Accept' => 'application/json',
+                            ],
+                        ]
+                    );
+                    $f = $requestD->getBody()->getContents();
+                    // File::put($fullPath . $uniqueName, $f);
+                    Storage::disk('subidos')->put($uniqueName, $f, 'public');
+
+                    $fileObject = [
+                        'idCedula' => $id,
+                        'idClasificacion' => $tipoArchivo,
+                        'NombreOriginal' => $originalName,
+                        'NombreSistema' => $uniqueName,
+                        'Extension' => $extension,
+                        'Tipo' => $tipo,
+                        'Tamanio' => '',
+                        'idUsuarioCreo' => $idUser,
+                        'FechaCreo' => date('Y-m-d H:i:s'),
+                    ];
+
+                    DB::table('yopuedo_cedula_archivos')->insert($fileObject);
+                }
+
+                // DB::table('curps_yopuedo_archivos')
+                //     ->where('id', $r->id)
+                //     ->update(['descargado' => 1]);
+            } catch (\GuzzleHttp\Exception\ClientException $e) {
+                return response()->json([
+                    'success' => false,
+                    'results' => false,
+                    'error' => $e
+                        ->getResponse()
+                        ->getBody()
+                        ->getContents(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'results' => true,
+            'message' => 'Se obtuvieron los archivos con exito',
+            'inicio' => $inicio,
+            'fin' => date('Y-m-d H:i:s'),
+        ]);
     }
 }
