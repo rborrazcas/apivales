@@ -857,99 +857,123 @@ class CalentadoresController extends Controller
         try {
             $cat_estado_civil = DB::table('cat_estado_civil')
                 ->select('id AS value', 'EstadoCivil AS label')
+                ->orderBy('label')
                 ->get();
 
             $entidades = DB::table('cat_entidad')
                 ->select('id AS value', 'Entidad AS label')
                 ->where('id', '<>', 1)
+                ->orderBy('label')
                 ->get();
 
             $cat_parentesco_jefe_hogar = DB::table('cat_parentesco_jefe_hogar')
                 ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_parentesco_tutor = DB::table('cat_parentesco_tutor')
                 ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_situacion_actual = DB::table('cat_situacion_actual')
                 ->select('id AS value', 'Situacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_actividades = DB::table('cat_actividades')
                 ->select('id AS value', 'Actividad AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_codigos_dificultad = DB::table('cat_codigos_dificultad')
                 ->select('id AS value', 'Grado AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_enfermedades = DB::table('cat_enfermedades')
                 ->select('id AS value', 'Enfermedad AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_grados_educacion = DB::table('cat_grados_educacion')
                 ->select('id AS value', 'Grado AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_niveles_educacion = DB::table('cat_niveles_educacion')
                 ->select('id AS value', 'Nivel AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_prestaciones = DB::table('cat_prestaciones')
                 ->select('id AS value', 'Prestacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_situacion_actual = DB::table('cat_situacion_actual')
                 ->select('id AS value', 'Situacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipo_seguro = DB::table('cat_tipo_seguro')
                 ->select('id AS value', 'Tipo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_agua = DB::table('cat_tipos_agua')
                 ->select('id AS value', 'Agua AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_combustibles = DB::table('cat_tipos_combustibles')
                 ->select('id AS value', 'Combustible AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_drenajes = DB::table('cat_tipos_drenajes')
                 ->select('id AS value', 'Drenaje AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_luz = DB::table('cat_tipos_luz')
                 ->select('id AS value', 'Luz AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_muros = DB::table('cat_tipos_muros')
                 ->select('id AS value', 'Muro AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_pisos = DB::table('cat_tipos_pisos')
                 ->select('id AS value', 'Piso AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_techos = DB::table('cat_tipos_techos')
                 ->select('id AS value', 'Techo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_tipos_viviendas = DB::table('cat_tipos_viviendas')
                 ->select('id AS value', 'Tipo AS label')
+                ->orderBy('label')
                 ->get();
 
             $cat_periodicidad = DB::table('cat_periodicidad')
                 ->select('id AS value', 'Periodicidad AS label')
+                ->orderBy('label')
                 ->get();
 
             $archivos_clasificacion = DB::table('cedula_archivos_clasificacion')
                 ->select('id AS value', 'Clasificacion AS label')
+                ->orderBy('label')
                 ->get();
 
             $municipios = DB::table('et_cat_municipio')
                 ->select('id AS value', 'Nombre AS label')
+                ->orderBy('label')
                 ->get();
 
             $catalogs = [
@@ -4207,8 +4231,8 @@ class CalentadoresController extends Controller
     public function envioMasivoVentanillaC(Request $request)
     {
         try {
-            $solicitudesAEnviar = DB::table('calentadores_cedulas')
-                ->whereRaw('Folio IS NOT NULL')
+            $solicitudesAEnviar = DB::table('EnvioMasivoCalentadores19Sep')
+                ->where('Enviado', '0')
                 ->get();
 
             if ($solicitudesAEnviar->count() == 0) {
@@ -4220,25 +4244,61 @@ class CalentadoresController extends Controller
                 return response()->json($response, 200);
             }
 
-            foreach ($solicitudesAEnviar as $key) {
-                $flag = $this->ValidarCalentadorVentanilla($key->id);
-                if ($flag) {
-                    DB::table('calentadores_cedulas')
-                        ->where('id', $key->id)
-                        ->update(['EnVentanilla' => '1']);
-                }
-            }
-
             // foreach ($solicitudesAEnviar as $key) {
-            //     $flag = $this->enviarIGTOMasivo($key->id);
-            //     if ($flag) {
+            //     $idCedula = DB::table('calentadores_cedulas')
+            //         ->select('id')
+            //         ->where('idSolicitud', $key->ID)
+            //         ->whereNull('FechaElimino')
+            //         ->get()
+            //         ->first();
+            //     if ($idCedula != null) {
+            //         $flag = $this->ValidarCalentadorVentanilla($idCedula->id);
+            //         if ($flag) {
+            //             DB::table('EnvioMasivoCalentadores19Sep')
+            //                 ->where('id', $key->ID)
+            //                 ->update(['Enviado' => '1']);
+
+            //             DB::table('calentadores_solicitudes')
+            //                 ->where('id', $key->ID)
+            //                 ->update([
+            //                     'idEstatus' => '8',
+            //                     'ListaParaEnviar' => '2',
+            //                     'FechaEnvio' => date('Y-m-d H:i:s'),
+            //                 ]);
+
+            //             DB::table('calentadores_cedulas')
+            //                 ->where('id', $idCedula->id)
+            //                 ->update([
+            //                     'idEstatus' => '8',
+            //                     'ListaParaEnviar' => '2',
+            //                     'FechaEnvio' => date('Y-m-d H:i:s'),
+            //                 ]);
+            //         }
             //     }
             // }
+
+            foreach ($solicitudesAEnviar as $key) {
+                $idCedula = DB::table('calentadores_cedulas')
+                    ->select('id')
+                    ->where('idSolicitud', $key->ID)
+                    ->whereNull('FechaElimino')
+                    ->get()
+                    ->first();
+
+                if ($idCedula != null) {
+                    $flag = $this->enviarIGTOMasivo($idCedula->id);
+                    if ($flag) {
+                        DB::table('EnvioMasivoCalentadores19Sep')
+                            ->where('id', $key->ID)
+                            ->update(['Enviado' => '1']);
+                    }
+                }
+            }
 
             $response = [
                 'success' => true,
                 'results' => true,
-                'message' => 'Validadas con exito',
+                'message' => 'Enviadas con exito',
             ];
             return response()->json($response, 200);
         } catch (QueryException $errors) {
@@ -4252,6 +4312,76 @@ class CalentadoresController extends Controller
             ];
 
             return response()->json($response, 200);
+        }
+    }
+
+    function getMunicipiosVales(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        $userName = DB::table('users_aplicativo_web')
+            ->selectRaw('UserName,Region')
+            ->where('idUser', $user->id)
+            ->get()
+            ->first();
+        $permisos = $this->getPermisos();
+        try {
+            if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
+                $res_Vales = DB::table('calentadores_solicitudes')
+                    ->select('MunicipioVive as municipio')
+                    ->where('idUsuarioCreo', $user->id)
+                    ->orWhere('UsuarioAplicativo', $userName->UserName);
+            } elseif ($permisos->ViewAll < 1) {
+                $region = '';
+                if ($userName->Region == 'I') {
+                    $region = 1;
+                } elseif ($userName->Region == 'II') {
+                    $region = 2;
+                } elseif ($userName->Region == 'III') {
+                    $region = 3;
+                } elseif ($userName->Region == 'IV') {
+                    $region = 4;
+                } elseif ($userName->Region == 'V') {
+                    $region = 5;
+                } elseif ($userName->Region == 'VI') {
+                    $region = 6;
+                } elseif ($userName->Region == 'VII') {
+                    $region = 7;
+                }
+
+                $res_Vales = DB::table('et_cat_municipio')
+                    ->select('Nombre as municipio')
+                    ->where('SubRegion', $region);
+            } else {
+                $res_Vales = DB::table('et_cat_municipio')->select(
+                    'Nombre as municipio'
+                );
+            }
+
+            $res_Vales = $res_Vales->groupBy('municipio')->orderBy('municipio');
+            $res_Vales = $res_Vales->get();
+
+            $arrayMPios = [];
+
+            foreach ($res_Vales as $data) {
+                $arrayMPios[] = $data->municipio;
+            }
+
+            $res = DB::table('et_cat_municipio')
+                ->select('Id', 'Nombre', 'Region', 'SubRegion')
+                ->whereIn('Nombre', $arrayMPios)
+                ->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            return [
+                'success' => false,
+                'errors' => $e->getMessage(),
+            ];
         }
     }
 

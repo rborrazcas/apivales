@@ -207,7 +207,7 @@ class ProyectosController extends Controller
                         'END AS CreadoPor, ' .
                         " CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor, " .
                         ' proyectos_cedulas.id AS idCedula, ' .
-                        ' proyectos_cedulas.ListaParaEnviar'
+                        ' proyectos_cedulas.ListaParaEnviar AS ListaParaEnviarP'
                 )
                 ->join(
                     'cat_entidad AS entidadesNacimiento',
@@ -433,7 +433,7 @@ class ProyectosController extends Controller
                     'CreadoPor' => $data->CreadoPor,
                     'ActualizadoPor' => $data->ActualizadoPor,
                     'idCedula' => $data->idCedula,
-                    'ListaParaEnviar' => $data->ListaParaEnviar,
+                    'ListaParaEnviarP' => $data->ListaParaEnviarP,
                 ];
 
                 array_push($array_res, $temp);
