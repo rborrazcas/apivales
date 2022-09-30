@@ -4009,347 +4009,6 @@ class YoPuedoController extends Controller
         return $json;
     }
 
-    private function formatCedulaIGTOJsonMenor($cedula, $catalogs)
-    {
-        $json = json_encode(
-            [
-                'solicitudImpulso' => true,
-                'cedulaImpulso' => true,
-                'datosHogar' => [
-                    'numeroHogares' => null,
-                    'integrantesMujer' => null,
-                    'integrantesHombre' => null,
-                    'menores18' => null,
-                    'mayores65' => null,
-                    'hombreJefeFamilia' => null,
-                ],
-                'datosSalud' => [
-                    'limitacionMental' => null,
-                    'servicioMedico' => [
-                        [
-                            'respuesta' => null,
-                            'codigo' => 1,
-                            'descripcion' => 'Seguro Social IMSS',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 2,
-                            'descripcion' =>
-                                'IMSS facultativo para estudiantes',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 3,
-                            'descripcion' => 'ISSSTE',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 4,
-                            'descripcion' => 'ISSSTE Estatal',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 5,
-                            'descripcion' => 'PEMEX, Defensa o Marina',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 6,
-                            'descripcion' => 'INSABI (antes Seguro Popular)',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 7,
-                            'descripcion' => 'Seguro Privado',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 8,
-                            'descripcion' => 'En otra institución',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 9,
-                            'descripcion' =>
-                                'No tienen derecho a servicios médicos',
-                        ],
-                    ],
-                    'enfermedadCronica' => [
-                        [
-                            'respuesta' => null,
-                            'codigo' => 1,
-                            'descripcion' => 'Artritis Reumatoide',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 2,
-                            'descripcion' => 'Cáncer',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 3,
-                            'descripcion' => 'Cirrosis Hepática',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 4,
-                            'descripcion' => 'Insuficiencia Renal',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 5,
-                            'descripcion' => 'Diabetes Mellitus',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 6,
-                            'descripcion' => 'Cardiopatías',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 7,
-                            'descripcion' => 'Enfermedad Pulmonar Crónica',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 8,
-                            'descripcion' =>
-                                'Deficiencia nutricional (Desnutrición)',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 9,
-                            'descripcion' => 'Hipertensión Arterial',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 10,
-                            'descripcion' => 'Obesidad',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 11,
-                            'descripcion' =>
-                                'Adicción a la Ingestión de Sustancias (Drogas)',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 12,
-                            'descripcion' =>
-                                'Adicciones de la conducta (Juego, internet)',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 13,
-                            'descripcion' => 'Depresión',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 14,
-                            'descripcion' => 'Ansiedad',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 15,
-                            'descripcion' => 'Trasplante de Órganos',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 16,
-                            'descripcion' => 'Ninguna',
-                        ],
-                    ],
-                ],
-                'datosEducacion' => [
-                    'estudiante' => null,
-                    'ultimoNivel' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'grado' => [
-                        'codigo' => null,
-                    ],
-                ],
-                'datosIngreso' => [
-                    'situacionEmpleo' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'prestacionesTrabajo' => [
-                        [
-                            'respuesta' => null,
-                            'codigo' => 1,
-                            'descripcion' =>
-                                'Incapacidad en caso de enfermedad, accidente o maternidad',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 2,
-                            'descripcion' => 'Aguinaldo',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 3,
-                            'descripcion' => 'Crédito de vivienda',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 4,
-                            'descripcion' =>
-                                'Guarderías y estancias infantiles',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 5,
-                            'descripcion' => 'SAR o AFORE',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 6,
-                            'descripcion' => 'Seguro de vida',
-                        ],
-                        [
-                            'respuesta' => null,
-                            'codigo' => 7,
-                            'descripcion' =>
-                                'No tienen prestaciones provenientes de su trabajo',
-                        ],
-                    ],
-                    'totalIngreso' => null,
-                    'totalPension' => null,
-                    'totalRemesa' => null,
-                ],
-                'datosAlimentacion' => [
-                    'pocaVariedadAlimento' => null,
-                    'comioMenos' => null,
-                    'disminuyoCantidad' => null,
-                    'tuvoHambreNoComio' => null,
-                    'durmioConHambre' => null,
-                    'comioUnaVezoNo' => null,
-                ],
-                'discapacidad' => [
-                    'movilidadInferior' => null,
-                    'visual' => null,
-                    'habla' => null,
-                    'auditivo' => null,
-                    'valerse' => null,
-                    'memoria' => null,
-                    'movilidadSuperior' => null,
-                ],
-                'datosGasto' => [
-                    'comida' => [
-                        'gasto' => null,
-                        'periodo' => [
-                            'codigo' => null,
-                            'descripcion' => null,
-                        ],
-                    ],
-                    'ropa' => [
-                        'gasto' => null,
-                        'periodo' => [
-                            'codigo' => null,
-                            'descripcion' => null,
-                        ],
-                    ],
-                    'educacion' => [
-                        'gasto' => null,
-                        'periodo' => [
-                            'codigo' => null,
-                            'descripcion' => null,
-                        ],
-                    ],
-                    'medicina' => [
-                        'gasto' => null,
-                        'periodo' => [
-                            'codigo' => null,
-                            'descripcion' => null,
-                        ],
-                    ],
-                    'consultas' => [
-                        'gasto' => null,
-                        'periodo' => [
-                            'codigo' => null,
-                            'descripcion' => null,
-                        ],
-                    ],
-                    'combustible' => [
-                        'gasto' => null,
-                        'periodo' => [
-                            'codigo' => null,
-                            'descripcion' => null,
-                        ],
-                    ],
-                    'serviciosBasicos' => [
-                        'gasto' => null,
-                        'periodo' => [
-                            'codigo' => null,
-                            'descripcion' => null,
-                        ],
-                    ],
-                    'recreacion' => [
-                        'gasto' => null,
-                        'periodo' => [
-                            'codigo' => null,
-                            'descripcion' => null,
-                        ],
-                    ],
-                ],
-                'datosVivienda' => [
-                    'estatusVivienda' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'materialPiso' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'materialPared' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'materialTecho' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'fuenteAgua' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'drenaje' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'fuenteLuzElectrica' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'combustibleCocina' => [
-                        'codigo' => null,
-                        'descripcion' => null,
-                    ],
-                    'numeroCuartos' => null,
-                    'numeroPersonaHabitantes' => null,
-                ],
-                'datosEnseres' => [
-                    'refrigerador' => null,
-                    'lavadora' => null,
-                    'computadora' => null,
-                    'estufa' => null,
-                    'boiler' => null,
-                    'calentadorSolar' => null,
-                    'tv' => null,
-                    'internet' => null,
-                    'celular' => null,
-                    'tinaco' => null,
-                ],
-                'percepcionSeguridad' => null,
-            ],
-            JSON_UNESCAPED_UNICODE
-        );
-
-        return $json;
-    }
-
     private function formatArchivos($archivos, $index)
     {
         $files = [];
@@ -5539,5 +5198,504 @@ class YoPuedoController extends Controller
             'inicio' => $inicio,
             'fin' => date('Y-m-d H:i:s'),
         ]);
+    }
+
+    public function envioMasivoYoPuedo(Request $request)
+    {
+        try {
+            $solicitudesAEnviar = DB::table('yopuedo_cedulas')
+                ->select('id', 'idSolicitud', 'Folio')
+                ->where('ListaParaEnviar', '1')
+                ->whereNull('FechaElimino')
+                ->whereRaw('Folio IS NOT NULL')
+                ->get()
+                ->chunk(500);
+
+            if ($solicitudesAEnviar->count() == 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'No existen solicitudes para validar',
+                ];
+                return response()->json($response, 200);
+            }
+
+            foreach ($solicitudesAEnviar as $solicitud) {
+                foreach ($solicitud as $sol) {
+                    $registrado = $this->ValidarFolioVentanilla($sol->Folio);
+                    if ($registrado) {
+                        DB::table('yopuedo_cedulas')
+                            ->where('id', $sol->id)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                                'UsuarioEnvio' => '1',
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+
+                        DB::table('yopuedo_solicitudes')
+                            ->where('id', $sol->idSolicitud)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                                'UsuarioEnvio' => '1',
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+                        DB::table('folioEnvioMasivo')->insert([
+                            'idCedula' => $sol->id,
+                            'idSolicitud' => $sol->idSolicitud,
+                            'Folio' => $sol->Folio,
+                            'FechaCreo' => date('Y-m-d h-m-s'),
+                            'Observaciones' => 'YA REGISTRADO EN VENTANILLA',
+                        ]);
+                    } else {
+                        $registro = $this->enviarIGTOMasivo($sol->id);
+                        DB::table('folioEnvioMasivo')->insert([
+                            'idCedula' => $sol->id,
+                            'idSolicitud' => $sol->idSolicitud,
+                            'Folio' => $sol->Folio,
+                            'FechaCreo' => date('Y-m-d h-m-s'),
+                            'Observaciones' => $registro,
+                        ]);
+                    }
+                    dd('1 Registro');
+                }
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Procesado con exito',
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function enviarIGTOMasivo($id)
+    {
+        try {
+            $folio = DB::table('yopuedo_cedulas')
+                ->select('Folio')
+                ->where('id', $id)
+                ->get()
+                ->first();
+            $user = auth()->user();
+        } catch (Exception $e) {
+            return 'Ocurrio un error al recuperar la cedula';
+        }
+        try {
+            if ($folio != null) {
+                $urlValidacionFolio =
+                    'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    $folio->Folio;
+                $client = new Client();
+                $response = $client->request('GET', $urlValidacionFolio, [
+                    'verify' => false,
+                    'headers' => [
+                        'Content-Type' => 'multipart/form-data',
+                        'Authorization' => '616c818fe33268648502g834',
+                    ],
+                ]);
+
+                $responseBody = json_decode($response->getBody());
+                if (!$responseBody->success) {
+                    return 'El Folio de la cedula no es válido';
+                }
+            } else {
+                return 'La cedula no cuenta con Folio';
+            }
+        } catch (Exception $e) {
+            return 'Ocurrio un error al validar el Folio de la cedula';
+        }
+
+        $cedula = DB::table('yopuedo_cedulas as cedulas')
+            ->selectRaw(
+                "
+                        cedulas.*, cat_estado_civil.EstadoCivil, 
+                        cat_parentesco_jefe_hogar.Parentesco AS ParentescoJefeHogar,
+                        cat_situacion_actual.Situacion AS SituacionActual, 
+                        entidadNacimiento.Entidad AS EntidadNacimiento, 
+                        entidadVive.Entidad AS EntidadVive,
+                        cat_parentesco_tutor.Parentesco AS ParentescoTutor,
+                        gradoEducacion.Grado AS GradoEducacion,
+                        nivelesEducacion.Nivel AS NivelEducacion,
+                        actividades.Actividad,
+                        viviendas.Tipo AS TipoVivienda,
+                        pisos.Piso,
+                        muros.Muro,
+                        techos.Techo,
+                        aguas.Agua,
+                        drenajes.Drenaje,
+                        luz.Luz,
+                        combustibles.Combustible
+                    "
+            )
+            ->leftjoin(
+                'cat_estado_civil',
+                'cat_estado_civil.id',
+                'cedulas.idEstadoCivil'
+            )
+            ->leftjoin(
+                'cat_parentesco_jefe_hogar',
+                'cat_parentesco_jefe_hogar.id',
+                'cedulas.idParentescoJefeHogar'
+            )
+            ->leftjoin(
+                'cat_situacion_actual',
+                'cat_situacion_actual.id',
+                'cedulas.idSituacionActual'
+            )
+            ->leftJoin(
+                'cat_parentesco_tutor',
+                'cat_parentesco_tutor.id',
+                'cedulas.idParentescoTutor'
+            )
+            ->leftjoin(
+                'cat_entidad AS entidadNacimiento',
+                'entidadNacimiento.id',
+                'cedulas.idEntidadNacimiento'
+            )
+            ->leftjoin(
+                'cat_entidad AS entidadVive',
+                'entidadVive.id',
+                'cedulas.idEntidadVive'
+            )
+            ->leftjoin(
+                'cat_grados_educacion AS gradoEducacion',
+                'gradoEducacion.id',
+                'cedulas.idGradoEscuela'
+            )
+            ->leftjoin(
+                'cat_niveles_educacion AS nivelesEducacion',
+                'nivelesEducacion.id',
+                'cedulas.idNivelEscuela'
+            )
+            ->leftjoin(
+                'cat_actividades AS actividades',
+                'actividades.id',
+                'cedulas.idActividades'
+            )
+            ->leftjoin(
+                'cat_tipos_viviendas AS viviendas',
+                'viviendas.id',
+                'cedulas.idTipoVivienda'
+            )
+            ->leftjoin(
+                'cat_tipos_pisos AS pisos',
+                'pisos.id',
+                'cedulas.idTipoPiso'
+            )
+            ->leftjoin(
+                'cat_tipos_muros AS muros',
+                'muros.id',
+                'cedulas.idTipoParedes'
+            )
+            ->leftjoin(
+                'cat_tipos_techos AS techos',
+                'techos.id',
+                'cedulas.idTipoTecho'
+            )
+            ->leftjoin(
+                'cat_tipos_agua AS aguas',
+                'aguas.id',
+                'cedulas.idTipoAgua'
+            )
+            ->leftjoin(
+                'cat_tipos_drenajes AS drenajes',
+                'drenajes.id',
+                'cedulas.idTipoDrenaje'
+            )
+            ->leftjoin('cat_tipos_luz AS luz', 'luz.id', 'cedulas.idTipoLuz')
+            ->leftjoin(
+                'cat_tipos_combustibles AS combustibles',
+                'combustibles.id',
+                'cedulas.idTipoCombustible'
+            )
+            ->where('cedulas.id', $id)
+            ->first();
+
+        if (!isset($cedula->MunicipioVive) || !isset($cedula->LocalidadVive)) {
+            return 'La solicitud no cuenta con municipio o localidad, Revise su información';
+        }
+
+        if (!isset($cedula->Edad)) {
+            return 'La persona no cuenta con edad registrada, Revise su información';
+        }
+
+        if ($cedula->Edad > 17) {
+            $seguros = DB::table('yopuedo_atenciones_medicas')
+                ->where('idCedula', $id)
+                ->get();
+            $seguros = array_map(function ($o) {
+                return $o->idAtencionMedica;
+            }, $seguros->toArray());
+
+            $enfermedades = DB::table('yopuedo_enfermedades')
+                ->where('idCedula', $id)
+                ->get();
+            $enfermedades = array_map(function ($o) {
+                return $o->idEnfermedad;
+            }, $enfermedades->toArray());
+
+            $prestaciones = DB::table('yopuedo_prestaciones')
+                ->where('idCedula', $id)
+                ->get();
+            $prestaciones = array_map(function ($o) {
+                return $o->idPrestacion;
+            }, $prestaciones->toArray());
+        }
+
+        $files = DB::table('yopuedo_cedula_archivos')
+            ->select(
+                'yopuedo_cedula_archivos.*',
+                'cedula_archivos_clasificacion.Clasificacion'
+            )
+            ->join(
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
+                'yopuedo_cedula_archivos.idClasificacion'
+            )
+            ->where('idCedula', $id)
+            ->whereIn('cedula_archivos_clasificacion.id', [4])
+            ->whereRaw('yopuedo_cedula_archivos.FechaElimino IS NULL')
+            ->get();
+
+        if ($files->count() != 1) {
+            return 'Solicitud con más de una CURP';
+        } else {
+            $clasificaciones = [];
+            foreach ($files as $file) {
+                $clasificaciones[] = $file->idClasificacion;
+            }
+            if (!in_array(4, $clasificaciones)) {
+                return 'Falta la CURP';
+            }
+        }
+
+        $filesAcuse = DB::table('yopuedo_cedula_archivos')
+            ->select(
+                'yopuedo_cedula_archivos.*',
+                'cedula_archivos_clasificacion.Clasificacion'
+            )
+            ->join(
+                'cedula_archivos_clasificacion',
+                'cedula_archivos_clasificacion.id',
+                'yopuedo_cedula_archivos.idClasificacion'
+            )
+            ->where('idCedula', $id)
+            ->whereIn('cedula_archivos_clasificacion.id', [5])
+            ->whereRaw('yopuedo_cedula_archivos.FechaElimino IS NULL')
+            ->get();
+
+        if ($filesAcuse->count() != 1) {
+            return 'Registro con más de un Formato de Firma y Acuse';
+        }
+
+        $solicitudJson = $this->formatSolicitudIGTOJson($cedula);
+        if (!$solicitudJson['success']) {
+            return $solicitudJson['error'];
+        }
+
+        $solicitudJson = $solicitudJson['data'];
+
+        if ($cedula->Edad > 17) {
+            $catalogs = [
+                'seguros' => $seguros,
+                'enfermedades' => $enfermedades,
+                'prestaciones' => $prestaciones,
+            ];
+        }
+
+        if ($cedula->Edad > 17) {
+            $cedulaJson = $this->formatCedulaIGTOJson($cedula, $catalogs);
+        }
+
+        $formatedFiles = $this->formatArchivos($files, 1);
+        $infoFiles = $this->getInfoArchivos($files, 1);
+        $formatedFilesAcuse = $this->formatArchivos($filesAcuse, 1);
+        $infoFilesAcuse = $this->getInfoArchivos($filesAcuse, 1);
+
+        $infoFiles = array_merge($infoFiles, $infoFilesAcuse);
+
+        $formatedFiles = array_merge($formatedFiles, $formatedFilesAcuse);
+
+        if ($cedula->Edad && $cedula->Edad < 18) {
+            $cvep = 'Q0256-01';
+            $cve = '0256-01-01';
+            $nombreApoyo =
+                'Capacitación en cuatro módulos para menores de edad';
+        } else {
+            $cvep = 'Q0256-02';
+            $cve = '0256-02-02';
+            $nombreApoyo =
+                'Capacitación en cuatro módulos para mayores de edad';
+        }
+
+        $programa = json_encode(
+            [
+                'dependencia' => [
+                    'sociedad' => '',
+                    'codigo' => '0005',
+                    'nombre' => 'SECRETARÍA DE DESARROLLO SOCIAL Y HUMANO',
+                    'siglas' => 'SDSH',
+                    'eje' => [
+                        'codigo' => 'II',
+                        'descripcion' => 'Desarrollo Humano y Social',
+                    ],
+                ],
+                'programa' => [
+                    'q' => 'Q0256',
+                    'nombre' => 'YO PUEDO GUANAJUATO PUEDE',
+                    'modalidad' => [
+                        'nombre' => 'PROCESO FORMATIVO',
+                        'clave' => $cvep,
+                    ],
+                    'tipoApoyo' => [
+                        'clave' => $cve,
+                        'nombre' => $nombreApoyo,
+                    ],
+                ],
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
+
+        $docs = json_encode(
+            [
+                'estandar' => $formatedFiles,
+                'especifico' => [],
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
+
+        $cUsuario = $this->getCampoUsuario($cedula);
+
+        if ($cedula->idUsuarioCreo == 1312) {
+            $authUsuario = $this->getAuthUsuario($cedula->UsuarioAplicativo, 1);
+        } else {
+            $authUsuario = $this->getAuthUsuario($cedula->idUsuarioCreo, 2);
+        }
+
+        $dataCompleted = [
+            'solicitud' => $solicitudJson['solicitud'],
+            'programa' => $programa,
+            'documentos' => $docs,
+            'authUsuario' => $authUsuario,
+            'campoUsuario' => $cUsuario,
+        ];
+
+        if ($cedula->Edad > 17) {
+            $dataCedula = ['cedula' => $cedulaJson];
+            $dataCompleted = array_merge($dataCompleted, $dataCedula);
+        }
+
+        $request2 = new HTTP_Request2();
+        if ($cedula->Edad > 17) {
+            $url =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/cedula/register';
+        } else {
+            $url =
+                'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/solicitud/register';
+        }
+
+        $request2->setUrl($url);
+        $request2->setMethod(HTTP_Request2::METHOD_POST);
+        $request2->setConfig([
+            'follow_redirects' => true,
+            'ssl_verify_peer' => false,
+            'ssl_verify_host' => false,
+        ]);
+        $request2->setHeader([
+            'Authorization' => '616c818fe33268648502g834',
+        ]);
+        $request2->addPostParameter($dataCompleted);
+
+        foreach ($infoFiles as $file) {
+            $request2->addUpload(
+                $file['llave'],
+                $file['ruta'],
+                $file['nombre'],
+                $file['header']
+            );
+        }
+        dd($request2);
+        try {
+            $response = $request2->send();
+            $message = json_decode($response->getBody());
+            dd($message, $cedula->Folio);
+            if ($response->getStatus() == 200) {
+                if ($message->success) {
+                    try {
+                        DB::table('yopuedo_solicitudes')
+                            ->where('id', $cedula->idSolicitud)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                                'idUsuarioEnvio' => '1',
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+
+                        DB::table('yopuedo_cedulas')
+                            ->where('id', $cedula->id)
+                            ->update([
+                                'idEstatus' => '8',
+                                'ListaParaEnviar' => '2',
+                                'idUsuarioEnvio' => '1',
+                                'FechaEnvio' => date('Y-m-d H:i:s'),
+                            ]);
+
+                        return 'Enviada Correctamente';
+                    } catch (Exception $e) {
+                        return 'La Cedula fue enviada pero hubo un problema al actualizar el estatus';
+                    }
+                } else {
+                    return $message;
+                }
+            } else {
+                return $response->getBody();
+            }
+        } catch (HTTP_Request2_Exception $e) {
+            return $e . 'error';
+        }
+    }
+
+    public function ValidarFolioVentanilla($folio)
+    {
+        try {
+            if ($folio != null) {
+                $urlValidacionFolio =
+                    'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/cedula/' .
+                    $folio;
+                $client = new Client();
+                $response = $client->request('GET', $urlValidacionFolio, [
+                    'verify' => false,
+                    'headers' => [
+                        'Content-Type' => 'multipart/form-data',
+                        'Authorization' => '616c818fe33268648502g834',
+                    ],
+                ]);
+
+                $responseBody = json_decode($response->getBody());
+                if ($responseBody->success) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        } catch (Exception $e) {
+            return false;
+        }
     }
 }

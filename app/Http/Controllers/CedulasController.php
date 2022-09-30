@@ -677,9 +677,7 @@ class CedulasController extends Controller
 
             $total = $solicitudes->count();
             $solicitudes = $solicitudes
-                ->OrderByRaw(
-                    'cedulas_solicitudes.Paterno,cedulas_solicitudes.Materno,cedulas_solicitudes.Nombre'
-                )
+                ->OrderByRaw($tableSol . '.idVale', 'DESC')
                 ->offset($startIndex)
                 ->take($pageSize)
                 ->get();
@@ -799,6 +797,7 @@ class CedulasController extends Controller
                     'FolioSolicitud' => $data->FolioSolicitud,
                     'ValidadoTarjetaContigoSi' =>
                         $data->ValidadoTarjetaContigoSi,
+                    'Formato' => $data->Formato,
                 ];
 
                 array_push($array_res, $temp);
@@ -1060,9 +1059,11 @@ class CedulasController extends Controller
 
             // if ($program == 1) {
             //     $curpRegistrado = DB::table($tableSol)
-            //         ->where(['CURP' => $params['CURP']])
-            //         ->whereRaw('FechaElimino IS NULL')
-            //         ->whereRaw('YEAR(FechaSolicitud) = ' . $year_start)
+            //         ->leftJoin('vales AS v', 'v.id', $tableSol . '.idVale')
+            //         ->where([$tableSol . '.CURP' => $params['CURP']])
+            //         ->whereRaw($tableSol . '.FechaElimino IS NULL')
+            //         ->whereRaw('v.Remesa IS NULL')
+            //         //->whereRaw('YEAR(FechaSolicitud) = ' . $year_start)
             //         ->first();
 
             //     if ($curpRegistrado != null) {
@@ -1073,12 +1074,14 @@ class CedulasController extends Controller
             //                 'El Beneficiario con CURP ' .
             //                 $params['CURP'] .
             //                 ' ya se encuentra registrado para el ejercicio ' .
-            //                 $year_start,
+            //                 $year_start .
+            //                 ' y esta pendiente de aprobación',
             //             'message' =>
             //                 'El Beneficiario con CURP ' .
             //                 $params['CURP'] .
             //                 ' ya se encuentra registrado para el ejercicio ' .
-            //                 $year_start,
+            //                 $year_start .
+            //                 ' y esta pendiente de aprobación',
             //         ];
             //     }
             // }
@@ -5439,6 +5442,7 @@ class CedulasController extends Controller
 
         $dataVales = [
             'FechaSolicitud' => $solicitud->FechaSolicitud,
+            'FolioSolicitud' => $solicitud->Folio,
             'idIncidencia' => '1',
             'CURP' => $solicitud->CURP,
             'Ocupacion' => $solicitud->OcupacionJefeHogar,

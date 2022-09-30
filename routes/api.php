@@ -64,6 +64,8 @@ Route::get('/hashPassword', 'ZisController@hashPassword');
 
 Route::post('/acuse', 'CedulasController@getFile');
 
+Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
+
 // Route::post(
 //     '/envioMasivoVentanilla',
 //     'CedulasController@envioMasivoVentanilla'

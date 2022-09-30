@@ -209,22 +209,22 @@ class ProyectosController extends Controller
                         ' proyectos_cedulas.id AS idCedula, ' .
                         ' proyectos_cedulas.ListaParaEnviar AS ListaParaEnviarP'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_entidad AS entidadesNacimiento',
                     'entidadesNacimiento.id',
                     'proyectos_solicitudes.idEntidadNacimiento'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_estado_civil',
                     'cat_estado_civil.id',
                     'proyectos_solicitudes.idEstadoCivil'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_parentesco_jefe_hogar',
                     'cat_parentesco_jefe_hogar.id',
                     'proyectos_solicitudes.idParentescoJefeHogar'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_entidad AS entidadesVive',
                     'entidadesVive.id',
                     'proyectos_solicitudes.idEntidadVive'
@@ -527,6 +527,17 @@ class ProyectosController extends Controller
                         'success' => true,
                         'results' => false,
                         'errors' =>
+                            'El Folio ' .
+                            $params['Folio'] .
+                            ' ya esta registrado para la persona ' .
+                            $folioRegistrado->Nombre .
+                            ' ' .
+                            $folioRegistrado->Paterno .
+                            ' ' .
+                            $folioRegistrado->Materno .
+                            ' con CURP ' .
+                            $folioRegistrado->CURP,
+                        'message' =>
                             'El Folio ' .
                             $params['Folio'] .
                             ' ya esta registrado para la persona ' .
