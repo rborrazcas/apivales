@@ -531,6 +531,21 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CalentadoresController@createSolicitud'
     );
     Route::post(
+        '/createSolicitudCedulaCalentador',
+        'CalentadoresController@createSolicitudNewFormat'
+    );
+
+    Route::post(
+        '/createSolicitudCedulaProyectos',
+        'ProyectosController@createSolicitudNewFormat'
+    );
+
+    Route::post(
+        '/createSolicitudCedulaYoPuedo',
+        'YoPuedoController@createSolicitudNewFormat'
+    );
+
+    Route::post(
         '/getSolicitudesCalentadores',
         'CalentadoresController@getSolicitudes'
     );
@@ -539,8 +554,33 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CalentadoresController@updateSolicitud'
     );
     Route::post(
+        '/updateSolicitudCedulaCalentador',
+        'CalentadoresController@updateSolicitudCedula'
+    );
+    Route::post(
+        '/updateSolicitudCedulaProyectos',
+        'ProyectosController@updateSolicitudCedula'
+    );
+    Route::post(
+        '/updateSolicitudCedulaYoPuedo',
+        'YoPuedoController@updateSolicitudCedula'
+    );
+    Route::post(
         '/deleteSolicitudCalentador',
         'CalentadoresController@deleteSolicitud'
+    );
+    Route::post(
+        '/deleteSolicitudCedulaCalentador',
+        'CalentadoresController@deleteSolicitudCedula'
+    );
+
+    Route::post(
+        '/deleteSolicitudCedulaProyectos',
+        'ProyectosController@deleteSolicitudCedula'
+    );
+    Route::post(
+        '/deleteSolicitudCedulaYoPuedo',
+        'YoPuedoController@deleteSolicitudCedula'
     );
     Route::post(
         '/createSolicitudProyectos',
