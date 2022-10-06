@@ -125,7 +125,9 @@
                     <thead style="background-color: #1235A2; color:white;">
                     </thead>
                     <tbody>
-                        <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                        {{-- <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;"> --}}
+                        <tr
+                            style="color:#0267cd; border-radius:16px; font-size:9px;border-color:#0267cd; text-align:center;">
                             <td colspan="12"><b>DATOS GENERALES</b></td>
                         </tr>
                         <tr>
@@ -155,9 +157,13 @@
                     <thead style="background-color: #1235A2; color:white;">
                     </thead>
                     <tbody>
-                        <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                        <tr
+                            style="color:#0267cd; border-radius:16px; font-size:9px;border-color:#0267cd; text-align:center;">
                             <td colspan="12"><b>DATOS DEL BENEFICIARIO</b></td>
                         </tr>
+                        {{-- <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                            <td colspan="12"><b>DATOS DEL BENEFICIARIO</b></td>
+                        </tr> --}}
                         <tr>
                             <td colspan="3"class="encabezado">Nombre del Beneficiario:</td>
                             <td colspan="3"class="encabezado">CURP:</td>
@@ -189,7 +195,11 @@
                     <thead style="background-color: #1235A2; color:white;">
                     </thead>
                     <tbody>
-                        <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                        {{-- <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                            <td colspan="12"><b>RECEPCIÓN - ENTREGA DEL APOYO</b></td>
+                        </tr> --}}
+                        <tr
+                            style="color:#0267cd; border-radius:16px; font-size:9px;border-color:#0267cd; text-align:center;">
                             <td colspan="12"><b>RECEPCIÓN - ENTREGA DEL APOYO</b></td>
                         </tr>
                         <tr>
@@ -208,7 +218,11 @@
                             <td class="informacion"></td>
                             <td class="informacion" colspan="7"></td>
                         </tr>
-                        <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                        {{-- <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                            <td colspan="12"><b>DESCRIPCIÓN DE LO ENTREGADO Y RECIBIDO</b></td>
+                        </tr> --}}
+                        <tr
+                            style="color:#0267cd; border-radius:16px; font-size:9px;border-color:#0267cd; text-align:center;">
                             <td colspan="12"><b>DESCRIPCIÓN DE LO ENTREGADO Y RECIBIDO</b></td>
                         </tr>
                         <tr>
@@ -257,7 +271,11 @@
                     <thead style="background-color: #1235A2; color:white;">
                     </thead>
                     <tbody>
-                        <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                        {{-- <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
+                            <td colspan="12"><b>REPORTE DE INCIDENCIA</b></td>
+                        </tr> --}}
+                        <tr
+                            style="color:#0267cd; border-radius:16px; font-size:9px;border-color:#0267cd; text-align:center;">
                             <td colspan="12"><b>REPORTE DE INCIDENCIA</b></td>
                         </tr>
                         <tr>

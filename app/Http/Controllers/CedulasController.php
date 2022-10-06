@@ -584,7 +584,7 @@ class CedulasController extends Controller
                             $value = date('Y-m-d', $timestamp);
                         }
 
-                        if ($id == '.Folio') {
+                        if ($id == '.id') {
                             $id = '.idVale';
                             $value = hexdec($value);
                         }
@@ -677,9 +677,7 @@ class CedulasController extends Controller
 
             $total = $solicitudes->count();
             $solicitudes = $solicitudes
-                ->OrderByRaw(
-                    'cedulas_solicitudes.Paterno,cedulas_solicitudes.Materno,cedulas_solicitudes.Nombre'
-                )
+                ->OrderByRaw($tableSol . '.id', 'DESC')
                 ->offset($startIndex)
                 ->take($pageSize)
                 ->get();
@@ -799,6 +797,7 @@ class CedulasController extends Controller
                     'FolioSolicitud' => $data->FolioSolicitud,
                     'ValidadoTarjetaContigoSi' =>
                         $data->ValidadoTarjetaContigoSi,
+                    'Formato' => $data->Formato,
                 ];
 
                 array_push($array_res, $temp);
@@ -1058,30 +1057,33 @@ class CedulasController extends Controller
                 }
             }
 
-            // if ($program == 1) {
-            //     $curpRegistrado = DB::table($tableSol)
-            //         ->where(['CURP' => $params['CURP']])
-            //         ->whereRaw('FechaElimino IS NULL')
-            //         ->whereRaw('YEAR(FechaSolicitud) = ' . $year_start)
-            //         ->first();
+            if ($program == 1) {
+                $curpRegistrado = DB::table('cedulas_solicitudes')
+                    ->where('CURP', $params['CURP'])
+                    ->whereRaw('FechaElimino IS NULL')
+                    ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
+                    ->get()
+                    ->first();
 
-            //     if ($curpRegistrado != null) {
-            //         $response = [
-            //             'success' => true,
-            //             'results' => false,
-            //             'errors' =>
-            //                 'El Beneficiario con CURP ' .
-            //                 $params['CURP'] .
-            //                 ' ya se encuentra registrado para el ejercicio ' .
-            //                 $year_start,
-            //             'message' =>
-            //                 'El Beneficiario con CURP ' .
-            //                 $params['CURP'] .
-            //                 ' ya se encuentra registrado para el ejercicio ' .
-            //                 $year_start,
-            //         ];
-            //     }
-            // }
+                if ($curpRegistrado != null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'El Beneficiario con CURP ' .
+                            $params['CURP'] .
+                            ' ya se encuentra registrado para el ejercicio ' .
+                            $year_start,
+                        'message' =>
+                            'El Beneficiario con CURP ' .
+                            $params['CURP'] .
+                            ' ya se encuentra registrado para el ejercicio ' .
+                            $year_start,
+                    ];
+
+                    return response()->json($response, 200);
+                }
+            }
 
             if ($program != 1) {
                 if (isset($params['Folio'])) {
@@ -5439,6 +5441,7 @@ class CedulasController extends Controller
 
         $dataVales = [
             'FechaSolicitud' => $solicitud->FechaSolicitud,
+            'FolioSolicitud' => $solicitud->Folio,
             'idIncidencia' => '1',
             'CURP' => $solicitud->CURP,
             'Ocupacion' => $solicitud->OcupacionJefeHogar,
@@ -5778,7 +5781,7 @@ class CedulasController extends Controller
                             ];
                         }
                     }
-                    $filtersCedulas = ['.id'];
+                    $filtersCedulas = [''];
                     foreach ($newFilter as $filtro) {
                         if ($filtro['id'] != '.ListaParaEnviarCedula') {
                             if ($filterQuery != '') {
@@ -5807,6 +5810,11 @@ class CedulasController extends Controller
                                     $mun[] = "'" . $m . "'";
                                 }
                                 $value = $mun;
+                            }
+
+                            if ($id == '.id') {
+                                $id = '.idVale';
+                                $value = hexdec($value);
                             }
 
                             if ($id == 'region') {

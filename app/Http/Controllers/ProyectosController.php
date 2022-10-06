@@ -207,24 +207,25 @@ class ProyectosController extends Controller
                         'END AS CreadoPor, ' .
                         " CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor, " .
                         ' proyectos_cedulas.id AS idCedula, ' .
-                        ' proyectos_cedulas.ListaParaEnviar AS ListaParaEnviarP'
+                        ' proyectos_cedulas.ListaParaEnviar AS ListaParaEnviarP,' .
+                        'lpad(hex(proyectos_solicitudes.id),6,0) AS FolioSolicitud'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_entidad AS entidadesNacimiento',
                     'entidadesNacimiento.id',
                     'proyectos_solicitudes.idEntidadNacimiento'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_estado_civil',
                     'cat_estado_civil.id',
                     'proyectos_solicitudes.idEstadoCivil'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_parentesco_jefe_hogar',
                     'cat_parentesco_jefe_hogar.id',
                     'proyectos_solicitudes.idParentescoJefeHogar'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_entidad AS entidadesVive',
                     'entidadesVive.id',
                     'proyectos_solicitudes.idEntidadVive'
@@ -292,6 +293,10 @@ class ProyectosController extends Controller
 
                         $id = '.MunicipioVive';
                         $value = $municipioRegion;
+                    }
+
+                    if ($id == '.id') {
+                        $value = hexdec($value);
                     }
 
                     if (in_array($id, $filtersCedulas)) {
@@ -434,6 +439,9 @@ class ProyectosController extends Controller
                     'ActualizadoPor' => $data->ActualizadoPor,
                     'idCedula' => $data->idCedula,
                     'ListaParaEnviarP' => $data->ListaParaEnviarP,
+                    'Formato' => $data->Formato,
+                    'FechaINE' => $data->FechaINE,
+                    'FolioSolicitud' => $data->FolioSolicitud,
                 ];
 
                 array_push($array_res, $temp);
@@ -537,6 +545,17 @@ class ProyectosController extends Controller
                             $folioRegistrado->Materno .
                             ' con CURP ' .
                             $folioRegistrado->CURP,
+                        'message' =>
+                            'El Folio ' .
+                            $params['Folio'] .
+                            ' ya esta registrado para la persona ' .
+                            $folioRegistrado->Nombre .
+                            ' ' .
+                            $folioRegistrado->Paterno .
+                            ' ' .
+                            $folioRegistrado->Materno .
+                            ' con CURP ' .
+                            $folioRegistrado->CURP,
                     ];
                     return response()->json($response, 200);
                 }
@@ -567,6 +586,112 @@ class ProyectosController extends Controller
                 'results' => true,
                 'message' => 'Solicitud creada con éxito',
                 'data' => $id,
+            ];
+
+            return response()->json($response, 200);
+        } catch (Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function createSolicitudNewFormat(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+            $params['idUsuarioCreo'] = $user->id;
+            $params['FechaCreo'] = date('Y-m-d H:i:s');
+            if ($params['Formato'] == 1) {
+                $params['idEstatus'] = 1;
+                $params['ListaParaEnviar'] = 0;
+            }
+            $year_start = idate('Y', strtotime('first day of January', time()));
+
+            if (isset($params['FechaINE'])) {
+                $fechaINE = intval($params['FechaINE']);
+                if ($year_start > $fechaINE) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'La vigencia de la Identificación Oficial no cumple con los requisitos',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
+
+            $curpRegistrado = DB::table('proyectos_solicitudes')
+                ->whereRaw('FechaElimino IS NULL')
+                ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
+                ->where(['CURP' => $params['CURP']])
+                ->first();
+
+            if ($curpRegistrado != null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' ya se encuentra registrado para el ejercicio ' .
+                        $year_start .
+                        ' y esta pendiente de aprobación',
+                    'message' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' ya se encuentra registrado para el ejercicio ' .
+                        $year_start .
+                        ' y esta pendiente de aprobación',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $newClasificacion = isset($params['NewClasificacion'])
+                ? $params['NewClasificacion']
+                : [];
+
+            $flag = false;
+            if (isset($params['NewFiles'])) {
+                $flag = true;
+            }
+            unset($params['NewClasificacion']);
+            unset($params['NewFiles']);
+            unset($params['Files']);
+            unset($params['ArchivosClasificacion']);
+
+            DB::beginTransaction();
+            $idSolicitud = DB::table('proyectos_solicitudes')->insertGetId(
+                $params
+            );
+            $params['idSolicitud'] = $idSolicitud;
+            $idCedula = DB::table('proyectos_cedulas')->insertGetId($params);
+            DB::commit();
+            if ($flag) {
+                $this->createCedulaFiles(
+                    $idCedula,
+                    $request->NewFiles,
+                    $newClasificacion,
+                    $user->id
+                );
+            }
+
+            $id = dechex(intval($idSolicitud));
+            $folioImpulso = strtoupper(str_pad($id, 6, '0', STR_PAD_LEFT));
+            $message = 'Solicitud creada con exito, Folio - ' . $folioImpulso;
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => $message,
+                'data' => $folioImpulso,
             ];
 
             return response()->json($response, 200);
@@ -690,6 +815,139 @@ class ProyectosController extends Controller
         }
     }
 
+    function updateSolicitudCedula(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+            $id = $params['id'];
+            unset($params['id']);
+            $program = 2;
+
+            if (
+                $params['FechaSolicitud'] == null ||
+                $params['FechaSolicitud'] == 'null'
+            ) {
+                unset($params['FechaSolicitud']);
+            }
+
+            $cedula = DB::table('proyectos_cedulas')
+                ->where('id', $id)
+                ->whereNull('FechaElimino')
+                ->get()
+                ->first();
+
+            if ($cedula == null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'La solicitud no fue encontrada',
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($cedula->ListaParaEnviar > 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'La solicitud se encuentra validada, no se puede editar',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params['idUsuarioActualizo'] = $user->id;
+            $params['FechaActualizo'] = date('Y-m-d');
+            $oldClasificacion = isset($params['OldClasificacion'])
+                ? $params['OldClasificacion']
+                : [];
+            $newClasificacion = isset($params['NewClasificacion'])
+                ? $params['NewClasificacion']
+                : [];
+
+            unset($params['Files']);
+            unset($params['ArchivosClasificacion']);
+            unset($params['OldFiles']);
+            unset($params['OldClasificacion']);
+            unset($params['NewFiles']);
+            unset($params['NewClasificacion']);
+            unset($params['Folio']);
+            unset($params['idEstadoCivil']);
+            unset($params['idParentescoJefeHogar']);
+            unset($params['idSituacionActual']);
+            unset($params['NewClasificacion']);
+
+            DB::beginTransaction();
+            DB::table('proyectos_cedulas')
+                ->where('id', $id)
+                ->update($params);
+            DB::commit();
+
+            DB::beginTransaction();
+            DB::table('proyectos_solicitudes')
+                ->where('id', $cedula->idSolicitud)
+                ->update($params);
+            DB::commit();
+
+            $oldFiles = DB::table('proyectos_cedula_archivos')
+                ->select('id', 'idClasificacion')
+                ->where('idCedula', $id)
+                ->whereRaw('FechaElimino IS NULL')
+                ->get();
+
+            $oldFilesIds = array_map(function ($o) {
+                return $o->id;
+            }, $oldFiles->toArray());
+
+            if (isset($request->NewFiles)) {
+                $this->createCedulaFiles(
+                    $id,
+                    $request->NewFiles,
+                    $newClasificacion,
+                    $user->id
+                );
+            }
+            if (isset($request->OldFiles)) {
+                $oldFilesIds = $this->updateCedulaFiles(
+                    $id,
+                    $request->OldFiles,
+                    $oldClasificacion,
+                    $user->id,
+                    $oldFilesIds,
+                    $oldFiles
+                );
+            }
+
+            if (count($oldFilesIds) > 0) {
+                DB::table('proyectos_cedula_archivos')
+                    ->whereIn('id', $oldFilesIds)
+                    ->update([
+                        'idUsuarioElimino' => $user->id,
+                        'FechaElimino' => date('Y-m-d H:i:s'),
+                    ]);
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Solicitud actualizada con éxito',
+                'data' => [],
+            ];
+
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function deleteSolicitud(Request $request)
     {
         try {
@@ -744,6 +1002,81 @@ class ProyectosController extends Controller
                 'message' => 'Solicitud eliminada con éxito',
                 'data' => [],
             ];
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function deleteSolicitudCedula(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'id' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+
+            $program = 2;
+
+            $solicitud = DB::table('proyectos_cedulas')
+                ->select(
+                    'idEstatus',
+                    'ListaParaEnviar',
+                    'Formato',
+                    'idSolicitud'
+                )
+                ->where('id', $params['id'])
+                ->first();
+
+            if ($solicitud->ListaParaEnviar > 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'La solicitud no se puede eliminar, ya fue validada',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $user = auth()->user();
+            DB::table('proyectos_cedulas')
+                ->where('id', $params['id'])
+                ->update([
+                    'FechaElimino' => date('Y-m-d H:i:s'),
+                    'idUsuarioElimino' => $user->id,
+                ]);
+
+            DB::table('proyectos_solicitudes')
+                ->where('id', $solicitud->idSolicitud)
+                ->update([
+                    'FechaElimino' => date('Y-m-d H:i:s'),
+                    'idUsuarioElimino' => $user->id,
+                ]);
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Solicitud eliminada con éxito',
+                'data' => [],
+            ];
+
             return response()->json($response, 200);
         } catch (\Throwable $errors) {
             $response = [
@@ -3465,6 +3798,10 @@ class ProyectosController extends Controller
                                     $mun[] = "'" . $m . "'";
                                 }
                                 $value = $mun;
+                            }
+
+                            if ($id == '.id') {
+                                $value = hexdec($value);
                             }
 
                             if ($id == 'region') {
