@@ -369,6 +369,30 @@ class ReportesController extends Controller
         }
     }
 
+    function getRemesas(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        $year_start = idate('Y', strtotime('first day of January', time()));
+
+        $remesas = DB::table('vales_remesas')
+            ->select('Remesa as label', 'Fecha AS value')
+            ->whereRaw('YEAR(Fecha)=' . $year_start)
+            ->groupBy('Fecha')
+            ->get();
+
+        $catalogs = [
+            'remesas' => $remesas,
+        ];
+
+        $response = [
+            'success' => true,
+            'results' => true,
+            'data' => $catalogs,
+        ];
+        return response()->json($response, 200);
+    }
+
     function getRemesasGruposAvance(Request $request)
     {
         $parameters = $request->all();

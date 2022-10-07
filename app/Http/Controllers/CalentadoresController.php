@@ -5097,4 +5097,135 @@ class CalentadoresController extends Controller
             return false;
         }
     }
+
+    function getCalentadoresAvances(Request $request)
+    {
+        $parameters = $request->all();
+        $anio = 2022;
+        $user = auth()->user();
+
+        if (isset($parameters['Anio'])) {
+            $anio = $parameters['Anio'];
+        }
+
+        DB::beginTransaction();
+
+        DB::table('users_filtros')
+            ->where('UserCreated', $user->id)
+            ->where('api', 'getReporteAvancesCalentadores')
+            ->delete();
+
+        DB::commit();
+        $parameters_serializado = serialize($parameters);
+
+        //Insertamos los filtros
+        DB::table('users_filtros')->insert([
+            'UserCreated' => $user->id,
+            'Api' => 'getReporteAvancesCalentadores',
+            'Consulta' => $parameters_serializado,
+            'created_at' => date('Y-m-d h-m-s'),
+        ]);
+
+        try {
+            $tablaMeta = "(
+                    Select M.Id, M.Subregion as Region, M.Nombre as Municipio, MM.ApoyoAmpliado as Apoyos
+                    from et_cat_municipio as M inner join meta_municipio as MM on (M.Id = MM.idMunicipio)
+                    where MM.Ejercicio=$anio) as M ";
+
+            $tabla3 = "(
+                    select idMunicipio, count(id) as AprobadosComite
+                    from vales
+                    where Remesa is not null and YEAR(FechaSolicitud) = $anio
+                    group by idMunicipio) as AC";
+
+            $tabla4 = "(
+                        select idMunicipio, count(id) as Entregados
+                        from vales
+                        where Remesa is not null and YEAR(FechaSolicitud) = $anio and isEntregado=1
+                        group by idMunicipio) as ET";
+
+            $tablaIncidencias = "(
+                            select idMunicipio, count(id) as Incidencias
+                            from vales
+                            where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = $anio
+                            group by idMunicipio) as VI";
+
+            if ($anio == 2022) {
+                $tabla1 = "(
+                        select vales.idMunicipio, count(vales.id) as SolicitudesPorAprobar
+                        from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
+                        where vales.Remesa is null and YEAR(vales.FechaSolicitud) = $anio
+                        group by vales.idMunicipio
+                        ) as S ";
+
+                $tabla2 = "(
+                    select vales.idMunicipio, count(vales.id) as ExpedientesRecibidos
+                    from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
+                    where YEAR(vales.FechaSolicitud) = $anio AND cedulas_solicitudes.ExpedienteCompleto = 1
+                    group by idMunicipio) as E";
+            } else {
+                $tabla1 = "(
+                    select idMunicipio, count(id) as SolicitudesPorAprobar
+                    from vales
+                    where Remesa is null and YEAR(FechaSolicitud) = $anio and  isDocumentacionEntrega=0
+                    group by idMunicipio
+                    ) as S ";
+
+                $tabla2 = "(
+                select idMunicipio, count(id) as ExpedientesRecibidos
+                from vales
+                where Remesa is null and isDocumentacionEntrega=1 and YEAR(FechaSolicitud) = $anio
+                group by idMunicipio) as E";
+            }
+
+            $queryGeneral = DB::table(DB::raw($tablaMeta))
+                ->selectRaw(
+                    'M.Region, M.Municipio, M.Apoyos, AC.AprobadosComite, if(VI.Incidencias is null, 0, VI.Incidencias) as Incidencias
+                        , (M.Apoyos + if(VI.Incidencias is null, 0, VI.Incidencias) - if(AC.AprobadosComite is null, 0, AC.AprobadosComite)) as ApoyosMenosApronadosComite
+                        , if(ET.Entregados is null, 0, ET.Entregados) as Entregados
+                        , S.SolicitudesPorAprobar
+                        , CASE WHEN E.ExpedientesRecibidos IS NULL THEN 0 ELSE E.ExpedientesRecibidos END AS ExpedientesRecibidos'
+                )
+                ->leftJoin(DB::raw($tabla1), 'S.idMunicipio', '=', 'M.Id')
+                ->leftJoin(DB::raw($tabla2), 'E.idMunicipio', '=', 'M.Id')
+                ->leftJoin(DB::raw($tabla3), 'AC.idMunicipio', '=', 'M.Id')
+                ->leftJoin(DB::raw($tabla4), 'ET.idMunicipio', '=', 'M.Id')
+                ->leftJoin(
+                    DB::raw($tablaIncidencias),
+                    'VI.idMunicipio',
+                    '=',
+                    'M.Id'
+                );
+
+            if (isset($parameters['Regiones'])) {
+                $resMunicipio = DB::table('et_cat_municipio')
+                    ->whereIn('SubRegion', $parameters['Regiones'])
+                    ->pluck('Id');
+
+                //dd($resMunicipio);
+
+                $queryGeneral->whereIn('M.Id', $resMunicipio);
+            }
+
+            $queryGeneral
+                ->orderBy('M.Region', 'ASC')
+                ->orderBy('M.Municipio', 'ASC');
+
+            $Items = $queryGeneral->get();
+
+            return ['success' => true, 'results' => true, 'data' => $Items];
+        } catch (QueryException $e) {
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $e->getMessage(),
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
 }

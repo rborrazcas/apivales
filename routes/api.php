@@ -439,6 +439,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'ReportesController@getReporteNominaValesDetalle'
     );
     Route::post('/getMisRemesas', 'ReportesController@getMisRemesas');
+    Route::post('/getRemesasAvancesGrupos', 'ReportesController@getRemesas');
     Route::post('/getAvanceRemesas', 'ReportesController@getAvanceRemesas');
     Route::post('/getSearchFolio', 'VValesController@getSearchFolio');
     Route::post(
