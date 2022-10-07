@@ -79,6 +79,10 @@ Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
 //Route::post('/convertirImagenes', 'CedulasController@convertImage');
 Route::post('/archivosYoPuedo', 'YopuedoController@getFilesFromSocioeducativo');
+Route::post(
+    '/validacionMasivaCalentadores',
+    'CalentadoresController@ValidarEstatusCalentadorVentanilla'
+);
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/register', 'AuthController@register');
@@ -281,6 +285,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/getValesResumen', 'VValesController@getValesResumen');
 
     Route::post('/getValesAvances', 'VValesController@getValesAvances');
+    Route::post(
+        '/getCalentadoresAvances',
+        'CalentadoresController@getCalentadoresAvances'
+    );
     Route::get('/getReporteAvances', 'VValesController@getReporteAvances');
     Route::post('/getHistoryVales', 'VValesController@getHistoryVales');
     Route::post('/getValesInHistory', 'VValesController@getValesInHistory');

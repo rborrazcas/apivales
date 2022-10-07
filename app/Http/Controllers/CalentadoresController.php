@@ -4467,6 +4467,16 @@ class CalentadoresController extends Controller
             }
         }
 
+        if ($cedula->Enlace != null && $cedula->Enlace != '') {
+            return json_encode(
+                [
+                    'nombre' => $cedula->Enlace,
+                    'observaciones' => '',
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+        }
+
         $getUserApi = DB::table('users')
             ->select('Nombre', 'Paterno', 'Materno')
             ->where('id', $cedula->idUsuarioCreo)
@@ -5059,6 +5069,82 @@ class CalentadoresController extends Controller
         }
     }
 
+    public function ValidarEstatusCalentadorVentanilla(Request $request)
+    {
+        $folios = DB::table('calentadores_cedulas')
+            ->select('id', 'idSolicitud', 'Folio')
+            ->whereRaw('FechaElimino IS NULL')
+            ->where('idEstatus', 8)
+            ->where('ListaParaEnviar', 2)
+            ->get()
+            ->chunk(500);
+
+        $user = auth()->user();
+
+        try {
+            if ($folios != null) {
+                foreach ($folios as $info) {
+                    foreach ($info as $folio) {
+                        $urlValidacionFolio =
+                            'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/cedula/' .
+                            $folio->Folio;
+                        $client = new Client();
+                        $response = $client->request(
+                            'GET',
+                            $urlValidacionFolio,
+                            [
+                                'verify' => false,
+                                'headers' => [
+                                    'Content-Type' => 'multipart/form-data',
+                                    'Authorization' =>
+                                        '616c818fe33268648502f962',
+                                ],
+                            ]
+                        );
+
+                        $responseBody = json_decode($response->getBody());
+                        if ($responseBody->success) {
+                            $codigoSolicitud =
+                                $responseBody->result->estausLog->codigo;
+                            $estatusSolicitud =
+                                $responseBody->result->estausLog->descripcion;
+
+                            DB::table('calentadores_cedulas')
+                                ->where('id', $folio->id)
+                                ->update([
+                                    'EstatusVentanilla' => $estatusSolicitud,
+                                    'CodigoVentanilla' => $codigoSolicitud,
+                                ]);
+
+                            DB::table('calentadores_solicitudes')
+                                ->where('id', $folio->idSolicitud)
+                                ->update([
+                                    'EstatusVentanilla' => $estatusSolicitud,
+                                    'CodigoVentanilla' => $codigoSolicitud,
+                                ]);
+                        }
+                    }
+                }
+            }
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Proceso terminado',
+            ];
+
+            return response()->json($response, 200);
+        } catch (Exception $e) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $e,
+                'message' => 'Ocurrio un error',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     public function ValidarCalentadorVentanilla($id)
     {
         try {
@@ -5133,77 +5219,58 @@ class CalentadoresController extends Controller
                     where MM.Ejercicio=$anio) as M ";
 
             $tabla3 = "(
-                    select idMunicipio, count(id) as AprobadosComite
-                    from vales
-                    where Remesa is not null and YEAR(FechaSolicitud) = $anio
-                    group by idMunicipio) as AC";
+                    select m.Id, count(c.FechaCreo) as AprobadosComite
+                    from calentadores_cedulas as c
+                    INNER JOIN et_cat_municipio as m ON c.MunicipioVive = m.Nombre
+                    where c.FechaElimino IS NULL and CodigoVentanilla IN (4,5) and YEAR(c.FechaCreo) = $anio
+                    group by m.Id) as AC";
 
             $tabla4 = "(
-                        select idMunicipio, count(id) as Entregados
-                        from vales
-                        where Remesa is not null and YEAR(FechaSolicitud) = $anio and isEntregado=1
-                        group by idMunicipio) as ET";
+                    select m.Id, count(c.FechaCreo) as Entregados
+                    from calentadores_cedulas as c
+                    INNER JOIN et_cat_municipio as m ON c.MunicipioVive = m.Nombre
+                    where c.FechaElimino IS NULL and CodigoVentanilla = 5 and YEAR(c.FechaCreo) = $anio
+                    group by m.Id) as ET";
 
             $tablaIncidencias = "(
-                            select idMunicipio, count(id) as Incidencias
-                            from vales
-                            where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = $anio
-                            group by idMunicipio) as VI";
+                            select m.Id, count(c.FechaCreo) as Incidencias
+                            from calentadores_cedulas as c
+                            INNER JOIN et_cat_municipio as m ON c.MunicipioVive = m.Nombre
+                            where c.FechaElimino IS NULL and CodigoVentanilla = 6 and YEAR(c.FechaCreo) = $anio
+                            group by m.Id) as VI";
 
-            if ($anio == 2022) {
-                $tabla1 = "(
-                        select vales.idMunicipio, count(vales.id) as SolicitudesPorAprobar
-                        from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
-                        where vales.Remesa is null and YEAR(vales.FechaSolicitud) = $anio
-                        group by vales.idMunicipio
-                        ) as S ";
-
-                $tabla2 = "(
-                    select vales.idMunicipio, count(vales.id) as ExpedientesRecibidos
-                    from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
-                    where YEAR(vales.FechaSolicitud) = $anio AND cedulas_solicitudes.ExpedienteCompleto = 1
-                    group by idMunicipio) as E";
-            } else {
-                $tabla1 = "(
-                    select idMunicipio, count(id) as SolicitudesPorAprobar
-                    from vales
-                    where Remesa is null and YEAR(FechaSolicitud) = $anio and  isDocumentacionEntrega=0
-                    group by idMunicipio
+            $tabla1 = "(
+                    select m.Id, count(c.FechaCreo) as SolicitudesPorAprobar
+                    from calentadores_solicitudes as c
+                    INNER JOIN et_cat_municipio as m ON c.MunicipioVive = m.Nombre
+                    where c.FechaElimino IS NULL and (idEstatus < 2 OR idEstatus IS NULL) and YEAR(c.FechaCreo) = $anio
+                    group by m.Id
                     ) as S ";
-
-                $tabla2 = "(
-                select idMunicipio, count(id) as ExpedientesRecibidos
-                from vales
-                where Remesa is null and isDocumentacionEntrega=1 and YEAR(FechaSolicitud) = $anio
-                group by idMunicipio) as E";
-            }
 
             $queryGeneral = DB::table(DB::raw($tablaMeta))
                 ->selectRaw(
                     'M.Region, M.Municipio, M.Apoyos, AC.AprobadosComite, if(VI.Incidencias is null, 0, VI.Incidencias) as Incidencias
                         , (M.Apoyos + if(VI.Incidencias is null, 0, VI.Incidencias) - if(AC.AprobadosComite is null, 0, AC.AprobadosComite)) as ApoyosMenosApronadosComite
                         , if(ET.Entregados is null, 0, ET.Entregados) as Entregados
-                        , S.SolicitudesPorAprobar
-                        , CASE WHEN E.ExpedientesRecibidos IS NULL THEN 0 ELSE E.ExpedientesRecibidos END AS ExpedientesRecibidos'
+                        ,  if(S.SolicitudesPorAprobar is null, 0, S.SolicitudesPorAprobar) as SolicitudesPorAprobar'
                 )
-                ->leftJoin(DB::raw($tabla1), 'S.idMunicipio', '=', 'M.Id')
-                ->leftJoin(DB::raw($tabla2), 'E.idMunicipio', '=', 'M.Id')
-                ->leftJoin(DB::raw($tabla3), 'AC.idMunicipio', '=', 'M.Id')
-                ->leftJoin(DB::raw($tabla4), 'ET.idMunicipio', '=', 'M.Id')
-                ->leftJoin(
-                    DB::raw($tablaIncidencias),
-                    'VI.idMunicipio',
-                    '=',
-                    'M.Id'
-                );
+                ->leftJoin(DB::raw($tabla1), 'S.Id', '=', 'M.Id')
+                ->leftJoin(DB::raw($tabla3), 'AC.Id', '=', 'M.Id')
+                ->leftJoin(DB::raw($tabla4), 'ET.Id', '=', 'M.Id')
+                ->leftJoin(DB::raw($tablaIncidencias), 'VI.Id', '=', 'M.Id');
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $queryGeneral->getBindings(),
+            //         $queryGeneral->toSql()
+            //     )
+            // );
 
             if (isset($parameters['Regiones'])) {
                 $resMunicipio = DB::table('et_cat_municipio')
                     ->whereIn('SubRegion', $parameters['Regiones'])
                     ->pluck('Id');
-
-                //dd($resMunicipio);
-
                 $queryGeneral->whereIn('M.Id', $resMunicipio);
             }
 
