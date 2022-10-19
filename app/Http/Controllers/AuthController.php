@@ -413,10 +413,12 @@ class AuthController extends Controller
                     'users_menus.idUser',
                     'menus.layout',
                     'menus.iconMovil',
-                    'menus.iconTipo'
+                    'menus.iconTipo',
+                    'menus.Ordenado'
                 )
                 ->leftJoin('menus', 'menus.id', '=', 'users_menus.idMenu')
                 ->where('users_menus.idUser', '=', $user->id)
+                ->OrderBy('menus.Ordenado')
                 ->get();
 
             $array_regiones = [];

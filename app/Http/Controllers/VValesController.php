@@ -119,8 +119,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.isEntregado',
@@ -180,8 +180,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -1251,8 +1251,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.isEntregado',
@@ -1312,8 +1312,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -1986,7 +1986,7 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelCelular',
                     'vales.idStatus',
                     'vales_status.id as idES',
@@ -2021,8 +2021,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -2616,8 +2616,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.isEntregado',
@@ -2677,8 +2677,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -3444,8 +3444,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.CorreoElectronico',
@@ -3496,8 +3496,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -3831,7 +3831,7 @@ class VValesController extends Controller
 
             $res
                 ->orderBy('et_cat_municipio.Nombre', 'asc')
-                ->orderBy('et_cat_localidad.Nombre', 'asc')
+                ->orderBy('et_cat_localidad_2022.Nombre', 'asc')
                 ->orderBy('vales.Colonia', 'asc')
                 ->orderBy('vales.Nombre', 'asc')
                 ->orderBy('vales.Paterno', 'asc');
@@ -4017,8 +4017,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.CorreoElectronico',
@@ -4069,8 +4069,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -4979,7 +4979,7 @@ class VValesController extends Controller
                     DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
                     'et_cat_municipio.SubRegion AS Region',
                     'et_cat_municipio.Nombre AS Municipio',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.id',
                     'vales.FechaSolicitud',
                     'vales.CURP',
@@ -5033,8 +5033,8 @@ class VValesController extends Controller
             WHERE
             vales.Remesa is not null and UR.idUser=59 */
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -6201,8 +6201,8 @@ class VValesController extends Controller
         }
 
         $validar_monto = DB::table('config')->first();
-        $ambito_localidad = DB::table('et_cat_localidad')
-            ->where('et_cat_localidad.Id', '=', $parameters['idLocalidad'])
+        $ambito_localidad = DB::table('et_cat_localidad_2022')
+            ->where('et_cat_localidad_2022.Id', '=', $parameters['idLocalidad'])
             ->first();
         $parameters['TotalIngresos'] =
             floatval($parameters['IngresoPercibido']) +
@@ -6384,9 +6384,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6436,9 +6436,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6488,9 +6488,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6655,9 +6655,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6707,9 +6707,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6759,9 +6759,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6976,8 +6976,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales_history.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales_history.TelFijo',
                     'vales_history.TelCelular',
                     'vales_history.isEntregado',
@@ -7045,8 +7045,8 @@ class VValesController extends Controller
                     'vales_history.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales_history.idLocalidad'
                 )
@@ -7303,8 +7303,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.isEntregado',
@@ -7372,8 +7372,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )

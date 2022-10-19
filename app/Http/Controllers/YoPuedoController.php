@@ -1944,40 +1944,52 @@ class YoPuedoController extends Controller
             if (count($prestaciones) > 0) {
                 $formatedPrestaciones = [];
                 foreach ($prestaciones as $prestacion) {
-                    $formatedPrestaciones[] = [
-                        'idCedula' => $id,
-                        'idPrestacion' => $prestacion,
-                    ];
+                    if ($prestacion != null) {
+                        $formatedPrestaciones[] = [
+                            'idCedula' => $id,
+                            'idPrestacion' => $prestacion,
+                        ];
+                    }
                 }
-                DB::table('yopuedo_prestaciones')->insert(
-                    $formatedPrestaciones
-                );
+                if (count($formatedPrestaciones) > 0) {
+                    DB::table('yopuedo_prestaciones')->insert(
+                        $formatedPrestaciones
+                    );
+                }
             }
 
             if (count($enfermedades) > 0) {
                 $formatedEnfermedades = [];
                 foreach ($enfermedades as $enfermedad) {
-                    $formatedEnfermedades[] = [
-                        'idCedula' => $id,
-                        'idEnfermedad' => $enfermedad,
-                    ];
+                    if ($enfermedad != null) {
+                        $formatedEnfermedades[] = [
+                            'idCedula' => $id,
+                            'idEnfermedad' => $enfermedad,
+                        ];
+                    }
                 }
-                DB::table('yopuedo_enfermedades')->insert(
-                    $formatedEnfermedades
-                );
+                if (count($formatedEnfermedades) > 0) {
+                    DB::table('yopuedo_enfermedades')->insert(
+                        $formatedEnfermedades
+                    );
+                }
             }
 
             if (count($atencionesMedicas) > 0) {
                 $formatedAtencionesMedicas = [];
                 foreach ($atencionesMedicas as $atencion) {
-                    $formatedAtencionesMedicas[] = [
-                        'idCedula' => $id,
-                        'idAtencionMedica' => $atencion,
-                    ];
+                    if ($atencion != null) {
+                        $formatedAtencionesMedicas[] = [
+                            'idCedula' => $id,
+                            'idAtencionMedica' => $atencion,
+                        ];
+                    }
                 }
-                DB::table('yopuedo_atenciones_medicas')->insert(
-                    $formatedAtencionesMedicas
-                );
+                if (count($formatedAtencionesMedicas) > 0) {
+                    DB::table('yopuedo_atenciones_medicas')->insert(
+                        $formatedAtencionesMedicas
+                    );
+                }
             }
 
             if (isset($request->NewFiles)) {
@@ -2431,10 +2443,12 @@ class YoPuedoController extends Controller
                 ->delete();
             $formatedPrestaciones = [];
             foreach ($prestaciones as $prestacion) {
-                array_push($formatedPrestaciones, [
-                    'idCedula' => $id,
-                    'idPrestacion' => $prestacion,
-                ]);
+                if ($prestacion != null) {
+                    array_push($formatedPrestaciones, [
+                        'idCedula' => $id,
+                        'idPrestacion' => $prestacion,
+                    ]);
+                }
             }
             if (count($formatedPrestaciones) > 0) {
                 DB::table('yopuedo_prestaciones')->insert(
@@ -2447,10 +2461,12 @@ class YoPuedoController extends Controller
                 ->delete();
             $formatedEnfermedades = [];
             foreach ($enfermedades as $enfermedad) {
-                array_push($formatedEnfermedades, [
-                    'idCedula' => $id,
-                    'idEnfermedad' => $enfermedad,
-                ]);
+                if ($enfermedad != null) {
+                    array_push($formatedEnfermedades, [
+                        'idCedula' => $id,
+                        'idEnfermedad' => $enfermedad,
+                    ]);
+                }
             }
             if (count($formatedEnfermedades) > 0) {
                 DB::table('yopuedo_enfermedades')->insert(
@@ -2462,10 +2478,12 @@ class YoPuedoController extends Controller
                 ->delete();
             $formatedAtencionesMedicas = [];
             foreach ($atencionesMedicas as $atencion) {
-                array_push($formatedAtencionesMedicas, [
-                    'idCedula' => $id,
-                    'idAtencionMedica' => $atencion,
-                ]);
+                if ($atencion != null) {
+                    array_push($formatedAtencionesMedicas, [
+                        'idCedula' => $id,
+                        'idAtencionMedica' => $atencion,
+                    ]);
+                }
             }
 
             if (count($formatedAtencionesMedicas) > 0) {
@@ -3630,7 +3648,7 @@ class YoPuedoController extends Controller
             ->get()
             ->first();
 
-        $cveLocalidad = DB::table('et_cat_localidad')
+        $cveLocalidad = DB::table('et_cat_localidad_2022')
             ->select('CveInegi', 'Nombre')
             ->where('idMunicipio', $idMunicipio->id)
             ->where('Nombre', $solicitud->LocalidadVive)
@@ -5462,7 +5480,7 @@ class YoPuedoController extends Controller
     {
         $flag = DB::table('yopuedo_cedula_archivos')
             ->whereNull('FechaElimino')
-            ->where('idClasifiacion', '4')
+            ->where('idClasificacion', '4')
             ->where('idCedula', $id)
             ->get()
             ->first();
@@ -5484,68 +5502,78 @@ class YoPuedoController extends Controller
                 ]);
 
                 $res = json_decode($request->getBody()->getContents());
+                if (count($res) > 0) {
+                    foreach ($res as $file) {
+                        $archivo = explode('/', $file->Ruta);
+                        $originalName = end($archivo);
+                        $tipoArchivo =
+                            strtoupper($file->Tipo) == 'CURP' ? 4 : 5;
+                        $extensionArray = explode('.', $originalName);
+                        $extension = end($extensionArray);
+                        $uniqueName = uniqid() . '.' . $extension;
+                        $tipo = $this->getFileType($extension);
 
-                foreach ($res as $file) {
-                    $archivo = explode('/', $file->Ruta);
-                    $originalName = end($archivo);
-                    $tipoArchivo = strtoupper($file->Tipo) == 'CURP' ? 4 : 5;
-                    $extensionArray = explode('.', $originalName);
-                    $extension = end($extensionArray);
-                    $uniqueName = uniqid() . '.' . $extension;
-                    $tipo = $this->getFileType($extension);
+                        $requestD = $client->request(
+                            'GET',
+                            'https://' . $file->Ruta,
+                            [
+                                'verify' => false,
+                                'headers' => [
+                                    'content-type' => 'application/json',
+                                    'Accept' => 'application/json',
+                                ],
+                            ]
+                        );
+                        $f = $requestD->getBody()->getContents();
+                        // File::put($fullPath . $uniqueName, $f);
+                        Storage::disk('subidos')->put(
+                            $uniqueName,
+                            $f,
+                            'public'
+                        );
 
-                    $requestD = $client->request(
-                        'GET',
-                        'https://' . $file->Ruta,
-                        [
-                            'verify' => false,
-                            'headers' => [
-                                'content-type' => 'application/json',
-                                'Accept' => 'application/json',
-                            ],
-                        ]
-                    );
-                    $f = $requestD->getBody()->getContents();
-                    // File::put($fullPath . $uniqueName, $f);
-                    Storage::disk('subidos')->put($uniqueName, $f, 'public');
+                        $fileObject = [
+                            'idCedula' => $id,
+                            'idClasificacion' => $tipoArchivo,
+                            'NombreOriginal' => $originalName,
+                            'NombreSistema' => $uniqueName,
+                            'Extension' => $extension,
+                            'Tipo' => $tipo,
+                            'Tamanio' => '',
+                            'idUsuarioCreo' => $idUser,
+                            'FechaCreo' => date('Y-m-d H:i:s'),
+                        ];
 
-                    $fileObject = [
-                        'idCedula' => $id,
-                        'idClasificacion' => $tipoArchivo,
-                        'NombreOriginal' => $originalName,
-                        'NombreSistema' => $uniqueName,
-                        'Extension' => $extension,
-                        'Tipo' => $tipo,
-                        'Tamanio' => '',
-                        'idUsuarioCreo' => $idUser,
-                        'FechaCreo' => date('Y-m-d H:i:s'),
-                    ];
-
-                    DB::table('yopuedo_cedula_archivos')->insert($fileObject);
+                        DB::table('yopuedo_cedula_archivos')->insert(
+                            $fileObject
+                        );
+                    }
                 }
 
                 // DB::table('curps_yopuedo_archivos')
                 //     ->where('id', $r->id)
                 //     ->update(['descargado' => 1]);
             } catch (\GuzzleHttp\Exception\ClientException $e) {
-                return response()->json([
-                    'success' => false,
-                    'results' => false,
-                    'error' => $e
-                        ->getResponse()
-                        ->getBody()
-                        ->getContents(),
-                ]);
+                // return response()->json([
+                //     'success' => false,
+                //     'results' => false,
+                //     'error' => $e
+                //         ->getResponse()
+                //         ->getBody()
+                //         ->getContents(),
+                // ]);
+                return false;
             }
         }
 
-        return response()->json([
-            'success' => true,
-            'results' => true,
-            'message' => 'Se obtuvieron los archivos con exito',
-            'inicio' => $inicio,
-            'fin' => date('Y-m-d H:i:s'),
-        ]);
+        // return response()->json([
+        //     'success' => true,
+        //     'results' => true,
+        //     'message' => 'Se obtuvieron los archivos con exito',
+        //     'inicio' => $inicio,
+        //     'fin' => date('Y-m-d H:i:s'),
+        // ]);
+        return true;
     }
 
     public function envioMasivoYoPuedo(Request $request)

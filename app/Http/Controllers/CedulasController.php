@@ -25,6 +25,7 @@ use HTTP_Request2;
 use GuzzleHttp\Client;
 use App\VNegociosFiltros;
 use Carbon\Carbon as time;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CedulasController extends Controller
 {
@@ -266,7 +267,7 @@ class CedulasController extends Controller
     {
         try {
             $params = $request->all();
-            $localidades = DB::table('cat_localidad_cedula')
+            $localidades = DB::table('et_cat_localidad_2022')
                 ->select('id AS value', 'Nombre AS label')
                 ->where('IdMunicipio', $id)
                 ->orderBy('label')
@@ -293,7 +294,7 @@ class CedulasController extends Controller
     {
         try {
             $params = $request->all();
-            $localidades = DB::table('et_cat_localidad')
+            $localidades = DB::table('et_cat_localidad_2022')
                 ->select('Ambito')
                 ->where('id', $id)
                 ->get()
@@ -1324,6 +1325,7 @@ class CedulasController extends Controller
             //     return response()->json($response,200);
             // }
             $params = $request->all();
+            $curp = $params['CURP'];
             $program = 1;
 
             $program = 1;
@@ -1572,7 +1574,7 @@ class CedulasController extends Controller
 
             try {
                 $idVale = DB::table($tableSol)
-                    ->select('idVale')
+                    ->select('idVale', 'CURP')
                     ->where('id', $id)
                     ->get()
                     ->first();
@@ -1584,25 +1586,32 @@ class CedulasController extends Controller
                         ->first();
 
                     if ($remesa->Remesa != null) {
-                        $response = [
-                            'success' => true,
-                            'results' => false,
-                            'errors' =>
-                                'El beneficiario ya fue aprobado, ¡No se puede modificar la solicitud!',
-                        ];
-                        return response()->json($response, 200);
-                    } else {
-                        DB::table($tableSol)
-                            ->where('id', $id)
-                            ->update($params);
-
-                        $infoVale = $this->setVales($id);
-                        DB::beginTransaction();
-                        DB::table('vales')
+                        $validarCurp = DB::table('vales')
                             ->where('id', $idVale->idVale)
-                            ->update($infoVale);
-                        DB::commit();
+                            ->where('CURP', $curp)
+                            ->get()
+                            ->first();
+                        //dd($validarCurp);
+                        if ($validarCurp == null) {
+                            $response = [
+                                'success' => true,
+                                'results' => false,
+                                'errors' =>
+                                    'El beneficiario ya fue aprobado, ¡No se puede modificar la información personal del solicitante !',
+                            ];
+                            return response()->json($response, 200);
+                        }
                     }
+                    DB::table($tableSol)
+                        ->where('id', $id)
+                        ->update($params);
+
+                    $infoVale = $this->setVales($id);
+                    DB::beginTransaction();
+                    DB::table('vales')
+                        ->where('id', $idVale->idVale)
+                        ->update($infoVale);
+                    DB::commit();
                 } else {
                     DB::table($tableSol)
                         ->where('id', $id)
@@ -3883,7 +3892,7 @@ class CedulasController extends Controller
             ->get()
             ->first();
 
-        $cveLocalidad = DB::table('et_cat_localidad')
+        $cveLocalidad = DB::table('et_cat_localidad_2022')
             ->select('CveInegi', 'Nombre')
             ->where('idMunicipio', $idMunicipio->id)
             ->where('Nombre', $solicitud->LocalidadVive)
@@ -5417,7 +5426,7 @@ class CedulasController extends Controller
             ->get()
             ->first();
 
-        $idLocalidad = DB::table('et_cat_localidad')
+        $idLocalidad = DB::table('et_cat_localidad_2022')
             ->select('id')
             ->where([
                 'idMunicipio' => $idMunicipio->id,
@@ -5425,12 +5434,8 @@ class CedulasController extends Controller
             ])
             ->get()
             ->first();
-
         if ($solicitud->idUsuarioCreo == 1312) {
-            if (
-                $solicitud->UsuarioAplicativo != null &&
-                $solicitud->UsuarioAplicativo != ''
-            ) {
+            if ($solicitud->UsuarioAplicativo != null) {
                 $userCreo = DB::table('users_aplicativo_web')
                     ->select('idUser')
                     ->where('UserName', $solicitud->UsuarioAplicativo)
@@ -6478,6 +6483,12 @@ class CedulasController extends Controller
 
     public function validarExpediente($id)
     {
+        $formato = DB::table('cedulas_solicitudes')
+            ->select('Formato')
+            ->where('id', $id)
+            ->get()
+            ->first();
+
         $ine = DB::table('solicitud_archivos')
             ->where('idSolicitud', $id)
             ->where('idClasificacion', '3')
@@ -6485,36 +6496,42 @@ class CedulasController extends Controller
             ->get()
             ->first();
 
-        if ($ine == null) {
-            $tarjeta = DB::table('solicitud_archivos')
-                ->where('idSolicitud', $id)
-                ->where('idClasificacion', '13')
-                ->whereNull('FechaElimino')
-                ->get()
-                ->first();
-            if ($tarjeta == null) {
+        $pvg = DB::table('solicitud_archivos')
+            ->where('idSolicitud', $id)
+            ->where('idClasificacion', '2')
+            ->whereNull('FechaElimino')
+            ->get()
+            ->first();
+
+        $acuse = DB::table('solicitud_archivos')
+            ->where('idSolicitud', $id)
+            ->where('idClasificacion', '5')
+            ->whereNull('FechaElimino')
+            ->get()
+            ->first();
+
+        if ($formato->Formato == 1) {
+            if ($ine == null || $pvg == null || $acuse == null) {
                 DB::table('cedulas_solicitudes')
                     ->where('id', $id)
                     ->update(['ExpedienteCompleto' => 0]);
                 return false;
             }
-        }
-
-        $anexo = DB::table('solicitud_archivos')
-            ->where('idSolicitud', $id)
-            ->where('idClasificacion', '14')
-            ->whereNull('FechaElimino')
-            ->get()
-            ->first();
-
-        if ($anexo == null) {
-            $pvg = DB::table('solicitud_archivos')
-                ->where('idSolicitud', $id)
-                ->where('idClasificacion', '2')
-                ->whereNull('FechaElimino')
-                ->get()
-                ->first();
-
+        } else {
+            if ($ine == null) {
+                $tarjeta = DB::table('solicitud_archivos')
+                    ->where('idSolicitud', $id)
+                    ->where('idClasificacion', '13')
+                    ->whereNull('FechaElimino')
+                    ->get()
+                    ->first();
+                if ($tarjeta == null) {
+                    DB::table('cedulas_solicitudes')
+                        ->where('id', $id)
+                        ->update(['ExpedienteCompleto' => 0]);
+                    return false;
+                }
+            }
             if ($pvg == null) {
                 DB::table('cedulas_solicitudes')
                     ->where('id', $id)
@@ -6528,5 +6545,253 @@ class CedulasController extends Controller
             ->update(['ExpedienteCompleto' => 1]);
 
         return true;
+    }
+
+    function updateLocation(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'tabla' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'Falta Indicar la tabla a actualizar',
+            ];
+            return response()->json($response, 200);
+        }
+        $params = $request->all();
+        $tabla = $params['tabla'];
+
+        $registros = DB::table($tabla)
+            ->select('id')
+            ->whereNull('FechaElimino')
+            ->where('ValidadoTarjetaContigoSi', 0)
+            ->whereRaw('CalleVive IS NOT NULL AND NoExtVive IS NOT NULL')
+            ->get()
+            ->chunk(500);
+
+        if ($registros->count() > 0) {
+            foreach ($registros as $registro) {
+                foreach ($registro as $data) {
+                    $this->getDataLocation($data->id, $tabla);
+                }
+            }
+        }
+        $response = [
+            'success' => true,
+            'results' => true,
+            'message' => 'Registros Procesados',
+        ];
+
+        return response()->json($response, 200);
+    }
+
+    function getDataLocation($id, $tableSol)
+    {
+        //http://139.70.80.197:8080/domicilios?loc=110200001&calle=poesstas&num=2089
+        try {
+            $folio = DB::table($tableSol)
+                ->select(
+                    $tableSol . '.*',
+                    'et_cat_municipio.Id AS idMunicipio',
+                    'et_cat_localidad_2022.CveInegi'
+                )
+                ->leftJoin(
+                    'et_cat_municipio',
+                    $tableSol . '.MunicipioVive',
+                    'et_cat_municipio.Nombre'
+                )
+                ->leftJoin('et_cat_localidad_2022', function ($join) {
+                    $join
+                        ->on(
+                            'et_cat_localidad_2022.idMunicipio',
+                            'et_cat_municipio.Id'
+                        )
+                        ->on('et_cat_localidad_2022.Nombre', 'LocalidadVive');
+                })
+                ->where($tableSol . '.id', $id)
+                ->get()
+                ->first();
+            $user = auth()->user();
+        } catch (Exception $e) {
+            return false;
+        }
+        try {
+            if ($folio != null) {
+                //dd($folio);
+                $urlValidacionFolio =
+                    'http://139.70.80.197:8080/domicilios?loc=' .
+                    $folio->CveInegi .
+                    '&calle=' .
+                    $folio->CalleVive .
+                    '&num=' .
+                    $folio->NoExtVive;
+                //dd($urlValidacionFolio);
+                $client = new Client();
+                $response = $client->request('GET', $urlValidacionFolio, [
+                    'verify' => false,
+                    'headers' => [
+                        'Content-Type' => 'multipart/form-data',
+                        //'Authorization' => '616c818fe33268648502f962',
+                    ],
+                ]);
+
+                $responseBody = json_decode($response->getBody());
+
+                if ($responseBody != null) {
+                    if (count($responseBody) > 7) {
+                        $latitud = explode(
+                            ':',
+                            str_replace("'", '', $responseBody[6])
+                        );
+                        $longitud = explode(
+                            ':',
+                            str_replace("'", '', $responseBody[7])
+                        );
+                        DB::table($tableSol)
+                            ->where('id', $id)
+                            ->update([
+                                'Latitud' => $latitud[1],
+                                'Longitud' => $longitud[1],
+                                'ValidadoTarjetaContigoSi' => 1,
+                            ]);
+                    }
+                }
+            } else {
+                return false;
+            }
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function getReporteCompletoVales(Request $request)
+    {
+        ini_set('memory_limit', '-1');
+        $user = auth()->user();
+        $res = DB::table('reporteCompletoVales AS vales')
+            ->select(
+                'Region',
+                'Incidencia',
+                'id',
+                'FolioVentanilla',
+                'FolioImpulso',
+                'FechaSolicitud',
+                'CURP',
+                'Nombre',
+                'Paterno',
+                'Materno',
+                'Sexo',
+                'FechaNacimiento',
+                'Colonia',
+                'Calle',
+                'NumExt',
+                'NumInt',
+                'CP',
+                'Latitud',
+                'Longitud',
+                'TelFijo',
+                'TelCelular',
+                'CorreoElectronico',
+                'idLocalidad',
+                'NumLocINEGI',
+                'NumeroLocalidad',
+                'CveZAP',
+                'Localidad',
+                'Municipio',
+                'created_at',
+                'updated_at',
+                'UserCreated',
+                'UserCapturo',
+                'vales.UserOwned',
+                'Responsable',
+                'Estatus',
+                'SerieInicial',
+                'SerieFinal',
+                'Remesa',
+                'Entregado',
+                'entrega_at',
+                'idUserDocumentacion',
+                'FechaDocumentacion'
+            )
+            ->get();
+
+        // dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
+
+        $total = $res->count();
+        if ($total == 0) {
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoReporteSolicitudValesV8.xlsx'
+            );
+            $writer = new Xlsx($spreadsheet);
+            $writer->save(
+                'archivos/' . $user->email . 'reporteComercioVales.xlsx'
+            );
+            $file =
+                public_path() .
+                '/archivos/' .
+                $user->email .
+                'reporteComercioVales.xlsx';
+
+            return response()->download(
+                $file,
+                'SolicitudesValesGrandeza' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        // dd('aqui');
+        // //Mapeamos el resultado como un array
+        $res = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+
+        $reader = IOFactory::createReader('Xlsx');
+        $spreadsheet = $reader->load(
+            public_path() . '/archivos/formatoReporteSolicitudValesV8.xlsx'
+        );
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet
+            ->getPageSetup()
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)
+            ->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setPrintArea('A1:V' . (intval($total) + 10));
+
+        // //Llenar excel con el resultado del query
+        $sheet->fromArray($res, null, 'B5');
+        unset($res);
+        //Agregamos la fecha
+        $sheet->setCellValue('H2', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+        // // //Agregar el indice autonumerico
+        for ($i = 1; $i <= $total; $i++) {
+            $inicio = 4 + $i;
+            $sheet->setCellValue('A' . $inicio, $i);
+        }
+        $sheet->getDefaultRowDimension()->setRowHeight(-1);
+        // //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+        $writer = new Xlsx($spreadsheet);
+        $writer->save(
+            'archivos/' . $user->email . 'SolicitudesValesGrandeza.xlsx'
+        );
+        unset($sheet);
+        unset($writer);
+        $file =
+            public_path() .
+            '/archivos/' .
+            $user->email .
+            'SolicitudesValesGrandeza.xlsx';
+
+        return response()->download(
+            $file,
+            $user->email .
+                'SolicitudesValesGrandeza' .
+                date('Y-m-d H:i:s') .
+                '.xlsx'
+        );
     }
 }
