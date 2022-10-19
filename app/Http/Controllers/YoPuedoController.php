@@ -1054,6 +1054,36 @@ class YoPuedoController extends Controller
             if ($user->id == 1578) {
                 $params['UsuarioAplicativo'] = $params['idEnlace'];
                 unset($params['idEnlace']);
+
+                if (isset($params['LocalidadVive'])) {
+                    $localidad = DB::table('et_cat_localidad_2022')
+                        ->select('Nombre')
+                        ->where('id', $params['LocalidadVive'])
+                        ->get()
+                        ->first();
+
+                    if ($localidad != null) {
+                        $params['LocalidadVive'] = $localidad->Nombre;
+                    } else {
+                        $localidadDos = DB::table('et_cat_localidad')
+                            ->select('Nombre')
+                            ->where('id', $params['LocalidadVive'])
+                            ->get()
+                            ->first();
+
+                        if ($localidadDos != null) {
+                            $params['LocalidadVive'] = $localidadDos->Nombre;
+                        } else {
+                            $response = [
+                                'success' => true,
+                                'results' => false,
+                                'errors' =>
+                                    'No se encuentra la localidad en el catálogo',
+                            ];
+                            return response()->json($response, 200);
+                        }
+                    }
+                }
             }
 
             unset($params['Files']);
