@@ -2675,7 +2675,7 @@ class ProyectosController extends Controller
             ->get()
             ->first();
 
-        $cveLocalidad = DB::table('et_cat_localidad')
+        $cveLocalidad = DB::table('et_cat_localidad_2022')
             ->select('CveInegi', 'Nombre')
             ->where('idMunicipio', $idMunicipio->id)
             ->where('Nombre', $solicitud->LocalidadVive)

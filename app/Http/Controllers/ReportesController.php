@@ -273,7 +273,7 @@ class ReportesController extends Controller
                     'M.Id'
                 )
                 ->leftJoin(
-                    'et_cat_localidad as L',
+                    'et_cat_localidad_2022 as L',
                     'N.idLocalidad',
                     '=',
                     'L.Id'
@@ -478,7 +478,7 @@ class ReportesController extends Controller
             ->join('et_grupo as b', 'a.idGrupo', '=', 'b.id')
             ->join('et_cat_municipio as c', 'b.idMunicipio', '=', 'c.id')
             ->join('et_aprobadoscomite as d', 'a.id', '=', 'd.id')
-            ->join('et_cat_localidad as e', 'e.Id', '=', 'd.idLocalidadC')
+            ->join('et_cat_localidad_2022 as e', 'e.Id', '=', 'd.idLocalidadC')
             ->join('et_cat_municipio as f', 'f.id', '=', 'd.idMunicipioC');
 
         $resGrupo = DB::table('et_grupo as G')
@@ -1845,7 +1845,12 @@ class ReportesController extends Controller
                 )
             )
             ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
-            ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
+            ->leftJoin(
+                'et_cat_localidad_2022 as L',
+                'N.idLocalidad',
+                '=',
+                'L.Id'
+            )
             ->leftJoin('users as UC', 'UC.id', '=', 'N.UserCreated')
             ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
@@ -1997,7 +2002,7 @@ class ReportesController extends Controller
                 ),
                 'vales.CP',
                 'et_cat_municipio.Nombre AS Municipio',
-                'et_cat_localidad.Nombre AS Localidad',
+                'et_cat_localidad_2022.Nombre AS Localidad',
                 'vales.TelFijo',
                 'vales.TelCelular',
                 'vales.Compania',
@@ -2039,8 +2044,8 @@ class ReportesController extends Controller
                 'vales.idMunicipio'
             )
             ->leftJoin(
-                'et_cat_localidad',
-                'et_cat_localidad.Id',
+                'et_cat_localidad_2022',
+                'et_cat_localidad_2022.Id',
                 '=',
                 'vales.idLocalidad'
             )
@@ -2686,9 +2691,9 @@ class ReportesController extends Controller
                 DB::raw('left(CURP, 10) as RFC'),
                 'et_cat_municipio.Nombre AS Municipio',
                 DB::raw(
-                    "concat('11', lpad(et_cat_localidad.IdMunicipio,3,0), lpad(sedeshu.et_cat_localidad.Numero, 4, 0)) as NumeroLocalidad"
+                    "concat('11', lpad(et_cat_localidad_2022.IdMunicipio,3,0), lpad(sedeshu.et_cat_localidad_2022.Numero, 4, 0)) as NumeroLocalidad"
                 ),
-                'et_cat_localidad.Nombre AS Localidad',
+                'et_cat_localidad_2022.Nombre AS Localidad',
                 'vales.Colonia',
                 DB::raw("' ' as Manzana"),
                 'vales.Calle',
@@ -2714,8 +2719,8 @@ class ReportesController extends Controller
                 'vales.idMunicipio'
             )
             ->leftJoin(
-                'et_cat_localidad',
-                'et_cat_localidad.Id',
+                'et_cat_localidad_2022',
+                'et_cat_localidad_2022.Id',
                 '=',
                 'vales.idLocalidad'
             )
@@ -3348,7 +3353,7 @@ class ReportesController extends Controller
                 //DB::raw('concat("Col. ",vales.Colonia)'),
                 'vales.CP',
                 'et_cat_municipio.Nombre AS Municipio',
-                'et_cat_localidad.Nombre AS Localidad',
+                'et_cat_localidad_2022.Nombre AS Localidad',
                 'vales.TelFijo',
                 'vales.TelCelular',
                 'vales.Compania',
@@ -3376,8 +3381,8 @@ class ReportesController extends Controller
                 'vales.idMunicipio'
             )
             ->leftJoin(
-                'et_cat_localidad',
-                'et_cat_localidad.Id',
+                'et_cat_localidad_2022',
+                'et_cat_localidad_2022.Id',
                 '=',
                 'vales.idLocalidad'
             )
@@ -4273,7 +4278,7 @@ class ReportesController extends Controller
                 ),
                 'V.CP',
                 'M.Nombre AS Municipio',
-                'et_cat_localidad.Nombre AS Localidad',
+                'et_cat_localidad_2022.Nombre AS Localidad',
                 DB::raw(
                     "CASE WHEN V.TelFijo is null THEN 'S/T' ELSE V.TelFijo END as TelFijo"
                 ),
@@ -4309,8 +4314,8 @@ class ReportesController extends Controller
             )
             ->leftJoin('et_cat_municipio as M', 'V.idMunicipio', '=', 'M.Id')
             ->leftJoin(
-                'et_cat_localidad',
-                'et_cat_localidad.Id',
+                'et_cat_localidad_2022',
+                'et_cat_localidad_2022.Id',
                 '=',
                 'V.idLocalidad'
             )
@@ -5004,7 +5009,7 @@ class ReportesController extends Controller
                 'vales.Colonia',
                 'vales.CP',
                 'et_cat_municipio.Nombre AS Municipio',
-                'et_cat_localidad.Nombre AS Localidad',
+                'et_cat_localidad_2022.Nombre AS Localidad',
                 'vales.TelFijo',
                 'vales.TelCelular',
                 'vales.Compania',
@@ -5025,8 +5030,8 @@ class ReportesController extends Controller
                 'vales.idMunicipio'
             )
             ->leftJoin(
-                'et_cat_localidad',
-                'et_cat_localidad.Id',
+                'et_cat_localidad_2022',
+                'et_cat_localidad_2022.Id',
                 '=',
                 'vales.idLocalidad'
             )
@@ -5061,7 +5066,7 @@ class ReportesController extends Controller
         ->where('vales.UserCreated','=',$user->id) */
             ->orderBy('vales.created_at')
             ->orderBy('et_cat_municipio.Nombre')
-            ->orderBy('et_cat_localidad.Nombre')
+            ->orderBy('et_cat_localidad_2022.Nombre')
             ->orderBy('vales.Nombre');
 
         //AQUI PONGO MIS FILTROS, PARA QUE LA CONSULTA GUARDADA SE REPLIQUE.
@@ -5586,7 +5591,7 @@ class ReportesController extends Controller
                 'vales.Colonia',
                 'vales.CP',
                 'et_cat_municipio.Nombre AS Municipio',
-                'et_cat_localidad.Nombre AS Localidad',
+                'et_cat_localidad_2022.Nombre AS Localidad',
                 'vales.TelFijo',
                 'vales.TelCelular',
                 'vales.Compania',
@@ -5612,8 +5617,8 @@ class ReportesController extends Controller
         ->leftJoin('cat_usertipo as cat_usertipoC','cat_usertipoC.id','=','usersC.idTipoUser') */
 
             ->leftJoin(
-                'et_cat_localidad',
-                'et_cat_localidad.Id',
+                'et_cat_localidad_2022',
+                'et_cat_localidad_2022.Id',
                 '=',
                 'vales.idLocalidad'
             )
@@ -5635,7 +5640,7 @@ class ReportesController extends Controller
             ->whereNotNull('vales.Remesa')
             ->orderBy('vales.created_at')
             ->orderBy('et_cat_municipio.Nombre')
-            ->orderBy('et_cat_localidad.Nombre')
+            ->orderBy('et_cat_localidad_2022.Nombre')
             ->orderBy('vales.Nombre');
 
         //AQUI PONGO MIS FILTROS, PARA QUE LA CONSULTA GUARDADA SE REPLIQUE.
@@ -6205,7 +6210,12 @@ class ReportesController extends Controller
                 'VS.SerieFinal'
             )
             ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
-            ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
+            ->leftJoin(
+                'et_cat_localidad_2022 as L',
+                'N.idLocalidad',
+                '=',
+                'L.Id'
+            )
             ->Join('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
             ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
@@ -7357,7 +7367,12 @@ class ReportesController extends Controller
                 'VS.SerieFinal AS foliofinal'
             )
             ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
-            ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
+            ->leftJoin(
+                'et_cat_localidad_2022 as L',
+                'N.idLocalidad',
+                '=',
+                'L.Id'
+            )
             ->Join('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
@@ -7703,7 +7718,12 @@ class ReportesController extends Controller
             )
             ->join('et_tarjetas_asignadas as t', 't.id', '=', 'a.id')
             ->leftJoin('et_cat_municipio as m', 'm.id', '=', 'a.idMunicipioC')
-            ->leftJoin('et_cat_localidad as l', 'l.id', '=', 'a.idLocalidadC')
+            ->leftJoin(
+                'et_cat_localidad_2022 as l',
+                'l.id',
+                '=',
+                'a.idLocalidadC'
+            )
             ->join('et_grupo as g', 'g.id', '=', 't.idGrupo')
             ->join('et_cat_municipio as mg', 'mg.id', '=', 'g.idMunicipio')
             ->where('a.CURP', $request->curp)
@@ -7789,7 +7809,7 @@ class ReportesController extends Controller
             ->join('et_grupo as b', 'a.idGrupo', '=', 'b.id')
             ->join('et_cat_municipio as c', 'b.idMunicipio', '=', 'c.id')
             ->join('et_aprobadoscomite as d', 'a.id', '=', 'd.id')
-            ->join('et_cat_localidad as e', 'e.Id', '=', 'd.idLocalidadC')
+            ->join('et_cat_localidad_2022 as e', 'e.Id', '=', 'd.idLocalidadC')
             ->join('et_cat_municipio as f', 'f.id', '=', 'd.idMunicipioC')
             ->where('a.idGrupo', $request->idGrupo)
             ->orderBy('NombreC', 'asc')
@@ -7874,7 +7894,7 @@ class ReportesController extends Controller
             ->join('et_grupo as b', 'a.idGrupo', '=', 'b.id')
             ->join('et_cat_municipio as c', 'b.idMunicipio', '=', 'c.id')
             ->join('et_aprobadoscomite as d', 'a.id', '=', 'd.id')
-            ->join('et_cat_localidad as e', 'e.Id', '=', 'd.idLocalidadC')
+            ->join('et_cat_localidad_2022 as e', 'e.Id', '=', 'd.idLocalidadC')
             ->join('et_cat_municipio as f', 'f.id', '=', 'd.idMunicipioC')
             ->where('a.idGrupo', $request->idGrupo)
             ->orderBy('NombreC', 'asc')

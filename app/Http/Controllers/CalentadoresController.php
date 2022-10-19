@@ -3090,7 +3090,7 @@ class CalentadoresController extends Controller
             ->get()
             ->first();
 
-        $cveLocalidad = DB::table('et_cat_localidad')
+        $cveLocalidad = DB::table('et_cat_localidad_2022')
             ->select('CveInegi', 'Nombre')
             ->where('idMunicipio', $idMunicipio->id)
             ->where('Nombre', $solicitud->LocalidadVive)
@@ -4060,7 +4060,6 @@ class CalentadoresController extends Controller
             ->select(
                 DB::raw('LPAD(HEX(vales.id),6,0) as ID'),
                 'et_cat_municipio.SubRegion AS Region',
-                //DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
                 'vales.Folio AS Folio',
                 'vales.FechaSolicitud',
                 'vales.CURP',
@@ -4118,6 +4117,7 @@ class CalentadoresController extends Controller
                     "),
                 'calentadores_cedulas.PersonaJefaFamilia',
                 'vales_status.Estatus',
+                'calentadores_cedulas.EstatusVentanilla',
                 'vales.Enlace AS Enlace',
                 DB::raw(
                     "CASE 
@@ -4155,9 +4155,6 @@ class CalentadoresController extends Controller
             )
             ->whereRaw('vales.FechaElimino IS NULL');
 
-        //dd($res->toSql());
-
-        //Agregando Filtros por permisos
         $permisos = $this->getPermisos();
 
         $seguimiento = $permisos->Seguimiento;
@@ -4344,18 +4341,9 @@ class CalentadoresController extends Controller
             })
             ->toArray();
 
-        //------------------------------------------------- Para generar el archivo excel ----------------------------------------------------------------
-        // $spreadsheet = new Spreadsheet();
-        // $sheet = $spreadsheet->getActiveSheet();
-
-        //Para los titulos del excel
-        // $titulos = ['Grupo','Folio','Nombre','Paterno','Materno','Fecha de Nacimiento','Sexo','Calle','Numero','Colonia','Municipio','Localidad','CP','Terminación'];
-        // $sheet->fromArray($titulos,null,'A1');
-        // $sheet->getStyle('A1:N1')->getFont()->getColor()->applyFromArray(['rgb' => '808080']);
-
         $reader = IOFactory::createReader('Xlsx');
         $spreadsheet = $reader->load(
-            public_path() . '/archivos/formatoReporteSolicitudValesV6.xlsx'
+            public_path() . '/archivos/formatoReporteSolicitudValesV9.xlsx'
         );
         $sheet = $spreadsheet->getActiveSheet();
         $largo = count($res);
@@ -4366,47 +4354,9 @@ class CalentadoresController extends Controller
             ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
         $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
 
-        $largo = count($res);
-        //colocar los bordes
-        // self::crearBordes($largo, 'B', $sheet);
-        // self::crearBordes($largo, 'C', $sheet);
-        // self::crearBordes($largo, 'D', $sheet);
-        // self::crearBordes($largo, 'E', $sheet);
-        // self::crearBordes($largo, 'F', $sheet);
-        // self::crearBordes($largo, 'G', $sheet);
-        // self::crearBordes($largo, 'H', $sheet);
-        // self::crearBordes($largo, 'I', $sheet);
-        // self::crearBordes($largo, 'J', $sheet);
-        // self::crearBordes($largo, 'K', $sheet);
-        // self::crearBordes($largo, 'L', $sheet);
-        // self::crearBordes($largo, 'M', $sheet);
-        // self::crearBordes($largo, 'N', $sheet);
-        // self::crearBordes($largo, 'O', $sheet);
-        // self::crearBordes($largo, 'P', $sheet);
-        // self::crearBordes($largo, 'Q', $sheet);
-        // self::crearBordes($largo, 'R', $sheet);
-        // self::crearBordes($largo, 'S', $sheet);
-        // self::crearBordes($largo, 'T', $sheet);
-        // self::crearBordes($largo, 'U', $sheet);
-        // self::crearBordes($largo, 'V', $sheet);
-        // self::crearBordes($largo, 'W', $sheet);
-        // self::crearBordes($largo, 'X', $sheet);
-        // self::crearBordes($largo, 'Y', $sheet);
-        // self::crearBordes($largo, 'Z', $sheet);
-        // self::crearBordes($largo, 'AA', $sheet);
-        // self::crearBordes($largo, 'AB', $sheet);
-        // self::crearBordes($largo, 'AC', $sheet);
-        // self::crearBordes($largo, 'AD', $sheet);
-        // self::crearBordes($largo, 'AE', $sheet);
-        // self::crearBordes($largo, 'AF', $sheet);
-        // self::crearBordes($largo, 'AG', $sheet);
-
-        //Llenar excel con el resultado del query
         $sheet->fromArray($res, null, 'C11');
-        //Agregamos la fecha
-        $sheet->setCellValue('U6', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
 
-        //Agregar el indice autonumerico
+        $sheet->setCellValue('U6', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
 
         for ($i = 1; $i <= $largo; $i++) {
             $inicio = 10 + $i;
@@ -4414,10 +4364,7 @@ class CalentadoresController extends Controller
         }
 
         if ($largo > 75) {
-            //     //dd('Se agrega lineBreak');
             for ($lb = 70; $lb < $largo; $lb += 70) {
-                //         $veces++;
-                //         //dd($largo);
                 $sheet->setBreak(
                     'B' . ($lb + 10),
                     \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
@@ -4427,7 +4374,6 @@ class CalentadoresController extends Controller
 
         $sheet->getDefaultRowDimension()->setRowHeight(-1);
 
-        //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
         $writer = new Xlsx($spreadsheet);
         $writer->save(
             'archivos/' . $user->email . 'SolicitudesCalentadores.xlsx'
@@ -5215,7 +5161,7 @@ class CalentadoresController extends Controller
         try {
             $tablaMeta = "(
                     Select M.Id, M.Subregion as Region, M.Nombre as Municipio, MM.ApoyoAmpliado as Apoyos
-                    from et_cat_municipio as M inner join meta_municipio as MM on (M.Id = MM.idMunicipio)
+                    from et_cat_municipio as M inner join calentadores_meta_municipio as MM on (M.Id = MM.idMunicipio)
                     where MM.Ejercicio=$anio) as M ";
 
             $tabla3 = "(

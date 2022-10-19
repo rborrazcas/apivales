@@ -62,6 +62,8 @@ Route::post(
 
 Route::get('/hashPassword', 'ZisController@hashPassword');
 
+Route::post('/updateLocation', 'CedulasController@updateLocation');
+
 Route::post('/acuse', 'CedulasController@getFile');
 
 Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
@@ -172,6 +174,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get(
         '/getReportesolicitudVales',
         'ReportesController@getReportesolicitudVales'
+    );
+    Route::get(
+        '/getReporteCompletoVales',
+        'CedulasController@getReporteCompletoVales'
     );
     Route::get(
         '/getReporteSolicitudVentanillaVales',
