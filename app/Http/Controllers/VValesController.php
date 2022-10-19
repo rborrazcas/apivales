@@ -12,6 +12,10 @@ use App\VVales;
 use App\VNegociosFiltros;
 use Arr;
 use Carbon\Carbon as time;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
 class VValesController extends Controller
 {
@@ -115,8 +119,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.isEntregado',
@@ -176,8 +180,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -718,52 +722,94 @@ class VValesController extends Controller
         }
     }
 
-    function getValesAvances2021(Request $request)
+    function getValesAvances(Request $request)
     {
         $parameters = $request->all();
+        $anio = 2022;
+        $user = auth()->user();
+
+        if (isset($parameters['Anio'])) {
+            $anio = $parameters['Anio'];
+        }
+
+        DB::beginTransaction();
+
+        DB::table('users_filtros')
+            ->where('UserCreated', $user->id)
+            ->where('api', 'getReporteAvancesVales')
+            ->delete();
+
+        DB::commit();
+        $parameters_serializado = serialize($parameters);
+
+        //Insertamos los filtros
+        DB::table('users_filtros')->insert([
+            'UserCreated' => $user->id,
+            'Api' => 'getReporteAvancesVales',
+            'Consulta' => $parameters_serializado,
+            'created_at' => date('Y-m-d h-m-s'),
+        ]);
 
         try {
             $tablaMeta = "(
-                Select M.Id, M.Subregion as Region, M.Nombre as Municipio, MM.ApoyoAmpliado as Apoyos
-                from et_cat_municipio as M inner join meta_municipio as MM on (M.Id = MM.idMunicipio)
-                where MM.Ejercicio=2021) as M ";
-
-            $tabla1 = "(
-                    select idMunicipio, count(id) as SolicitudesPorAprobar
-                    from vales
-                    where Remesa is null and YEAR(FechaSolicitud) = 2021 and  isDocumentacionEntrega=0
-                    group by idMunicipio
-                    ) as S ";
-
-            $tabla2 = "(
-                select idMunicipio, count(id) as ExpedientesRecibidos
-                from vales
-                where Remesa is null and isDocumentacionEntrega=1 and YEAR(FechaSolicitud) = 2021
-                group by idMunicipio) as E";
+                    Select M.Id, M.Subregion as Region, M.Nombre as Municipio, MM.ApoyoAmpliado as Apoyos
+                    from et_cat_municipio as M inner join meta_municipio as MM on (M.Id = MM.idMunicipio)
+                    where MM.Ejercicio=$anio) as M ";
 
             $tabla3 = "(
                     select idMunicipio, count(id) as AprobadosComite
                     from vales
-                    where Remesa is not null and YEAR(FechaSolicitud) = 2021
+                    where Remesa is not null and YEAR(FechaSolicitud) = $anio
                     group by idMunicipio) as AC";
 
             $tabla4 = "(
                         select idMunicipio, count(id) as Entregados
                         from vales
-                        where Remesa is not null and YEAR(FechaSolicitud) = 2021 and isEntregado=1
+                        where Remesa is not null and YEAR(FechaSolicitud) = $anio and isEntregado=1
                         group by idMunicipio) as ET";
 
             $tablaIncidencias = "(
-                    select idMunicipio, count(id) as Incidencias
+                            select idMunicipio, count(id) as Incidencias
+                            from vales
+                            where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = $anio
+                            group by idMunicipio) as VI";
+
+            if ($anio == 2022) {
+                $tabla1 = "(
+                        select vales.idMunicipio, count(vales.id) as SolicitudesPorAprobar
+                        from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
+                        where vales.Remesa is null and YEAR(vales.FechaSolicitud) = $anio
+                        group by vales.idMunicipio
+                        ) as S ";
+
+                $tabla2 = "(
+                    select vales.idMunicipio, count(vales.id) as ExpedientesRecibidos
+                    from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
+                    where YEAR(vales.FechaSolicitud) = $anio AND cedulas_solicitudes.ExpedienteCompleto = 1
+                    group by idMunicipio) as E";
+            } else {
+                $tabla1 = "(
+                    select idMunicipio, count(id) as SolicitudesPorAprobar
                     from vales
-                    where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = 2021
-                    group by idMunicipio) as VI";
+                    where Remesa is null and YEAR(FechaSolicitud) = $anio and  isDocumentacionEntrega=0
+                    group by idMunicipio
+                    ) as S ";
+
+                $tabla2 = "(
+                select idMunicipio, count(id) as ExpedientesRecibidos
+                from vales
+                where Remesa is null and isDocumentacionEntrega=1 and YEAR(FechaSolicitud) = $anio
+                group by idMunicipio) as E";
+            }
 
             $queryGeneral = DB::table(DB::raw($tablaMeta))
                 ->selectRaw(
-                    'M.Region, M.Municipio, M.Apoyos, AC.AprobadosComite, if(VI.Incidencias is null, 0, VI.Incidencias) as Incidencias, (M.Apoyos + if(VI.Incidencias is null, 0, VI.Incidencias) - if(AC.AprobadosComite is null, 0, AC.AprobadosComite)) as ApoyosMenosApronadosComite, if(ET.Entregados is null, 0, ET.Entregados) as Entregados, S.SolicitudesPorAprobar, E.ExpedientesRecibidos'
+                    'M.Region, M.Municipio, M.Apoyos, AC.AprobadosComite, if(VI.Incidencias is null, 0, VI.Incidencias) as Incidencias
+                        , (M.Apoyos + if(VI.Incidencias is null, 0, VI.Incidencias) - if(AC.AprobadosComite is null, 0, AC.AprobadosComite)) as ApoyosMenosApronadosComite
+                        , if(ET.Entregados is null, 0, ET.Entregados) as Entregados
+                        , S.SolicitudesPorAprobar
+                        , CASE WHEN E.ExpedientesRecibidos IS NULL THEN 0 ELSE E.ExpedientesRecibidos END AS ExpedientesRecibidos'
                 )
-                //   ->leftJoin(DB::raw($tablaMeta),'M.idMunicipio','=','M.Id')
                 ->leftJoin(DB::raw($tabla1), 'S.idMunicipio', '=', 'M.Id')
                 ->leftJoin(DB::raw($tabla2), 'E.idMunicipio', '=', 'M.Id')
                 ->leftJoin(DB::raw($tabla3), 'AC.idMunicipio', '=', 'M.Id')
@@ -804,6 +850,217 @@ class VValesController extends Controller
             ];
 
             return response()->json($response, 200);
+        }
+    }
+
+    public function getReporteAvances(Request $request)
+    {
+        $user = auth()->user();
+        $parameters['UserCreated'] = $user->id;
+
+        $filtro_usuario = DB::table('users_filtros')
+            ->where('UserCreated', '=', $user->id)
+            ->where('Api', '=', 'getReporteAvancesVales')
+            ->first();
+        $parameters = unserialize($filtro_usuario->Consulta);
+        $anio = 2022;
+        if (isset($parameters['Anio'])) {
+            $anio = $parameters['Anio'];
+        }
+
+        $tablaMeta = "(
+                Select M.Id, M.Subregion as Region, M.Nombre as Municipio, MM.ApoyoAmpliado as Apoyos
+                from et_cat_municipio as M inner join meta_municipio as MM on (M.Id = MM.idMunicipio)
+                where MM.Ejercicio=$anio) as M ";
+
+        $tabla1 = "(
+                    select vales.idMunicipio, count(vales.id) as SolicitudesPorAprobar
+                    from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
+                    where vales.Remesa is null and YEAR(vales.FechaSolicitud) = $anio
+                    group by vales.idMunicipio
+                    ) as S ";
+
+        $tabla2 = "(
+                        select vales.idMunicipio, count(vales.id) as ExpedientesRecibidos
+                        from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
+                        where YEAR(vales.FechaSolicitud) = $anio AND cedulas_solicitudes.ExpedienteCompleto = 1
+                        group by idMunicipio) as E";
+
+        $tabla3 = "(
+                    select idMunicipio, count(id) as AprobadosComite
+                    from vales
+                    where Remesa is not null and YEAR(FechaSolicitud) = $anio
+                    group by idMunicipio) as AC";
+
+        $tabla4 = "(
+                        select idMunicipio, count(id) as Entregados
+                        from vales
+                        where Remesa is not null and YEAR(FechaSolicitud) = $anio and isEntregado=1
+                        group by idMunicipio) as ET";
+
+        $tabla5 = "( SELECT 
+                        vales.idMunicipio,
+                        count( vales.id ) AS Capturados 
+                     FROM
+	                    cedulas_solicitudes
+	                    JOIN vales ON cedulas_solicitudes.idVale = vales.id 
+                     WHERE	
+                        YEAR ( vales.FechaSolicitud ) = $anio 
+                        AND cedulas_solicitudes.FechaElimino IS NULL
+                     GROUP BY
+	                    vales.idMunicipio
+                    ) as CAP ";
+
+        $tablaIncidencias = "(
+                    select idMunicipio, count(id) as Incidencias
+                    from vales
+                    where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = $anio
+                    group by idMunicipio) as VI";
+
+        $queryGeneral = DB::table(DB::raw($tablaMeta))
+            ->selectRaw(
+                'M.Region, M.Municipio, M.Apoyos, AC.AprobadosComite
+                , if(ET.Entregados is null, 0, ET.Entregados) as Entregados, if(VI.Incidencias is null, 0, VI.Incidencias) as Incidencias
+                , (M.Apoyos + if(VI.Incidencias is null, 0, VI.Incidencias) - if(AC.AprobadosComite is null, 0, AC.AprobadosComite)) as ApoyosMenosApronadosComite
+                , S.SolicitudesPorAprobar
+                , CASE WHEN E.ExpedientesRecibidos IS NULL THEN 0 ELSE E.ExpedientesRecibidos END AS ExpedientesRecibidos'
+            )
+            ->leftJoin(DB::raw($tabla1), 'S.idMunicipio', '=', 'M.Id')
+            ->leftJoin(DB::raw($tabla2), 'E.idMunicipio', '=', 'M.Id')
+            ->leftJoin(DB::raw($tabla3), 'AC.idMunicipio', '=', 'M.Id')
+            ->leftJoin(DB::raw($tabla4), 'ET.idMunicipio', '=', 'M.Id')
+            ->leftJoin(DB::raw($tabla5), 'CAP.idMunicipio', '=', 'M.Id')
+            ->leftJoin(
+                DB::raw($tablaIncidencias),
+                'VI.idMunicipio',
+                '=',
+                'M.Id'
+            );
+
+        if (isset($parameters['Regiones'])) {
+            $resMunicipio = DB::table('et_cat_municipio')
+                ->whereIn('SubRegion', $parameters['Regiones'])
+                ->pluck('Id');
+
+            //dd($resMunicipio);
+
+            $queryGeneral->whereIn('M.Id', $resMunicipio);
+        }
+
+        $queryGeneral
+            ->orderBy('M.Region', 'ASC')
+            ->orderBy('M.Municipio', 'ASC');
+
+        $Items = $queryGeneral->get();
+        //Mapeamos el resultado como un array
+        if ($Items != null) {
+            $res2 = $Items
+                ->map(function ($x) {
+                    $x = is_object($x) ? (array) $x : $x;
+                    return $x;
+                })
+                ->toArray();
+
+            $res = [];
+            foreach ($res2 as $arrayDatos) {
+                $res[] = [
+                    'Region' => $arrayDatos['Region']
+                        ? $arrayDatos['Region']
+                        : '0',
+                    'Municipio' => $arrayDatos['Municipio'],
+                    'Apoyos' => $arrayDatos['Apoyos']
+                        ? $arrayDatos['Apoyos']
+                        : '0',
+                    'AprobadosComite' => $arrayDatos['AprobadosComite']
+                        ? $arrayDatos['AprobadosComite']
+                        : '0',
+                    'Entregados' => $arrayDatos['Entregados']
+                        ? $arrayDatos['Entregados']
+                        : '0',
+                    'Incidencias' => $arrayDatos['Incidencias']
+                        ? $arrayDatos['Incidencias']
+                        : '0',
+                    'ApoyosMenosApronadosComite' => $arrayDatos[
+                        'ApoyosMenosApronadosComite'
+                    ]
+                        ? $arrayDatos['ApoyosMenosApronadosComite']
+                        : '0',
+                    'SolicitudesPorAprobar' => $arrayDatos[
+                        'SolicitudesPorAprobar'
+                    ]
+                        ? $arrayDatos['SolicitudesPorAprobar']
+                        : '0',
+                    'ExpedientesRecibidos' => $arrayDatos[
+                        'ExpedientesRecibidos'
+                    ]
+                        ? $arrayDatos['ExpedientesRecibidos']
+                        : '0',
+                ];
+            }
+
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoReporteAvanceValesV1.xlsx'
+            );
+
+            $sheet = $spreadsheet->getActiveSheet();
+            $largo = count($res);
+            $impresion = $largo + 5;
+
+            $sheet->getPageSetup()->setPrintArea('A1:V' . $impresion);
+            $sheet
+                ->getPageSetup()
+                ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+            $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+
+            $largo = count($res);
+
+            //Llenar excel con el resultado del query
+            $sheet->fromArray($res, null, 'C6');
+            //Agregamos la fecha
+            $sheet->setCellValue('L2', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+
+            //Agregar el indice autonumerico
+
+            for ($i = 1; $i <= $largo; $i++) {
+                $inicio = 5 + $i;
+                $sheet->setCellValue('B' . $inicio, $i);
+            }
+
+            if ($largo > 75) {
+                //     //dd('Se agrega lineBreak');
+                for ($lb = 70; $lb < $largo; $lb += 70) {
+                    //         $veces++;
+                    //         //dd($largo);
+                    $sheet->setBreak(
+                        'B' . ($lb + 10),
+                        \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
+                    );
+                }
+            }
+
+            $sheet->getDefaultRowDimension()->setRowHeight(-1);
+
+            //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+            $writer = new Xlsx($spreadsheet);
+            $writer->save(
+                'archivos/' .
+                    $user->email .
+                    'SolicitudesValesGrandezaAvances.xlsx'
+            );
+            $file =
+                public_path() .
+                '/archivos/' .
+                $user->email .
+                'SolicitudesValesGrandezaAvances.xlsx';
+
+            return response()->download(
+                $file,
+                $user->email .
+                    'SolicitudesValesGrandezaAvances' .
+                    date('Y-m-d H:i:s') .
+                    '.xlsx'
+            );
         }
     }
 
@@ -994,8 +1251,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.isEntregado',
@@ -1055,8 +1312,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -1729,7 +1986,7 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelCelular',
                     'vales.idStatus',
                     'vales_status.id as idES',
@@ -1764,8 +2021,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -2359,8 +2616,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.isEntregado',
@@ -2420,8 +2677,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -3187,8 +3444,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.CorreoElectronico',
@@ -3239,8 +3496,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -3574,7 +3831,7 @@ class VValesController extends Controller
 
             $res
                 ->orderBy('et_cat_municipio.Nombre', 'asc')
-                ->orderBy('et_cat_localidad.Nombre', 'asc')
+                ->orderBy('et_cat_localidad_2022.Nombre', 'asc')
                 ->orderBy('vales.Colonia', 'asc')
                 ->orderBy('vales.Nombre', 'asc')
                 ->orderBy('vales.Paterno', 'asc');
@@ -3760,8 +4017,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.CorreoElectronico',
@@ -3812,8 +4069,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -4722,7 +4979,7 @@ class VValesController extends Controller
                     DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
                     'et_cat_municipio.SubRegion AS Region',
                     'et_cat_municipio.Nombre AS Municipio',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.id',
                     'vales.FechaSolicitud',
                     'vales.CURP',
@@ -4776,8 +5033,8 @@ class VValesController extends Controller
             WHERE
             vales.Remesa is not null and UR.idUser=59 */
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )
@@ -5944,8 +6201,8 @@ class VValesController extends Controller
         }
 
         $validar_monto = DB::table('config')->first();
-        $ambito_localidad = DB::table('et_cat_localidad')
-            ->where('et_cat_localidad.Id', '=', $parameters['idLocalidad'])
+        $ambito_localidad = DB::table('et_cat_localidad_2022')
+            ->where('et_cat_localidad_2022.Id', '=', $parameters['idLocalidad'])
             ->first();
         $parameters['TotalIngresos'] =
             floatval($parameters['IngresoPercibido']) +
@@ -6127,9 +6384,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6179,9 +6436,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6231,9 +6488,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6398,9 +6655,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6450,9 +6707,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6502,9 +6759,9 @@ class VValesController extends Controller
                     )->NumeroPersonas;
                 }
                 $validar_monto = DB::table('config')->first();
-                $ambito_localidad = DB::table('et_cat_localidad')
+                $ambito_localidad = DB::table('et_cat_localidad_2022')
                     ->where(
-                        'et_cat_localidad.Id',
+                        'et_cat_localidad_2022.Id',
                         '=',
                         $parameters['idLocalidad']
                     )
@@ -6719,8 +6976,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales_history.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales_history.TelFijo',
                     'vales_history.TelCelular',
                     'vales_history.isEntregado',
@@ -6788,8 +7045,8 @@ class VValesController extends Controller
                     'vales_history.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales_history.idLocalidad'
                 )
@@ -7046,8 +7303,8 @@ class VValesController extends Controller
                     'et_cat_municipio.Nombre AS Municipio',
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
-                    'et_cat_localidad.Id AS Clave',
-                    'et_cat_localidad.Nombre AS Localidad',
+                    'et_cat_localidad_2022.Id AS Clave',
+                    'et_cat_localidad_2022.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.isEntregado',
@@ -7115,8 +7372,8 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->leftJoin(
-                    'et_cat_localidad',
-                    'et_cat_localidad.Id',
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.Id',
                     '=',
                     'vales.idLocalidad'
                 )

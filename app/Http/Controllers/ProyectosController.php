@@ -12,18 +12,20 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use Illuminate\Contracts\Validation\ValidationException;
 
-use App\Cedula;
-use GuzzleHttp\Client;
-use App\VNegociosFiltros;
-use Carbon\Carbon as time;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Arr;
 
-use DB;
-use Arr;
-use File;
+use GuzzleHttp\Client;
+use Carbon\Carbon as time;
 use Zipper;
 use JWTAuth;
 use Validator;
 use HTTP_Request2;
+use Imagick;
+use App\VNegociosFiltros;
+use App\Cedula;
 
 class ProyectosController extends Controller
 {
@@ -36,23 +38,6 @@ class ProyectosController extends Controller
             ->get()
             ->first();
         return $permisos;
-    }
-
-    function getPrograma($folio)
-    {
-        if (!is_null($folio)) {
-            $q = str_contains(strtoupper($folio), 'Q3450');
-
-            if ($q) {
-                return 1; //1 para vales
-            } elseif (str_contains(strtoupper($folio), 'Q1417')) {
-                return 2; //2 para calentadores
-            } else {
-                return 3; //3 para proyectos
-            }
-        } else {
-            return 0;
-        } //No existe folio
     }
 
     function getEstatusGlobal(Request $request)
@@ -135,20 +120,23 @@ class ProyectosController extends Controller
 
             $userId = JWTAuth::parseToken()->toUser()->id;
 
+            DB::beginTransaction();
             DB::table('users_filtros')
                 ->where('UserCreated', $userId)
                 ->where('api', 'getProyectosVentanilla')
                 ->delete();
-
+            DB::commit();
             $parameters_serializado = serialize($params);
 
             //Insertamos los filtros
+            DB::beginTransaction();
             DB::table('users_filtros')->insert([
                 'UserCreated' => $userId,
                 'Api' => 'getProyectosVentanilla',
                 'Consulta' => $parameters_serializado,
                 'created_at' => date('Y-m-d h-m-s'),
             ]);
+            DB::commit();
 
             $tableSol = 'proyectos_solicitudes';
             $tableCedulas =
@@ -219,24 +207,25 @@ class ProyectosController extends Controller
                         'END AS CreadoPor, ' .
                         " CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor, " .
                         ' proyectos_cedulas.id AS idCedula, ' .
-                        ' proyectos_cedulas.ListaParaEnviar as ListaParaEnviarP'
+                        ' proyectos_cedulas.ListaParaEnviar AS ListaParaEnviarP,' .
+                        'lpad(hex(proyectos_solicitudes.id),6,0) AS FolioSolicitud'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_entidad AS entidadesNacimiento',
                     'entidadesNacimiento.id',
                     'proyectos_solicitudes.idEntidadNacimiento'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_estado_civil',
                     'cat_estado_civil.id',
                     'proyectos_solicitudes.idEstadoCivil'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_parentesco_jefe_hogar',
                     'cat_parentesco_jefe_hogar.id',
                     'proyectos_solicitudes.idParentescoJefeHogar'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_entidad AS entidadesVive',
                     'entidadesVive.id',
                     'proyectos_solicitudes.idEntidadVive'
@@ -273,7 +262,7 @@ class ProyectosController extends Controller
             $mun = [];
 
             if (isset($params['filtered']) && count($params['filtered']) > 0) {
-                $filtersCedulas = ['.id', '.MunicipioVive'];
+                $filtersCedulas = ['.ListaParaEnviar'];
                 foreach ($params['filtered'] as $filtro) {
                     if ($filterQuery != '') {
                         $filterQuery .= ' AND ';
@@ -306,8 +295,12 @@ class ProyectosController extends Controller
                         $value = $municipioRegion;
                     }
 
+                    if ($id == '.id') {
+                        $value = hexdec($value);
+                    }
+
                     if (in_array($id, $filtersCedulas)) {
-                        $id = 'proyectos_solicitudes' . $id;
+                        $id = 'proyectos_ cedulas' . $id;
                     } else {
                         $id = 'proyectos_solicitudes' . $id;
                     }
@@ -446,6 +439,9 @@ class ProyectosController extends Controller
                     'ActualizadoPor' => $data->ActualizadoPor,
                     'idCedula' => $data->idCedula,
                     'ListaParaEnviarP' => $data->ListaParaEnviarP,
+                    'Formato' => $data->Formato,
+                    'FechaINE' => $data->FechaINE,
+                    'FolioSolicitud' => $data->FolioSolicitud,
                 ];
 
                 array_push($array_res, $temp);
@@ -549,6 +545,17 @@ class ProyectosController extends Controller
                             $folioRegistrado->Materno .
                             ' con CURP ' .
                             $folioRegistrado->CURP,
+                        'message' =>
+                            'El Folio ' .
+                            $params['Folio'] .
+                            ' ya esta registrado para la persona ' .
+                            $folioRegistrado->Nombre .
+                            ' ' .
+                            $folioRegistrado->Paterno .
+                            ' ' .
+                            $folioRegistrado->Materno .
+                            ' con CURP ' .
+                            $folioRegistrado->CURP,
                     ];
                     return response()->json($response, 200);
                 }
@@ -579,6 +586,112 @@ class ProyectosController extends Controller
                 'results' => true,
                 'message' => 'Solicitud creada con éxito',
                 'data' => $id,
+            ];
+
+            return response()->json($response, 200);
+        } catch (Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function createSolicitudNewFormat(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+            $params['idUsuarioCreo'] = $user->id;
+            $params['FechaCreo'] = date('Y-m-d H:i:s');
+            if ($params['Formato'] == 1) {
+                $params['idEstatus'] = 1;
+                $params['ListaParaEnviar'] = 0;
+            }
+            $year_start = idate('Y', strtotime('first day of January', time()));
+
+            if (isset($params['FechaINE'])) {
+                $fechaINE = intval($params['FechaINE']);
+                if ($year_start > $fechaINE) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'La vigencia de la Identificación Oficial no cumple con los requisitos',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
+
+            $curpRegistrado = DB::table('proyectos_solicitudes')
+                ->whereRaw('FechaElimino IS NULL')
+                ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
+                ->where(['CURP' => $params['CURP']])
+                ->first();
+
+            if ($curpRegistrado != null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' ya se encuentra registrado para el ejercicio ' .
+                        $year_start .
+                        ' y esta pendiente de aprobación',
+                    'message' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' ya se encuentra registrado para el ejercicio ' .
+                        $year_start .
+                        ' y esta pendiente de aprobación',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $newClasificacion = isset($params['NewClasificacion'])
+                ? $params['NewClasificacion']
+                : [];
+
+            $flag = false;
+            if (isset($params['NewFiles'])) {
+                $flag = true;
+            }
+            unset($params['NewClasificacion']);
+            unset($params['NewFiles']);
+            unset($params['Files']);
+            unset($params['ArchivosClasificacion']);
+
+            DB::beginTransaction();
+            $idSolicitud = DB::table('proyectos_solicitudes')->insertGetId(
+                $params
+            );
+            $params['idSolicitud'] = $idSolicitud;
+            $idCedula = DB::table('proyectos_cedulas')->insertGetId($params);
+            DB::commit();
+            if ($flag) {
+                $this->createCedulaFiles(
+                    $idCedula,
+                    $request->NewFiles,
+                    $newClasificacion,
+                    $user->id
+                );
+            }
+
+            $id = dechex(intval($idSolicitud));
+            $folioImpulso = strtoupper(str_pad($id, 6, '0', STR_PAD_LEFT));
+            $message = 'Solicitud creada con exito, Folio - ' . $folioImpulso;
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => $message,
+                'data' => $folioImpulso,
             ];
 
             return response()->json($response, 200);
@@ -702,6 +815,139 @@ class ProyectosController extends Controller
         }
     }
 
+    function updateSolicitudCedula(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+            $id = $params['id'];
+            unset($params['id']);
+            $program = 2;
+
+            if (
+                $params['FechaSolicitud'] == null ||
+                $params['FechaSolicitud'] == 'null'
+            ) {
+                unset($params['FechaSolicitud']);
+            }
+
+            $cedula = DB::table('proyectos_cedulas')
+                ->where('id', $id)
+                ->whereNull('FechaElimino')
+                ->get()
+                ->first();
+
+            if ($cedula == null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'La solicitud no fue encontrada',
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($cedula->ListaParaEnviar > 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'La solicitud se encuentra validada, no se puede editar',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params['idUsuarioActualizo'] = $user->id;
+            $params['FechaActualizo'] = date('Y-m-d');
+            $oldClasificacion = isset($params['OldClasificacion'])
+                ? $params['OldClasificacion']
+                : [];
+            $newClasificacion = isset($params['NewClasificacion'])
+                ? $params['NewClasificacion']
+                : [];
+
+            unset($params['Files']);
+            unset($params['ArchivosClasificacion']);
+            unset($params['OldFiles']);
+            unset($params['OldClasificacion']);
+            unset($params['NewFiles']);
+            unset($params['NewClasificacion']);
+            unset($params['Folio']);
+            unset($params['idEstadoCivil']);
+            unset($params['idParentescoJefeHogar']);
+            unset($params['idSituacionActual']);
+            unset($params['NewClasificacion']);
+
+            DB::beginTransaction();
+            DB::table('proyectos_cedulas')
+                ->where('id', $id)
+                ->update($params);
+            DB::commit();
+
+            DB::beginTransaction();
+            DB::table('proyectos_solicitudes')
+                ->where('id', $cedula->idSolicitud)
+                ->update($params);
+            DB::commit();
+
+            $oldFiles = DB::table('proyectos_cedula_archivos')
+                ->select('id', 'idClasificacion')
+                ->where('idCedula', $id)
+                ->whereRaw('FechaElimino IS NULL')
+                ->get();
+
+            $oldFilesIds = array_map(function ($o) {
+                return $o->id;
+            }, $oldFiles->toArray());
+
+            if (isset($request->NewFiles)) {
+                $this->createCedulaFiles(
+                    $id,
+                    $request->NewFiles,
+                    $newClasificacion,
+                    $user->id
+                );
+            }
+            if (isset($request->OldFiles)) {
+                $oldFilesIds = $this->updateCedulaFiles(
+                    $id,
+                    $request->OldFiles,
+                    $oldClasificacion,
+                    $user->id,
+                    $oldFilesIds,
+                    $oldFiles
+                );
+            }
+
+            if (count($oldFilesIds) > 0) {
+                DB::table('proyectos_cedula_archivos')
+                    ->whereIn('id', $oldFilesIds)
+                    ->update([
+                        'idUsuarioElimino' => $user->id,
+                        'FechaElimino' => date('Y-m-d H:i:s'),
+                    ]);
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Solicitud actualizada con éxito',
+                'data' => [],
+            ];
+
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function deleteSolicitud(Request $request)
     {
         try {
@@ -756,6 +1002,81 @@ class ProyectosController extends Controller
                 'message' => 'Solicitud eliminada con éxito',
                 'data' => [],
             ];
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function deleteSolicitudCedula(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'id' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+
+            $program = 2;
+
+            $solicitud = DB::table('proyectos_cedulas')
+                ->select(
+                    'idEstatus',
+                    'ListaParaEnviar',
+                    'Formato',
+                    'idSolicitud'
+                )
+                ->where('id', $params['id'])
+                ->first();
+
+            if ($solicitud->ListaParaEnviar > 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'La solicitud no se puede eliminar, ya fue validada',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $user = auth()->user();
+            DB::table('proyectos_cedulas')
+                ->where('id', $params['id'])
+                ->update([
+                    'FechaElimino' => date('Y-m-d H:i:s'),
+                    'idUsuarioElimino' => $user->id,
+                ]);
+
+            DB::table('proyectos_solicitudes')
+                ->where('id', $solicitud->idSolicitud)
+                ->update([
+                    'FechaElimino' => date('Y-m-d H:i:s'),
+                    'idUsuarioElimino' => $user->id,
+                ]);
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Solicitud eliminada con éxito',
+                'data' => [],
+            ];
+
             return response()->json($response, 200);
         } catch (\Throwable $errors) {
             $response = [
@@ -886,9 +1207,6 @@ class ProyectosController extends Controller
             //     return response()->json($response, 200);
             // }
             $params = $request->all();
-
-            DB::beginTransaction();
-
             $prestaciones = isset($params['Prestaciones'])
                 ? $params['Prestaciones']
                 : [];
@@ -954,38 +1272,57 @@ class ProyectosController extends Controller
                 }
             }
 
+            DB::beginTransaction();
+
             $id = DB::table('proyectos_cedulas')->insertGetId($params);
 
             $this->updateSolicitudFromCedula($params, $user);
 
             $formatedPrestaciones = [];
             foreach ($prestaciones as $prestacion) {
-                array_push($formatedPrestaciones, [
-                    'idCedula' => $id,
-                    'idPrestacion' => $prestacion,
-                ]);
+                if ($prestacion != null) {
+                    array_push($formatedPrestaciones, [
+                        'idCedula' => $id,
+                        'idPrestacion' => $prestacion,
+                    ]);
+                }
             }
-            DB::table('proyectos_prestaciones')->insert($formatedPrestaciones);
+
+            if (count($formatedPrestaciones) > 0) {
+                DB::table('proyectos_prestaciones')->insert(
+                    $formatedPrestaciones
+                );
+            }
 
             $formatedEnfermedades = [];
             foreach ($enfermedades as $enfermedad) {
-                array_push($formatedEnfermedades, [
-                    'idCedula' => $id,
-                    'idEnfermedad' => $enfermedad,
-                ]);
+                if ($enfermedad != null) {
+                    array_push($formatedEnfermedades, [
+                        'idCedula' => $id,
+                        'idEnfermedad' => $enfermedad,
+                    ]);
+                }
             }
-            DB::table('proyectos_enfermedades')->insert($formatedEnfermedades);
+            if (count($formatedEnfermedades) > 0) {
+                DB::table('proyectos_enfermedades')->insert(
+                    $formatedEnfermedades
+                );
+            }
 
             $formatedAtencionesMedicas = [];
             foreach ($atencionesMedicas as $atencion) {
-                array_push($formatedAtencionesMedicas, [
-                    'idCedula' => $id,
-                    'idAtencionMedica' => $atencion,
-                ]);
+                if ($atencion != null) {
+                    array_push($formatedAtencionesMedicas, [
+                        'idCedula' => $id,
+                        'idAtencionMedica' => $atencion,
+                    ]);
+                }
             }
-            DB::table('proyectos_atenciones_medicas')->insert(
-                $formatedAtencionesMedicas
-            );
+            if (count($formatedAtencionesMedicas) > 0) {
+                DB::table('proyectos_atenciones_medicas')->insert(
+                    $formatedAtencionesMedicas
+                );
+            }
 
             if (isset($request->NewFiles)) {
                 $this->createCedulaFiles(
@@ -1069,11 +1406,7 @@ class ProyectosController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos3 = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1129,11 +1462,7 @@ class ProyectosController extends Controller
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1208,11 +1537,7 @@ class ProyectosController extends Controller
             }, $archivos2->toArray());
 
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                // '/var/www/html/plataforma/apivales/public/subidos/' .
-                // $o->NombreSistema;
+                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1793,6 +2118,10 @@ class ProyectosController extends Controller
         $clasificationArray,
         $userId
     ) {
+        $img = new Imagick();
+        $width = 1920;
+        $height = 1920;
+
         foreach ($files as $key => $file) {
             $originalName = $file->getClientOriginalName();
             $extension = explode('.', $originalName);
@@ -1811,7 +2140,36 @@ class ProyectosController extends Controller
                 'idUsuarioCreo' => $userId,
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
-            $file->move('subidos', $uniqueName);
+
+            if (
+                in_array(mb_strtolower($extension, 'utf-8'), [
+                    'png',
+                    'jpg',
+                    'jpeg',
+                    'gif',
+                    'tiff',
+                ])
+            ) {
+                //Ruta temporal para reducción de tamaño
+                $file->move('subidos/tmp', $uniqueName);
+                $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
+                $img->readImage($img_tmp_path);
+                $img->adaptiveResizeImage($width, $height);
+
+                //Guardar en el nuevo storage
+                $url_storage = Storage::disk('subidos')->path($uniqueName);
+                // $img->writeImage(sprintf('subidos/%s', $uniqueName));
+                $img->writeImage($url_storage);
+                File::delete($img_tmp_path);
+            } else {
+                // $file->move('subidos', $uniqueName);
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    File::get($file->getRealPath()),
+                    'public'
+                );
+            }
+
             DB::table('proyectos_cedula_archivos')->insert($fileObject);
         }
     }
@@ -1880,7 +2238,10 @@ class ProyectosController extends Controller
         try {
             if ($folio != null) {
                 $urlValidacionFolio =
-                    'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    //Para QA
+                    //'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
+                    //Para Prod
+                    'https://api-integracion-ventanilla-impulso.guanajuato.gob.mx/v1/application/external/validate/' .
                     $folio->Folio;
                 $client = new Client();
                 $response = $client->request('GET', $urlValidacionFolio, [
@@ -2162,34 +2523,7 @@ class ProyectosController extends Controller
 
         $formatedFiles = array_merge($formatedFiles, $formatedFilesAcuse);
 
-        $programa = json_encode(
-            [
-                'dependencia' => [
-                    'sociedad' => '',
-                    'codigo' => '0005',
-                    'nombre' => 'SECRETARÍA DE DESARROLLO SOCIAL Y HUMANO',
-                    'siglas' => 'SDSH',
-                    'eje' => [
-                        'codigo' => 'II',
-                        'descripcion' => 'Desarrollo Humano y Social',
-                    ],
-                ],
-                'programa' => [
-                    //Cambiar a Proyectos Productivos
-                    'q' => '',
-                    'nombre' => 'Proyectos Productivos',
-                    'modalidad' => [
-                        'nombre' => '',
-                        'clave' => '',
-                    ],
-                    'tipoApoyo' => [
-                        'clave' => '',
-                        'nombre' => '',
-                    ],
-                ],
-            ],
-            JSON_UNESCAPED_UNICODE
-        );
+        $programa = $this->getPrograma();
 
         $docs = json_encode(
             [
@@ -2335,6 +2669,18 @@ class ProyectosController extends Controller
             ];
         }
         $curp = $responseBody->Resultado;
+        $idMunicipio = DB::table('et_cat_municipio')
+            ->select('id')
+            ->where('Nombre', $solicitud->MunicipioVive)
+            ->get()
+            ->first();
+
+        $cveLocalidad = DB::table('et_cat_localidad_2022')
+            ->select('CveInegi', 'Nombre')
+            ->where('idMunicipio', $idMunicipio->id)
+            ->where('Nombre', $solicitud->LocalidadVive)
+            ->get()
+            ->first();
 
         $json = [
             'solicitud' => json_encode(
@@ -2424,11 +2770,19 @@ class ProyectosController extends Controller
                             ? []
                             : $this->getCorreos($solicitud),
                         'cp' => $solicitud->CPVive,
-                        'colonia ' => $solicitud->ColoniaVive,
+                        'asentamiento' => [
+                            'tipo' => 'Colonia',
+                            'nombre' => $solicitud->ColoniaVive,
+                        ],
                         'numeroExt' => $solicitud->NoExtVive,
                         'numeroInt' => $solicitud->NoIntVive,
                         'entidadFederativa' => $solicitud->EntidadVive,
-                        'localidad' => $solicitud->LocalidadVive,
+                        'localidad' => [
+                            'nombre' => $solicitud->LocalidadVive
+                                ? $solicitud->LocalidadVive
+                                : '',
+                            'codigo' => $cveLocalidad->CveInegi,
+                        ],
                         'municipio' => $solicitud->MunicipioVive,
                         'calle' => $solicitud->CalleVive,
                         'referencias' => $solicitud->Referencias,
@@ -2459,13 +2813,13 @@ class ProyectosController extends Controller
                 'descripcion' => $solicitud->Telefono,
             ]);
         }
-        // if ($solicitud->TelRecados != null) {
-        //     array_push($telefonos, [
-        //         'tipo' => 'Teléfono de recados',
-        //         'descripcion' =>
-        //             $solicitud->TelRecados == 0 ? '' : $solicitud->TelRecados,
-        //     ]);
-        // }
+        if ($solicitud->TelRecados != null) {
+            array_push($telefonos, [
+                'tipo' => 'Telefono de Recados',
+                'descripcion' =>
+                    $solicitud->TelRecados == 0 ? '' : $solicitud->TelRecados,
+            ]);
+        }
         return $telefonos;
     }
 
@@ -3005,7 +3359,7 @@ class ProyectosController extends Controller
             } elseif ($file->idClasificacion == 5) {
                 $file->Clasificacion = 'Acuse';
             }
-            //$fileConverted = fopen('subidos/' . $file->NombreSistema, 'r');
+
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
                 'nombre' => $file->Clasificacion,
@@ -3034,16 +3388,22 @@ class ProyectosController extends Controller
             } elseif ($file->idClasificacion == 5) {
                 $file->Clasificacion = 'Acuse';
             }
-            //$fileContent = fopen('subidos/' . $file->NombreSistema, 'r');
+
+            $mimeType = 'image/jpeg';
+            if (strtoupper($file->Extension) == 'PDF') {
+                $mimeType = 'application/pdf';
+            } elseif (strtoupper($file->Extension) == 'PNG') {
+                $mimeType = 'image/png';
+            }
+
             $formatedFile = [
                 'llave' => $formato . '_' . $file->Clasificacion,
                 'ruta' =>
-                    //'/var/www/html/plataforma/apivales/public/subidos/' .
-                    '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
-                    $file->NombreSistema,
-                //'content' => $fileContent,
+                    // '/Users/diegolopez/Documents/GitProyect/vales/apivales/public/subidos/' .
+                    // $file->NombreSistema,
+                    Storage::disk('subidos')->path($file->NombreSistema),
                 'nombre' => $file->Clasificacion,
-                'header' => '<Content-Type Header>',
+                'header' => $mimeType,
             ];
             array_push($files, $formatedFile);
         }
@@ -3073,14 +3433,15 @@ class ProyectosController extends Controller
         $id = $params['id'];
         $files = $params['NewFiles'];
         $arrayClasifiacion = $params['ArrayClasificacion'];
-        $fullPath = public_path('/subidos/');
         $extension = $params['ArrayExtension'];
         $names = $params['NamesFiles'];
+
         try {
             $solicitud = DB::table('proyectos_cedulas')
                 ->select('idUsuarioCreo', 'id')
                 ->where('proyectos_cedulas.idSolicitud', $id)
                 ->first();
+
             if ($solicitud == null) {
                 $response = [
                     'success' => true,
@@ -3089,13 +3450,19 @@ class ProyectosController extends Controller
                 ];
                 return response()->json($response, 200);
             }
+
             foreach ($files as $key => $file) {
                 $imageContent = $this->imageBase64Content($file);
                 $uniqueName = uniqid() . $extension[$key];
                 $clasification = $arrayClasifiacion[$key];
                 $originalName = $names[$key];
 
-                File::put($fullPath . $uniqueName, $imageContent);
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    $imageContent,
+                    'public'
+                );
+
                 $fileObject = [
                     'idCedula' => intval($solicitud->id),
                     'idClasificacion' => intval($clasification),
@@ -3234,30 +3601,30 @@ class ProyectosController extends Controller
     {
         $user = auth()->user();
         $parameters['UserCreated'] = $user->id;
-        $tableSol = 'vales';
-        $res = DB::table('proyectos_solicitudes as vales')
+        $tableSol = 'proyectos';
+        $res = DB::table('proyectos_solicitudes as proyectos')
             ->select(
+                DB::raw('LPAD(HEX(proyectos.id),6,0) as Id'),
                 'et_cat_municipio.SubRegion AS Region',
-                'vales.Folio AS Folio',
-                'vales.FechaSolicitud',
-                'vales.CURP',
-                DB::raw(
-                    "concat_ws(' ',vales.Nombre, vales.Paterno, vales.Materno) as NombreCompleto"
-                ),
-                'vales.Sexo',
-                'vales.FechaNacimiento',
-                DB::raw(
-                    "concat_ws(' ',vales.CalleVive, concat('Num. ', vales.NoExtVive), if(vales.NoIntVive is not null,concat('NumInt. ',vales.NoIntVive), ''), concat('Col. ',vales.ColoniaVive)) as Direccion"
-                ),
-                'proyectos_cedulas.AGEBVive AS ClaveAGEB',
-                'proyectos_cedulas.ManzanaVive AS Manzana',
-                'vales.CPVive',
-                'vales.MunicipioVive AS Municipio',
-                'vales.LocalidadVive AS Localidad',
-                'vales.Telefono',
-                'vales.Celular',
-                'vales.TelRecados',
-                'vales.Correo',
+                'proyectos.Folio AS Folio',
+                'proyectos.FechaSolicitud',
+                'proyectos.CURP',
+                'proyectos.Nombre',
+                DB::raw("IFNULL(proyectos.Paterno,'')"),
+                DB::raw("IFNULL(proyectos.Materno,'')"),
+                'proyectos.Sexo',
+                'proyectos.FechaNacimiento',
+                'proyectos_cedulas.ColoniaVive',
+                'proyectos_cedulas.CalleVive',
+                'proyectos_cedulas.NoExtVive',
+                'proyectos_cedulas.NoIntVive',
+                'proyectos.CPVive',
+                'proyectos.MunicipioVive AS Municipio',
+                'proyectos.LocalidadVive AS Localidad',
+                'proyectos.Telefono',
+                'proyectos.Celular',
+                'proyectos.TelRecados',
+                'proyectos.Correo',
                 'proyectos_cedulas.TotalHogares AS PersonasGastosSeparados',
                 DB::raw("
                     CASE
@@ -3296,40 +3663,47 @@ class ProyectosController extends Controller
                     "),
                 'proyectos_cedulas.PersonaJefaFamilia',
                 'vales_status.Estatus',
-                'vales.Enlace AS Enlace',
+                'proyectos.Enlace AS Enlace',
                 DB::raw(
                     "CASE 
                         WHEN 
-                            vales.idUsuarioCreo = 1312 
+                            proyectos.idUsuarioCreo = 1312 
                         THEN 
                             users_aplicativo_web.Nombre 
                         ELSE 
                             CONCAT_WS( ' ', users.Nombre, users.Paterno, users.Materno ) 
                         END 
                     AS UserInfoCapturo"
-                )
+                ),
+                DB::raw("CONCAT_WS( ' ', us.Nombre, us.Paterno, us.Materno)")
             )
             ->leftJoin('vales_status', 'vales_status.id', '=', 'idEstatus')
-            ->leftJoin('users', 'users.id', '=', 'vales.idUsuarioCreo')
+            ->leftJoin('users', 'users.id', '=', 'proyectos.idUsuarioCreo')
+            ->leftJoin(
+                'users AS us',
+                'us.id',
+                '=',
+                'proyectos.idUsuarioActualizo'
+            )
             ->leftJoin(
                 'et_cat_municipio',
                 'et_cat_municipio.Nombre',
                 '=',
-                'vales.MunicipioVive'
+                'proyectos.MunicipioVive'
             )
             ->leftJoin(
                 'users_aplicativo_web',
                 'users_aplicativo_web.UserName',
-                'vales.UsuarioAplicativo'
+                'proyectos.UsuarioAplicativo'
             )
             ->leftJoin(
                 DB::raw(
                     '(SELECT * FROM proyectos_cedulas WHERE proyectos_cedulas.FechaElimino IS NULL) AS proyectos_cedulas'
                 ),
                 'proyectos_cedulas.idSolicitud',
-                'vales.id'
+                'proyectos.id'
             )
-            ->whereRaw('vales.FechaElimino IS NULL');
+            ->whereRaw('proyectos.FechaElimino IS NULL');
 
         //dd($res->toSql());
 
@@ -3426,6 +3800,10 @@ class ProyectosController extends Controller
                                 $value = $mun;
                             }
 
+                            if ($id == '.id') {
+                                $value = hexdec($value);
+                            }
+
                             if ($id == 'region') {
                                 $municipios = DB::table('et_cat_municipio')
                                     ->select('Nombre')
@@ -3442,9 +3820,9 @@ class ProyectosController extends Controller
                             if ($id == '.ListaParaEnviarCedula') {
                                 $id = 'proyectos_cedulas.ListaParaEnviar';
                             } elseif (in_array($id, $filtersCedulas)) {
-                                $id = 'vales' . $id;
+                                $id = 'proyectos' . $id;
                             } else {
-                                $id = 'vales' . $id;
+                                $id = 'proyectos' . $id;
                             }
 
                             switch (gettype($value)) {
@@ -3478,9 +3856,10 @@ class ProyectosController extends Controller
         }
 
         $data = $res
-            ->orderBy('vales.Paterno', 'asc')
-            ->orderBy('vales.Materno', 'asc')
-            ->orderBy('vales.Nombre', 'asc')
+            ->orderBy('proyectos.Folio', 'asc')
+            ->orderBy('proyectos.Paterno', 'asc')
+            ->orderBy('proyectos.Materno', 'asc')
+            ->orderBy('proyectos.Nombre', 'asc')
             ->get();
         //$data2 = $resGrupo->first();
 
@@ -3517,14 +3896,6 @@ class ProyectosController extends Controller
             ->toArray();
 
         //------------------------------------------------- Para generar el archivo excel ----------------------------------------------------------------
-        // $spreadsheet = new Spreadsheet();
-        // $sheet = $spreadsheet->getActiveSheet();
-
-        //Para los titulos del excel
-        // $titulos = ['Grupo','Folio','Nombre','Paterno','Materno','Fecha de Nacimiento','Sexo','Calle','Numero','Colonia','Municipio','Localidad','CP','Terminación'];
-        // $sheet->fromArray($titulos,null,'A1');
-        // $sheet->getStyle('A1:N1')->getFont()->getColor()->applyFromArray(['rgb' => '808080']);
-
         $reader = IOFactory::createReader('Xlsx');
         $spreadsheet = $reader->load(
             public_path() . '/archivos/formatoReporteSolicitudValesV6.xlsx'
@@ -3539,39 +3910,6 @@ class ProyectosController extends Controller
         $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
 
         $largo = count($res);
-        //colocar los bordes
-        // self::crearBordes($largo, 'B', $sheet);
-        // self::crearBordes($largo, 'C', $sheet);
-        // self::crearBordes($largo, 'D', $sheet);
-        // self::crearBordes($largo, 'E', $sheet);
-        // self::crearBordes($largo, 'F', $sheet);
-        // self::crearBordes($largo, 'G', $sheet);
-        // self::crearBordes($largo, 'H', $sheet);
-        // self::crearBordes($largo, 'I', $sheet);
-        // self::crearBordes($largo, 'J', $sheet);
-        // self::crearBordes($largo, 'K', $sheet);
-        // self::crearBordes($largo, 'L', $sheet);
-        // self::crearBordes($largo, 'M', $sheet);
-        // self::crearBordes($largo, 'N', $sheet);
-        // self::crearBordes($largo, 'O', $sheet);
-        // self::crearBordes($largo, 'P', $sheet);
-        // self::crearBordes($largo, 'Q', $sheet);
-        // self::crearBordes($largo, 'R', $sheet);
-        // self::crearBordes($largo, 'S', $sheet);
-        // self::crearBordes($largo, 'T', $sheet);
-        // self::crearBordes($largo, 'U', $sheet);
-        // self::crearBordes($largo, 'V', $sheet);
-        // self::crearBordes($largo, 'W', $sheet);
-        // self::crearBordes($largo, 'X', $sheet);
-        // self::crearBordes($largo, 'Y', $sheet);
-        // self::crearBordes($largo, 'Z', $sheet);
-        // self::crearBordes($largo, 'AA', $sheet);
-        // self::crearBordes($largo, 'AB', $sheet);
-        // self::crearBordes($largo, 'AC', $sheet);
-        // self::crearBordes($largo, 'AD', $sheet);
-        // self::crearBordes($largo, 'AE', $sheet);
-        // self::crearBordes($largo, 'AF', $sheet);
-        // self::crearBordes($largo, 'AG', $sheet);
 
         //Llenar excel con el resultado del query
         $sheet->fromArray($res, null, 'C11');
@@ -3617,43 +3955,6 @@ class ProyectosController extends Controller
         );
     }
 
-    //funcion para generar bordes en el excel.
-    public static function crearBordes($largo, $columna, &$sheet)
-    {
-        for ($i = 0; $i < $largo; $i++) {
-            $inicio = 11 + $i;
-
-            $sheet
-                ->getStyle($columna . $inicio)
-                ->getBorders()
-                ->getTop()
-                ->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-                );
-            $sheet
-                ->getStyle($columna . $inicio)
-                ->getBorders()
-                ->getBottom()
-                ->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-                );
-            $sheet
-                ->getStyle($columna . $inicio)
-                ->getBorders()
-                ->getLeft()
-                ->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-                );
-            $sheet
-                ->getStyle($columna . $inicio)
-                ->getBorders()
-                ->getRight()
-                ->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-                );
-        }
-    }
-
     public function getCampoUsuario($cedula)
     {
         if ($cedula->idUsuarioCreo == 1312) {
@@ -3692,5 +3993,75 @@ class ProyectosController extends Controller
             ],
             JSON_UNESCAPED_UNICODE
         );
+    }
+
+    public function getPrograma($Diferenciador)
+    {
+        $modalidad = [
+            'q' => 'Q3075',
+            'nombre' => 'Impulso Productivo Social e Infraestructura',
+            'modalidad' => [
+                'nombre' =>
+                    'Entrega de apoyo que permita iniciar, consolidar o fortalecer alguna actividad económica de tipo industrial, comercial o de servicios, y exista un proceso de producción o prestación de servicio que genere valor y utilidad.',
+                'clave' => 'Q3075-01',
+            ],
+            'tipoApoyo' => [
+                'clave' => 'Q3075-01-01',
+                'nombre' =>
+                    'Apoyo Otorgado para los Proyectos Productivos (Tradiocionales)',
+            ],
+        ];
+
+        //MODALIDAD 01
+        //TIPO APOYO 02
+        $modalidad = [
+            'q' => 'Q3075',
+            'nombre' => 'Impulso Productivo Social e Infraestructura',
+            'modalidad' => [
+                'nombre' =>
+                    'Entrega de apoyo que permita iniciar, consolidar o fortalecer alguna actividad económica de tipo industrial, comercial o de servicios, y exista un proceso de producción o prestación de servicio que genere valor y utilidad.',
+                'clave' => 'Q3075-01',
+            ],
+            'tipoApoyo' => [
+                'clave' => 'Q3075-01-02',
+                'nombre' =>
+                    'Apoyo Otorgado para los Proyectos Productivos (Creatividad e Innovación)',
+            ],
+        ];
+        //MODALIDAD 02
+        //TIPO APOYO 01
+        $modalidad = [
+            'q' => 'Q3075',
+            'nombre' => 'Impulso Productivo Social e Infraestructura',
+            'modalidad' => [
+                'nombre' =>
+                    'Entrega del apoyo que permita consolidar o fortalecer alguna actividad económica de tipo industrial, comercial o de servicios, y exista un proceso de producción o prestación de servicio que genere valor y utilidad.',
+                'clave' => 'Q3075-02',
+            ],
+            'tipoApoyo' => [
+                'clave' => 'Q3075-02-01',
+                'nombre' =>
+                    'Apoyo Otorgado para los Proyectos Productivos (Segundo Apoyo)',
+            ],
+        ];
+
+        $programa = json_encode(
+            [
+                'dependencia' => [
+                    'sociedad' => '',
+                    'codigo' => '0005',
+                    'nombre' => 'SECRETARÍA DE DESARROLLO SOCIAL Y HUMANO',
+                    'siglas' => 'SDSH',
+                    'eje' => [
+                        'codigo' => 'II',
+                        'descripcion' => 'Desarrollo Humano y Social',
+                    ],
+                ],
+                'programa' => $modalidad,
+            ],
+            JSON_UNESCAPED_UNICODE
+        );
+
+        return $programa;
     }
 }

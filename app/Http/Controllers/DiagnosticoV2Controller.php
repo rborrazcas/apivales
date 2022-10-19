@@ -12,31 +12,124 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use Illuminate\Contracts\Validation\ValidationException;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Arr;
-
+use App\Cedula;
 use GuzzleHttp\Client;
+use App\VNegociosFiltros;
 use Carbon\Carbon as time;
+
+use DB;
+use Arr;
+use File;
 use Zipper;
+use Imagick;
 use JWTAuth;
+use Storage;
 use Validator;
 use HTTP_Request2;
 
-use App\Cedula;
-use App\VNegociosFiltros;
-
-class DiagnosticoController extends Controller
+class DiagnosticoV2Controller extends Controller
 {
     function getPermisos()
     {
         $user = auth()->user();
+
         $permisos = DB::table('users_menus')
-            ->where(['idUser' => $user->id, 'idMenu' => '16'])
+            ->where(['idUser' => $user->id, 'idMenu' => '18'])
             ->get()
             ->first();
         return $permisos;
+    }
+
+    function getCatalogsCedula(Request $request)
+    {
+        try {
+            $userId = JWTAuth::parseToken()->toUser()->id;
+
+            $articuladores = DB::table('users_aplicativo_web')->select(
+                'idUser AS value',
+                'Nombre AS label'
+            );
+
+            $permisos = $this->getPermisos();
+
+            if ($permisos->ViewAll < 1) {
+                $idUserOwner = DB::table('users_aplicativo_web')
+                    ->selectRaw('idUserOwner')
+                    ->where('idUser', $userId)
+                    ->get()
+                    ->first();
+                if ($idUserOwner != null) {
+                    $articuladores->where(
+                        'idUserOwner',
+                        $idUserOwner->idUserOwner
+                    );
+                } else {
+                    $articuladores->where('idUser', $userId);
+                }
+            }
+
+            $articuladores
+                ->where('programa', '=', 'Diagnostico')
+                ->where('Activo', '1')
+                ->orderBy('label')
+                ->get();
+
+            $estadoCivi = DB::table('cat_estado_civil')
+                ->select('id AS value', 'EstadoCivil AS label')
+                ->get();
+
+            $entidades = DB::table('cat_entidad')
+                ->select('id AS value', 'Entidad AS label', 'Clave_CURP')
+                ->where('id', '<>', 1)
+                ->get();
+
+            $parentescosJefe = DB::table('cat_parentesco_jefe_hogar')
+                ->select('id AS value', 'Parentesco AS label')
+                ->get();
+
+            $parentescosTutor = DB::table('cat_parentesco_tutor')
+                ->select('id AS value', 'Parentesco AS label')
+                ->get();
+
+            $situaciones = DB::table('cat_situacion_actual')
+                ->select('id AS value', 'Situacion AS label')
+                ->get();
+
+            $municipios = DB::table('et_cat_municipio')
+                ->select('id AS value', 'Nombre AS label')
+                ->get();
+
+            $archivos_clasificacion = DB::table('cedula_archivos_clasificacion')
+                ->select('id AS value', 'Clasificacion AS label')
+                ->get();
+
+            $catalogs = [
+                'entidades' => $entidades,
+                'cat_parentesco_jefe_hogar' => $parentescosJefe,
+                'cat_parentesco_tutor' => $parentescosTutor,
+                'cat_situacion_actual' => $situaciones,
+                'cat_estado_civil' => $estadoCivi,
+                'archivos_clasificacion' => $archivos_clasificacion,
+                'municipios' => $municipios,
+                'articuladores' => $articuladores->get(),
+            ];
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $catalogs,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
     }
 
     function getEstatusGlobal(Request $request)
@@ -57,7 +150,7 @@ class DiagnosticoController extends Controller
                 ->get()
                 ->first();
             $procedimiento =
-                "call getEstatusGlobalVentanillaDiagnostico('" .
+                "call getEstatusGlobalVentanillaDiagnosticoV2('" .
                 $usuarioApp->UserName .
                 "','" .
                 $user->id .
@@ -69,14 +162,14 @@ class DiagnosticoController extends Controller
                 ->get()
                 ->first();
             $procedimiento =
-                " call getEstatusGlobalVentanillaDiagnosticoRegional('" .
+                " call getEstatusGlobalVentanillaDiagnosticoV2Regional('" .
                 $idUserOwner->idUserOwner .
                 "')";
         }
 
         if ($procedimiento === '') {
             $procedimiento =
-                'call getEstatusGlobalVentanillaDiagnosticoGeneral';
+                'call getEstatusGlobalVentanillaDiagnosticoV2General';
         }
 
         try {
@@ -98,7 +191,266 @@ class DiagnosticoController extends Controller
         }
     }
 
-    function getCedulas(Request $request)
+    function getMunicipios(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        $userName = DB::table('users_aplicativo_web')
+            ->selectRaw('UserName,Region')
+            ->where('idUser', $user->id)
+            ->get()
+            ->first();
+        $permisos = $this->getPermisos();
+        try {
+            if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
+                $res_Vales = DB::table('diagnosticos_solicitudes')
+                    ->select('MunicipioVive as municipio')
+                    ->where('idUsuarioCreo', $user->id)
+                    ->orWhere('UsuarioAplicativo', $userName->UserName);
+            } elseif ($permisos->ViewAll < 1) {
+                $region = '';
+                if ($userName->Region == 'I') {
+                    $region = 1;
+                } elseif ($userName->Region == 'II') {
+                    $region = 2;
+                } elseif ($userName->Region == 'III') {
+                    $region = 3;
+                } elseif ($userName->Region == 'IV') {
+                    $region = 4;
+                } elseif ($userName->Region == 'V') {
+                    $region = 5;
+                } elseif ($userName->Region == 'VI') {
+                    $region = 6;
+                } elseif ($userName->Region == 'VII') {
+                    $region = 7;
+                }
+
+                $res_Vales = DB::table('et_cat_municipio')
+                    ->select('Nombre as municipio')
+                    ->where('SubRegion', $region);
+            } else {
+                $res_Vales = DB::table('et_cat_municipio')->select(
+                    'Nombre as municipio'
+                );
+            }
+
+            $res_Vales = $res_Vales->groupBy('municipio');
+            $res_Vales = $res_Vales->get();
+
+            $arrayMPios = [];
+
+            foreach ($res_Vales as $data) {
+                $arrayMPios[] = $data->municipio;
+            }
+
+            $res = DB::table('et_cat_municipio')
+                ->select('Id', 'Nombre', 'Region', 'SubRegion')
+                ->whereIn('Nombre', $arrayMPios)
+                ->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            return [
+                'success' => false,
+                'errors' => $e->getMessage(),
+            ];
+        }
+    }
+
+    function getCatalogosCedulas(Request $request)
+    {
+        try {
+            $userId = JWTAuth::parseToken()->toUser()->id;
+
+            $articuladores = DB::table('users_aplicativo_web')->select(
+                'idUser AS value',
+                'Nombre AS label'
+            );
+
+            $permisos = $this->getPermisos();
+
+            if ($permisos->ViewAll < 1) {
+                $idUserOwner = DB::table('users_aplicativo_web')
+                    ->selectRaw('idUserOwner')
+                    ->where('idUser', $userId)
+                    ->get()
+                    ->first();
+                if ($idUserOwner != null) {
+                    $articuladores->where(
+                        'idUserOwner',
+                        $idUserOwner->idUserOwner
+                    );
+                } else {
+                    $articuladores->where('idUser', $userId);
+                }
+            }
+
+            $articuladores
+                ->where('programa', '=', 'Diagnostico')
+                ->where('Activo', '1')
+                ->orderBy('label')
+                ->get();
+
+            $cat_estado_civil = DB::table('cat_estado_civil')
+                ->select('id AS value', 'EstadoCivil AS label')
+                ->get();
+
+            $cat_estatus_persona = DB::table('cat_estatus_persona')
+                ->select('id AS value', 'Estatus AS label')
+                ->get();
+
+            $entidades = DB::table('cat_entidad')
+                ->select('id AS value', 'Entidad AS label', 'Clave_CURP')
+                ->where('id', '<>', 1)
+                ->get();
+
+            $cat_parentesco_jefe_hogar = DB::table('cat_parentesco_jefe_hogar')
+                ->select('id AS value', 'Parentesco AS label')
+                ->get();
+
+            $cat_parentesco_tutor = DB::table('cat_parentesco_tutor')
+                ->select('id AS value', 'Parentesco AS label')
+                ->get();
+
+            $cat_situacion_actual = DB::table('cat_situacion_actual')
+                ->select('id AS value', 'Situacion AS label')
+                ->get();
+
+            $cat_actividades = DB::table('cat_actividades')
+                ->select('id AS value', 'Actividad AS label')
+                ->get();
+
+            $cat_codigos_dificultad = DB::table('cat_codigos_dificultad')
+                ->select('id AS value', 'Grado AS label')
+                ->get();
+
+            $cat_enfermedades = DB::table('cat_enfermedades')
+                ->select('id AS value', 'Enfermedad AS label')
+                ->get();
+
+            $cat_grados_educacion = DB::table('cat_grados_educacion')
+                ->select('id AS value', 'Grado AS label')
+                ->get();
+
+            $cat_niveles_educacion = DB::table('cat_niveles_educacion')
+                ->select('id AS value', 'Nivel AS label')
+                ->get();
+
+            $cat_prestaciones = DB::table('cat_prestaciones')
+                ->select('id AS value', 'Prestacion AS label')
+                ->get();
+
+            $cat_situacion_actual = DB::table('cat_situacion_actual')
+                ->select('id AS value', 'Situacion AS label')
+                ->get();
+
+            $cat_tipo_seguro = DB::table('cat_tipo_seguro')
+                ->select('id AS value', 'Tipo AS label')
+                ->get();
+
+            $cat_tipos_agua = DB::table('cat_tipos_agua')
+                ->select('id AS value', 'Agua AS label')
+                ->get();
+
+            $cat_tipos_combustibles = DB::table('cat_tipos_combustibles')
+                ->select('id AS value', 'Combustible AS label')
+                ->get();
+
+            $cat_tipos_drenajes = DB::table('cat_tipos_drenajes')
+                ->select('id AS value', 'Drenaje AS label')
+                ->get();
+
+            $cat_tipos_luz = DB::table('cat_tipos_luz')
+                ->select('id AS value', 'Luz AS label')
+                ->get();
+
+            $cat_tipos_muros = DB::table('cat_tipos_muros')
+                ->select('id AS value', 'Muro AS label')
+                ->get();
+
+            $cat_tipos_pisos = DB::table('cat_tipos_pisos')
+                ->select('id AS value', 'Piso AS label')
+                ->get();
+
+            $cat_tipos_techos = DB::table('cat_tipos_techos')
+                ->select('id AS value', 'Techo AS label')
+                ->get();
+
+            $cat_tipos_viviendas = DB::table('cat_tipos_viviendas')
+                ->select('id AS value', 'Tipo AS label')
+                ->get();
+
+            $cat_periodicidad = DB::table('cat_periodicidad')
+                ->select('id AS value', 'Periodicidad AS label')
+                ->get();
+
+            $archivos_clasificacion = DB::table('cedula_archivos_clasificacion')
+                ->select('id AS value', 'Clasificacion AS label')
+                ->get();
+
+            $municipios = DB::table('et_cat_municipio')
+                ->select('id AS value', 'Nombre AS label')
+                ->get();
+
+            // $localidades = DB::table('cat_localidad_cedula')
+            //     ->select('id AS value', 'Nombre AS label')
+            //     ->orderBy('label')
+            //     ->get();
+
+            $catalogs = [
+                'entidades' => $entidades,
+                'cat_parentesco_jefe_hogar' => $cat_parentesco_jefe_hogar,
+                'cat_parentesco_tutor' => $cat_parentesco_tutor,
+                'cat_situacion_actual' => $cat_situacion_actual,
+                'cat_estado_civil' => $cat_estado_civil,
+                'cat_actividades' => $cat_actividades,
+                'cat_codigos_dificultad' => $cat_codigos_dificultad,
+                'cat_enfermedades' => $cat_enfermedades,
+                'cat_grados_educacion' => $cat_grados_educacion,
+                'cat_niveles_educacion' => $cat_niveles_educacion,
+                'cat_prestaciones' => $cat_prestaciones,
+                'cat_situacion_actual' => $cat_situacion_actual,
+                'cat_tipo_seguro' => $cat_tipo_seguro,
+                'cat_tipos_combustibles' => $cat_tipos_combustibles,
+                'cat_tipos_drenajes' => $cat_tipos_drenajes,
+                'cat_tipos_luz' => $cat_tipos_luz,
+                'cat_tipos_muros' => $cat_tipos_muros,
+                'cat_tipos_pisos' => $cat_tipos_pisos,
+                'cat_tipos_techos' => $cat_tipos_techos,
+                'cat_tipos_viviendas' => $cat_tipos_viviendas,
+                'cat_tipos_agua' => $cat_tipos_agua,
+                'cat_periodicidad' => $cat_periodicidad,
+                'cat_estatus_persona' => $cat_estatus_persona,
+                'archivos_clasificacion' => $archivos_clasificacion,
+                'municipios' => $municipios,
+                'articuladores' => $articuladores->get(),
+                //'localidades' => $localidades,
+            ];
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $catalogs,
+            ];
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function getSolicitudes(Request $request)
     {
         try {
             $v = Validator::make($request->all(), [
@@ -120,23 +472,28 @@ class DiagnosticoController extends Controller
 
             $userId = JWTAuth::parseToken()->toUser()->id;
 
+            DB::beginTransaction();
             DB::table('users_filtros')
                 ->where('UserCreated', $userId)
-                ->where('api', 'getDiagnosticoVentanilla')
+                ->where('api', 'getDiagnostico')
                 ->delete();
 
             $parameters_serializado = serialize($params);
-
             //Insertamos los filtros
             DB::table('users_filtros')->insert([
                 'UserCreated' => $userId,
-                'Api' => 'getDiagnosticoVentanilla',
+                'Api' => 'getDiagnostico',
                 'Consulta' => $parameters_serializado,
                 'created_at' => date('Y-m-d h-m-s'),
             ]);
+            DB::commit();
 
-            $tableCedulas = 'diagnostico_cedula';
+            $tableSol = 'diagnosticos_cedulas';
+            // $tableCedulas =
+            //     '(SELECT * FROM diagnosticos_cedulas WHERE FechaElimino IS NULL) AS diagnosticos_cedulas';
+
             $permisos = $this->getPermisos();
+
             $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
             $filtroCapturo = '';
@@ -148,15 +505,15 @@ class DiagnosticoController extends Controller
                     ->first();
                 $filtroCapturo =
                     '(' .
-                    $tableCedulas .
+                    $tableSol .
                     ".idUsuarioCreo = '" .
                     $user->id .
                     "' OR " .
-                    $tableCedulas .
+                    $tableSol .
                     ".idUsuarioActualizo = '" .
                     $user->id .
                     "' OR " .
-                    $tableCedulas .
+                    $tableSol .
                     ".UsuarioAplicativo = '" .
                     $usuarioApp->UserName .
                     "')";
@@ -169,12 +526,12 @@ class DiagnosticoController extends Controller
 
                 $filtroCapturo =
                     '(' .
-                    $tableCedulas .
+                    $tableSol .
                     '.idUsuarioCreo IN (' .
                     'SELECT idUser FROM users_aplicativo_web WHERE idUserOwner = ' .
                     $idUserOwner->idUserOwner .
                     ') OR ' .
-                    $tableCedulas .
+                    $tableSol .
                     '.UsuarioAplicativo IN (' .
                     'SELECT UserName FROM users_aplicativo_web WHERE idUserOwner = ' .
                     $idUserOwner->idUserOwner .
@@ -182,9 +539,9 @@ class DiagnosticoController extends Controller
                     ')';
             }
 
-            $solicitudes = DB::table('diagnostico_cedula')
+            $solicitudes = DB::table('diagnosticos_cedulas')
                 ->selectRaw(
-                    'diagnostico_cedula.*,' .
+                    'diagnosticos_cedulas.*,' .
                         ' entidadesNacimiento.Entidad AS EntidadNacimiento, ' .
                         ' cat_estado_civil.EstadoCivil, ' .
                         ' cat_parentesco_jefe_hogar.Parentesco, ' .
@@ -193,71 +550,102 @@ class DiagnosticoController extends Controller
                         ' m.Region AS RegionM, ' .
                         'CASE ' .
                         'WHEN ' .
-                        'diagnostico_cedula.idUsuarioCreo = 1312 ' .
+                        'diagnosticos_cedulas.idUsuarioCreo = 1312 ' .
                         'THEN ' .
                         'ap.Nombre ' .
                         'ELSE ' .
                         "CONCAT_WS( ' ', creadores.Nombre, creadores.Paterno, creadores.Materno ) " .
                         'END AS CreadoPor, ' .
-                        " CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor"
+                        " CONCAT_WS(' ', editores.Nombre, editores.Paterno, editores.Materno) AS ActualizadoPor, " .
+                        ' diagnosticos_cedulas.id AS idCedula '
                 )
-                ->join(
+                ->leftjoin(
                     'cat_entidad AS entidadesNacimiento',
                     'entidadesNacimiento.id',
-                    'diagnostico_cedula.idEntidadNacimiento'
+                    'diagnosticos_cedulas.idEntidadNacimiento'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_estado_civil',
                     'cat_estado_civil.id',
-                    'diagnostico_cedula.idEstadoCivil'
+                    'diagnosticos_cedulas.idEstadoCivil'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_parentesco_jefe_hogar',
                     'cat_parentesco_jefe_hogar.id',
-                    'diagnostico_cedula.idParentescoJefeHogar'
+                    'diagnosticos_cedulas.idParentescoJefeHogar'
                 )
                 ->leftJoin(
                     'cat_parentesco_tutor',
                     'cat_parentesco_tutor.id',
-                    'diagnostico_cedula.idParentescoTutor'
+                    'diagnosticos_cedulas.idParentescoTutor'
                 )
-                ->join(
+                ->leftjoin(
                     'cat_entidad AS entidadesVive',
                     'entidadesVive.id',
-                    'diagnostico_cedula.idEntidadVive'
+                    'diagnosticos_cedulas.idEntidadVive'
                 )
-                ->join(
+                ->leftJoin(
                     'users AS creadores',
                     'creadores.id',
-                    'diagnostico_cedula.idUsuarioCreo'
+                    'diagnosticos_cedulas.idUsuarioCreo'
                 )
                 ->leftJoin(
                     'users AS editores',
                     'editores.id',
-                    'diagnostico_cedula.idUsuarioActualizo'
+                    'diagnosticos_cedulas.idUsuarioActualizo'
                 )
                 ->leftJoin(
                     'et_cat_municipio as m',
                     'm.Nombre',
-                    'diagnostico_cedula.MunicipioVive'
+                    'diagnosticos_cedulas.MunicipioVive'
                 )
                 ->leftJoin(
                     'users_aplicativo_web as ap',
                     'ap.UserName',
-                    'diagnostico_cedula.UsuarioAplicativo'
+                    'diagnosticos_cedulas.UsuarioAplicativo'
                 )
-                ->whereNull('diagnostico_cedula.FechaElimino');
+                ->whereNull('diagnosticos_cedulas.FechaElimino');
 
             $filterQuery = '';
             $municipioRegion = [];
             $mun = [];
+            $usersNames = [];
+            $newFilter = [];
+            $idsUsers = '';
+            $usersApp = '';
 
             if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                $filtersCedulas = ['.ListaParaEnviar'];
+
                 foreach ($params['filtered'] as $filtro) {
+                    if ($filtro['id'] == '.articulador') {
+                        $idsUsers = implode(', ', $filtro['value']);
+                        foreach ($filtro['value'] as $idUser) {
+                            $userN = DB::table('users_aplicativo_web')
+                                ->select('UserName')
+                                ->where('idUser', $idUser)
+                                ->get()
+                                ->first();
+
+                            if ($userN != null) {
+                                $usersNames[] = "'" . $userN->UserName . "'";
+                            }
+                        }
+                        if (count($usersNames) > 0) {
+                            $usersApp = implode(', ', $usersNames);
+                        }
+                    } else {
+                        $newFilter[] = [
+                            'id' => $filtro['id'],
+                            'value' => $filtro['value'],
+                        ];
+                    }
+                }
+
+                foreach ($newFilter as $filtro) {
                     if ($filterQuery != '') {
                         $filterQuery .= ' AND ';
                     }
-
                     $id = $filtro['id'];
                     $value = $filtro['value'];
 
@@ -281,11 +669,16 @@ class DiagnosticoController extends Controller
                         foreach ($municipios as $m) {
                             $municipioRegion[] = "'" . $m->Nombre . "'";
                         }
+
                         $id = '.MunicipioVive';
                         $value = $municipioRegion;
                     }
 
-                    $id = 'diagnostico_cedula' . $id;
+                    if (in_array($id, $filtersCedulas)) {
+                        $id = 'diagnosticos_cedulas' . $id;
+                    } else {
+                        $id = 'diagnosticos_cedulas' . $id;
+                    }
 
                     switch (gettype($value)) {
                         case 'string':
@@ -320,6 +713,22 @@ class DiagnosticoController extends Controller
             //         $solicitudes->toSql()
             //     )
             // );
+
+            if ($idsUsers !== '') {
+                $filtroArticuladores =
+                    '(' .
+                    $tableSol .
+                    '.idUsuarioCreo IN (' .
+                    $idsUsers .
+                    ') OR ' .
+                    $tableSol .
+                    '.UsuarioAplicativo IN (' .
+                    $usersApp .
+                    ')' .
+                    ')';
+                $solicitudes->whereRaw($filtroArticuladores);
+            }
+
             $page = $params['page'];
             $pageSize = $params['pageSize'];
 
@@ -332,7 +741,7 @@ class DiagnosticoController extends Controller
                 ->get();
 
             $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
-                ->where('api', '=', 'getDiagnosticoVentanilla')
+                ->where('api', '=', 'getDiagnostico')
                 ->first();
 
             if ($filtro_usuario) {
@@ -341,11 +750,15 @@ class DiagnosticoController extends Controller
                 $filtro_usuario->update();
             } else {
                 $objeto_nuevo = new VNegociosFiltros();
-                $objeto_nuevo->api = 'getDiagnosticoVentanilla';
+                $objeto_nuevo->api = 'getDiagnostico';
                 $objeto_nuevo->idUser = $user->id;
                 $objeto_nuevo->parameters = $parameters_serializado;
                 $objeto_nuevo->save();
             }
+
+            // $solicitudes = $solicitudes
+            //     ->orderByDesc('FechaCreo')
+            //     ->paginate($params['pageSize']);
 
             $array_res = [];
 
@@ -363,7 +776,6 @@ class DiagnosticoController extends Controller
             foreach ($solicitudes as $data) {
                 $temp = [
                     'id' => $data->id,
-                    'Folio' => $data->Folio,
                     'FechaSolicitud' => $data->FechaSolicitud,
                     'FolioTarjetaImpulso' => $data->FolioTarjetaImpulso,
                     'Nombre' => $data->Nombre,
@@ -386,18 +798,15 @@ class DiagnosticoController extends Controller
                     'TarjetaImpulso' => $data->TarjetaImpulso,
                     'ContactoTarjetaImpulso' => $data->ContactoTarjetaImpulso,
                     'Celular' => $data->Celular,
-                    'Correo' => $data->Correo,
                     'Telefono' => $data->Telefono,
                     'TelRecados' => $data->TelRecados,
+                    'Correo' => $data->Correo,
                     'idParentescoTutor' => $data->idParentescoTutor,
                     'NombreTutor' => $data->NombreTutor,
                     'PaternoTutor' => $data->PaternoTutor,
                     'MaternoTutor' => $data->MaternoTutor,
                     'FechaNacimientoTutor' => $data->FechaNacimientoTutor,
                     'EdadTutor' => $data->EdadTutor,
-                    'SexoTutor' => $data->SexoTutor,
-                    'idEntidadNacimientoTutor' =>
-                        $data->idEntidadNacimientoTutor,
                     'CURPTutor' => $data->CURPTutor,
                     'TelefonoTutor' => $data->TelefonoTutor,
                     'CorreoTutor' => $data->CorreoTutor,
@@ -407,103 +816,38 @@ class DiagnosticoController extends Controller
                     'MunicipioVive' => $data->MunicipioVive,
                     'LocalidadVive' => $data->LocalidadVive,
                     'CPVive' => $data->CPVive,
-                    'AGEBVive' => $data->AGEBVive,
-                    'ManzanaVive' => $data->ManzanaVive,
-                    'TipoAsentamientoVive' => $data->TipoAsentamientoVive,
                     'ColoniaVive' => $data->ColoniaVive,
                     'CalleVive' => $data->CalleVive,
                     'NoExtVive' => $data->NoExtVive,
                     'NoIntVive' => $data->NoIntVive,
                     'Referencias' => $data->Referencias,
-                    'Latitud' => $data->Latitud,
-                    'Longitud' => $data->Longitud,
-                    'TotalHogares' => $data->TotalHogares,
-                    'NumeroMujeresHogar' => $data->NumeroMujeresHogar,
-                    'NumeroHombresHogar' => $data->NumeroHombresHogar,
-                    'PersonasMayoresEdad' => $data->PersonasMayoresEdad,
-                    'PersonasTerceraEdad' => $data->PersonasTerceraEdad,
-                    'PersonaJefaFamilia' => $data->PersonaJefaFamilia,
-                    'DificultadMovilidad' => $data->DificultadMovilidad,
-                    'DificultadVer' => $data->DificultadVer,
-                    'DificultadHablar' => $data->DificultadHablar,
-                    'DificultadOir' => $data->DificultadOir,
-                    'DificultadVestirse' => $data->DificultadVestirse,
-                    'DificultadRecordar' => $data->DificultadRecordar,
-                    'DificultadBrazos' => $data->DificultadBrazos,
-                    'DificultadMental' => $data->DificultadMental,
-                    'AsisteEscuela' => $data->AsisteEscuela,
-                    'idNivelEscuela' => $data->idNivelEscuela,
-                    'idGradoEscuela' => $data->idGradoEscuela,
-                    'idActividades' => $data->idActividades,
-                    'IngresoTotalMesPasado' => $data->IngresoTotalMesPasado,
-                    'PensionMensual' => $data->PensionMensual,
-                    'IngresoOtrosPaises' => $data->IngresoOtrosPaises,
-                    'GastoAlimentos' => $data->GastoAlimentos,
-                    'PeriodicidadAlimentos' => $data->PeriodicidadAlimentos,
-                    'GastoVestido' => $data->GastoVestido,
-                    'PeriodicidadVestido' => $data->PeriodicidadVestido,
-                    'GastoEducacion' => $data->GastoEducacion,
-                    'PeriodicidadEducacion' => $data->PeriodicidadEducacion,
-                    'GastoMedicinas' => $data->GastoMedicinas,
-                    'PeriodicidadMedicinas' => $data->PeriodicidadMedicinas,
-                    'GastosConsultas' => $data->GastosConsultas,
-                    'PeriodicidadConsultas' => $data->PeriodicidadConsultas,
-                    'GastosCombustibles' => $data->GastosCombustibles,
-                    'PeriodicidadCombustibles' =>
-                        $data->PeriodicidadCombustibles,
-                    'GastosServiciosBasicos' => $data->GastosServiciosBasicos,
-                    'PeriodicidadServiciosBasicos' =>
-                        $data->PeriodicidadServiciosBasicos,
-                    'GastosServiciosRecreacion' =>
-                        $data->GastosServiciosRecreacion,
-                    'PeriodicidadServiciosRecreacion' =>
-                        $data->PeriodicidadServiciosRecreacion,
-                    'AlimentacionPocoVariada' => $data->AlimentacionPocoVariada,
-                    'ComioMenos' => $data->ComioMenos,
-                    'DisminucionComida' => $data->DisminucionComida,
-                    'NoComio' => $data->NoComio,
-                    'DurmioHambre' => $data->DurmioHambre,
-                    'DejoComer' => $data->DejoComer,
-                    'PersonasHogar' => $data->PersonasHogar,
-                    'CuartosHogar' => $data->CuartosHogar,
-                    'idTipoVivienda' => $data->idTipoVivienda,
-                    'idTipoPiso' => $data->idTipoPiso,
-                    'idTipoParedes' => $data->idTipoParedes,
-                    'idTipoTecho' => $data->idTipoTecho,
-                    'idTipoAgua' => $data->idTipoAgua,
-                    'idTipoDrenaje' => $data->idTipoDrenaje,
-                    'idTipoLuz' => $data->idTipoLuz,
-                    'idTipoCombustible' => $data->idTipoCombustible,
-                    'Refrigerador' => $data->Refrigerador,
-                    'Lavadora' => $data->Lavadora,
-                    'Computadora' => $data->Computadora,
-                    'Estufa' => $data->Estufa,
-                    'Calentador' => $data->Calentador,
-                    'CalentadorSolar' => $data->CalentadorSolar,
-                    'Television' => $data->Television,
-                    'Internet' => $data->Internet,
-                    'TieneTelefono' => $data->TieneTelefono,
-                    'Tinaco' => $data->Tinaco,
-                    'ColoniaSegura' => $data->ColoniaSegura,
                     'idEstatus' => $data->idEstatus,
-                    'UsuarioAplicativo' => $data->UsuarioAplicativo,
-                    'Enlace' => $data->Enlace,
-                    'ListaParaEnviar' => $data->ListaParaEnviar,
                     'idUsuarioCreo' => $data->idUsuarioCreo,
                     'FechaCreo' => $data->FechaCreo,
                     'idUsuarioActualizo' => $data->idUsuarioActualizo,
                     'FechaActualizo' => $data->FechaActualizo,
+                    'SexoTutor' => $data->SexoTutor,
+                    'idEntidadNacimientoTutor' =>
+                        $data->idEntidadNacimientoTutor,
+                    'Folio' => $data->Folio,
                     'ListaParaEnviar' => $data->ListaParaEnviar,
                     'idUsuarioElimino' => $data->idUsuarioElimino,
                     'FechaElimino' => $data->FechaElimino,
-                    'Region' => $data->RegionM,
+                    'UsuarioAplicativo' => $data->UsuarioAplicativo,
+                    'Region' => $data->Region,
+                    'idEnlace' => $data->idEnlace,
+                    'Enlace' => $data->Enlace,
+                    'idSolicitudAplicativo' => $data->idSolicitudAplicativo,
+                    'Latitud' => $data->Latitud,
+                    'Longitud' => $data->Longitud,
                     'EntidadNacimiento' => $data->EntidadNacimiento,
                     'EstadoCivil' => $data->EstadoCivil,
                     'Parentesco' => $data->Parentesco,
                     'EntidadVive' => $data->EntidadVive,
+                    'RegionM' => $data->RegionM,
                     'CreadoPor' => $data->CreadoPor,
                     'ActualizadoPor' => $data->ActualizadoPor,
-                    'idSolicitudAplicativo' => $data->idSolicitudAplicativo,
+                    'idCedula' => $data->idCedula,
                 ];
 
                 array_push($array_res, $temp);
@@ -530,6 +874,152 @@ class DiagnosticoController extends Controller
                 'errors' => $errors,
                 'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getCatalogsCedulaCompletos(Request $request)
+    {
+        try {
+            $cat_estado_civil = DB::table('cat_estado_civil')
+                ->select('id AS value', 'EstadoCivil AS label')
+                ->get();
+
+            $entidades = DB::table('cat_entidad')
+                ->select('id AS value', 'Entidad AS label')
+                ->where('id', '<>', 1)
+                ->get();
+
+            $cat_parentesco_jefe_hogar = DB::table('cat_parentesco_jefe_hogar')
+                ->select('id AS value', 'Parentesco AS label')
+                ->get();
+
+            $cat_parentesco_tutor = DB::table('cat_parentesco_tutor')
+                ->select('id AS value', 'Parentesco AS label')
+                ->get();
+
+            $cat_situacion_actual = DB::table('cat_situacion_actual')
+                ->select('id AS value', 'Situacion AS label')
+                ->get();
+
+            $cat_actividades = DB::table('cat_actividades')
+                ->select('id AS value', 'Actividad AS label')
+                ->get();
+
+            $cat_codigos_dificultad = DB::table('cat_codigos_dificultad')
+                ->select('id AS value', 'Grado AS label')
+                ->get();
+
+            $cat_enfermedades = DB::table('cat_enfermedades')
+                ->select('id AS value', 'Enfermedad AS label')
+                ->get();
+
+            $cat_grados_educacion = DB::table('cat_grados_educacion')
+                ->select('id AS value', 'Grado AS label')
+                ->get();
+
+            $cat_niveles_educacion = DB::table('cat_niveles_educacion')
+                ->select('id AS value', 'Nivel AS label')
+                ->get();
+
+            $cat_prestaciones = DB::table('cat_prestaciones')
+                ->select('id AS value', 'Prestacion AS label')
+                ->get();
+
+            $cat_situacion_actual = DB::table('cat_situacion_actual')
+                ->select('id AS value', 'Situacion AS label')
+                ->get();
+
+            $cat_tipo_seguro = DB::table('cat_tipo_seguro')
+                ->select('id AS value', 'Tipo AS label')
+                ->get();
+
+            $cat_tipos_agua = DB::table('cat_tipos_agua')
+                ->select('id AS value', 'Agua AS label')
+                ->get();
+
+            $cat_tipos_combustibles = DB::table('cat_tipos_combustibles')
+                ->select('id AS value', 'Combustible AS label')
+                ->get();
+
+            $cat_tipos_drenajes = DB::table('cat_tipos_drenajes')
+                ->select('id AS value', 'Drenaje AS label')
+                ->get();
+
+            $cat_tipos_luz = DB::table('cat_tipos_luz')
+                ->select('id AS value', 'Luz AS label')
+                ->get();
+
+            $cat_tipos_muros = DB::table('cat_tipos_muros')
+                ->select('id AS value', 'Muro AS label')
+                ->get();
+
+            $cat_tipos_pisos = DB::table('cat_tipos_pisos')
+                ->select('id AS value', 'Piso AS label')
+                ->get();
+
+            $cat_tipos_techos = DB::table('cat_tipos_techos')
+                ->select('id AS value', 'Techo AS label')
+                ->get();
+
+            $cat_tipos_viviendas = DB::table('cat_tipos_viviendas')
+                ->select('id AS value', 'Tipo AS label')
+                ->get();
+
+            $cat_periodicidad = DB::table('cat_periodicidad')
+                ->select('id AS value', 'Periodicidad AS label')
+                ->get();
+
+            $archivos_clasificacion = DB::table('cedula_archivos_clasificacion')
+                ->select('id AS value', 'Clasificacion AS label')
+                ->get();
+
+            $municipios = DB::table('et_cat_municipio')
+                ->select('id AS value', 'Nombre AS label')
+                ->get();
+
+            $catalogs = [
+                'entidades' => $entidades,
+                'cat_parentesco_jefe_hogar' => $cat_parentesco_jefe_hogar,
+                'cat_parentesco_tutor' => $cat_parentesco_tutor,
+                'cat_situacion_actual' => $cat_situacion_actual,
+                'cat_estado_civil' => $cat_estado_civil,
+                'cat_actividades' => $cat_actividades,
+                'cat_codigos_dificultad' => $cat_codigos_dificultad,
+                'cat_enfermedades' => $cat_enfermedades,
+                'cat_grados_educacion' => $cat_grados_educacion,
+                'cat_niveles_educacion' => $cat_niveles_educacion,
+                'cat_prestaciones' => $cat_prestaciones,
+                'cat_situacion_actual' => $cat_situacion_actual,
+                'cat_tipo_seguro' => $cat_tipo_seguro,
+                'cat_tipos_combustibles' => $cat_tipos_combustibles,
+                'cat_tipos_drenajes' => $cat_tipos_drenajes,
+                'cat_tipos_luz' => $cat_tipos_luz,
+                'cat_tipos_muros' => $cat_tipos_muros,
+                'cat_tipos_pisos' => $cat_tipos_pisos,
+                'cat_tipos_techos' => $cat_tipos_techos,
+                'cat_tipos_viviendas' => $cat_tipos_viviendas,
+                'cat_tipos_agua' => $cat_tipos_agua,
+                'cat_periodicidad' => $cat_periodicidad,
+                'archivos_clasificacion' => $archivos_clasificacion,
+                'municipios' => $municipios,
+            ];
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $catalogs,
+            ];
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
             return response()->json($response, 200);
         }
     }
@@ -691,8 +1181,9 @@ class DiagnosticoController extends Controller
             }
 
             $user = auth()->user();
+            $params['idEstatus'] = 1;
             $params['idUsuarioCreo'] = $user->id;
-            $params['FechaCreo'] = date('Y-m-d');
+            $params['FechaCreo'] = date('Y-m-d H:i:s');
             $params['Correo'] =
                 isset($params['Correo']) && $params['Correo'] != ''
                     ? $params['Correo']
@@ -704,64 +1195,71 @@ class DiagnosticoController extends Controller
             unset($params['NewFiles']);
             unset($params['idCedula']);
             unset($params['id']);
-            unset($params['idSolicitud']);
+            unset($params['Boiler']);
             unset($params['programa']);
-            unset($params['idGrupo']);
-            unset($params['idEstatusGrupo']);
-            unset($params['idMunicipioGrupo']);
+
+            $params['NecesidadSolicitante'] = 'DIAGNOSTICO';
+            $params['CostoNecesidad'] = 'NO APLICA';
 
             DB::beginTransaction();
-            if (isset($params['MunicipioVive'])) {
-                $region = DB::table('et_cat_municipio')
-                    ->where('Nombre', $params['MunicipioVive'])
-                    ->get()
-                    ->first();
-                if ($region != null) {
-                    $params['Region'] = $region->SubRegion;
-                }
-            } else {
-                unset($params['Region']);
-            }
 
-            $id = DB::table('diagnostico_cedula')->insertGetId($params);
+            $id = DB::table('diagnosticos_cedulas')->insertGetId($params);
 
             if (count($prestaciones) > 0) {
                 $formatedPrestaciones = [];
+
                 foreach ($prestaciones as $prestacion) {
-                    $formatedPrestaciones[] = [
-                        'idCedula' => $id,
-                        'idPrestacion' => $prestacion,
-                    ];
+                    if ($prestacion != null) {
+                        $formatedPrestaciones[] = [
+                            'idCedula' => $id,
+                            'idPrestacion' => $prestacion,
+                        ];
+                    }
                 }
-                DB::table('diagnostico_prestaciones')->insert(
-                    $formatedPrestaciones
-                );
+
+                if (count($formatedPrestaciones) > 0) {
+                    DB::table('diagnosticos_prestaciones')->insert(
+                        $formatedPrestaciones
+                    );
+                }
             }
 
             if (count($enfermedades) > 0) {
                 $formatedEnfermedades = [];
+
                 foreach ($enfermedades as $enfermedad) {
-                    $formatedEnfermedades[] = [
-                        'idCedula' => $id,
-                        'idEnfermedad' => $enfermedad,
-                    ];
+                    if ($enfermedad != null) {
+                        $formatedEnfermedades[] = [
+                            'idCedula' => $id,
+                            'idEnfermedad' => $enfermedad,
+                        ];
+                    }
                 }
-                DB::table('diagnostico_enfermedades')->insert(
-                    $formatedEnfermedades
-                );
+
+                if (count($formatedEnfermedades) > 0) {
+                    DB::table('diagnosticos_enfermedades')->insert(
+                        $formatedEnfermedades
+                    );
+                }
             }
 
             if (count($atencionesMedicas) > 0) {
                 $formatedAtencionesMedicas = [];
+
                 foreach ($atencionesMedicas as $atencion) {
-                    $formatedAtencionesMedicas[] = [
-                        'idCedula' => $id,
-                        'idAtencionMedica' => $atencion,
-                    ];
+                    if ($atencion != null) {
+                        $formatedAtencionesMedicas[] = [
+                            'idCedula' => $id,
+                            'idAtencionMedica' => $atencion,
+                        ];
+                    }
                 }
-                DB::table('diagnostico_atenciones_medicas')->insert(
-                    $formatedAtencionesMedicas
-                );
+
+                if (count($formatedAtencionesMedicas) > 0) {
+                    DB::table('diagnosticos_atenciones_medicas')->insert(
+                        $formatedAtencionesMedicas
+                    );
+                }
             }
 
             if (isset($request->NewFiles)) {
@@ -779,7 +1277,7 @@ class DiagnosticoController extends Controller
                 'success' => true,
                 'results' => true,
                 'message' => 'Creada con éxito',
-                'data' => $id,
+                'data' => [],
             ];
             return response()->json($response, 200);
         } catch (\Throwable $errors) {
@@ -799,27 +1297,28 @@ class DiagnosticoController extends Controller
     function getById(Request $request, $id)
     {
         try {
-            $cedula = DB::table('diagnostico_cedula')
-                ->where('id', $id)
-                ->whereNull('FechaElimino')
+            $cedula = DB::table('diagnosticos_cedulas')
+                ->selectRaw('diagnosticos_cedulas.*')
+                ->where('diagnosticos_cedulas.id', $id)
+                ->whereNull('diagnosticos_cedulas.FechaElimino')
                 ->first();
 
-            $prestaciones = DB::table('diagnostico_prestaciones')
+            $prestaciones = DB::table('diagnosticos_prestaciones')
                 ->select('idPrestacion')
                 ->where('idCedula', $id)
                 ->get();
 
-            $enfermedades = DB::table('diagnostico_enfermedades')
+            $enfermedades = DB::table('diagnosticos_enfermedades')
                 ->select('idEnfermedad')
                 ->where('idCedula', $id)
                 ->get();
 
-            $atencionesMedicas = DB::table('diagnostico_atenciones_medicas')
+            $atencionesMedicas = DB::table('diagnosticos_atenciones_medicas')
                 ->select('idAtencionMedica')
                 ->where('idCedula', $id)
                 ->get();
 
-            $archivos = DB::table('diagnostico_cedula_archivos')
+            $archivos = DB::table('diagnosticos_cedula_archivos')
                 ->select(
                     'id',
                     'idClasificacion',
@@ -831,7 +1330,7 @@ class DiagnosticoController extends Controller
                 ->whereRaw('FechaElimino IS NULL')
                 ->get();
 
-            $archivos2 = DB::table('diagnostico_cedula_archivos')
+            $archivos2 = DB::table('diagnosticos_cedula_archivos')
                 ->select(
                     'id',
                     'idClasificacion',
@@ -855,13 +1354,17 @@ class DiagnosticoController extends Controller
             $cedula->Prestaciones = array_map(function ($o) {
                 return $o->idPrestacion;
             }, $prestaciones->toArray());
+
             $cedula->Enfermedades = array_map(function ($o) {
                 return $o->idEnfermedad;
             }, $enfermedades->toArray());
+
             $cedula->AtencionesMedicas = array_map(function ($o) {
                 return $o->idAtencionMedica;
             }, $atencionesMedicas->toArray());
+
             $cedula->Files = $archivos3;
+
             $cedula->ArchivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;
             }, $archivos->toArray());
@@ -889,7 +1392,7 @@ class DiagnosticoController extends Controller
     function getFilesById(Request $request, $id)
     {
         try {
-            $archivos2 = DB::table('diagnostico_cedula_archivos')
+            $archivos2 = DB::table('diagnosticos_cedula_archivos')
                 ->select(
                     'id',
                     'idClasificacion',
@@ -900,9 +1403,11 @@ class DiagnosticoController extends Controller
                 ->where('idCedula', $id)
                 ->whereRaw('FechaElimino IS NULL')
                 ->get();
+
             $archivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;
             }, $archivos2->toArray());
+
             $archivos = array_map(function ($o) {
                 $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
                 return $o;
@@ -931,41 +1436,24 @@ class DiagnosticoController extends Controller
         }
     }
 
-    function getFilesByIdSolicitud(Request $request)
+    function getFilesByIdSolicitud(Request $request, $id)
     {
         try {
             $v = Validator::make($request->all(), [
                 'id' => 'required',
             ]);
-            if ($v->fails()) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'errors' => $v->errors(),
-                ];
-                return response()->json($response, 200);
-            }
+            // if ($v->fails()) {
+            //     $response = [
+            //         'success' => true,
+            //         'results' => false,
+            //         'errors' => $v->errors(),
+            //     ];
+            //     return response()->json($response, 200);
+            // }
+            // $params = $request->all();
+            // $idSolicitud = $params['id'];
 
-            $params = $request->all();
-            $id = $params['id'];
-
-            $cedula = DB::table('diagnostico_cedula')
-                ->select('id')
-                ->where('id', $id)
-                ->whereNull('FechaElimino')
-                ->get()
-                ->first();
-
-            if ($cedula == null) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'errors' => 'No fue posible encontrar la cédula',
-                ];
-                return response()->json($response, 200);
-            }
-
-            $archivos2 = DB::table('diagnostico_cedula_archivos')
+            $archivos2 = DB::table('diagnosticos_cedula_archivos')
                 ->select(
                     'id',
                     'idClasificacion',
@@ -973,10 +1461,9 @@ class DiagnosticoController extends Controller
                     'NombreSistema',
                     'Tipo AS type'
                 )
-                ->where('idCedula', $cedula->id)
+                ->where('idCedula', $id)
                 ->whereRaw('FechaElimino IS NULL')
                 ->get();
-
             $archivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;
             }, $archivos2->toArray());
@@ -1129,7 +1616,9 @@ class DiagnosticoController extends Controller
             $params = $request->all();
             $user = auth()->user();
             $id = $params['id'];
-            $cedula = DB::table('diagnostico_cedula')
+            unset($params['id']);
+
+            $cedula = DB::table('diagnosticos_cedulas')
                 ->where('id', $id)
                 ->whereNull('FechaElimino')
                 ->first();
@@ -1148,11 +1637,12 @@ class DiagnosticoController extends Controller
                     'success' => true,
                     'results' => false,
                     'errors' =>
-                        "La cédula tiene estatus 'Lista para enviarse', no se puede editar",
+                        'La cédula esta marcada como completa, no se puede editar',
                 ];
                 return response()->json($response, 200);
             }
 
+            DB::beginTransaction();
             $prestaciones = isset($params['Prestaciones'])
                 ? $params['Prestaciones']
                 : [];
@@ -1169,13 +1659,15 @@ class DiagnosticoController extends Controller
                 ? $params['NewClasificacion']
                 : [];
             $params['idUsuarioActualizo'] = $user->id;
-            $params['FechaActualizo'] = date('Y-m-d');
+            $params['FechaActualizo'] = date('Y-m-d H:i:s');
             $params['Correo'] =
                 isset($params['Correo']) && $params['Correo'] != ''
                     ? $params['Correo']
                     : '';
+            if (!isset($params['idEstatus'])) {
+                $params['idEstatus'] = 1;
+            }
 
-            unset($params['id']);
             unset($params['Prestaciones']);
             unset($params['Enfermedades']);
             unset($params['AtencionesMedicas']);
@@ -1183,61 +1675,68 @@ class DiagnosticoController extends Controller
             unset($params['OldClasificacion']);
             unset($params['NewFiles']);
             unset($params['NewClasificacion']);
-            unset($params['idGrupo']);
-            unset($params['idEstatusGrupo']);
-            unset($params['idMunicipioGrupo']);
+            unset($params['idCedula']);
+            unset($params['Boiler']);
 
-            DB::beginTransaction();
-
-            DB::table('diagnostico_cedula')
+            DB::table('diagnosticos_cedulas')
                 ->where('id', $id)
                 ->update($params);
 
-            DB::table('diagnostico_prestaciones')
+            DB::table('diagnosticos_prestaciones')
                 ->where('idCedula', $id)
                 ->delete();
-
             $formatedPrestaciones = [];
             foreach ($prestaciones as $prestacion) {
-                array_push($formatedPrestaciones, [
-                    'idCedula' => $id,
-                    'idPrestacion' => $prestacion,
-                ]);
+                if ($prestacion != null) {
+                    array_push($formatedPrestaciones, [
+                        'idCedula' => $id,
+                        'idPrestacion' => $prestacion,
+                    ]);
+                }
+            }
+            if (count($formatedPrestaciones) > 0) {
+                DB::table('diagnosticos_prestaciones')->insert(
+                    $formatedPrestaciones
+                );
             }
 
-            DB::table('diagnostico_prestaciones')->insert(
-                $formatedPrestaciones
-            );
-
-            DB::table('diagnostico_enfermedades')
+            DB::table('diagnosticos_enfermedades')
                 ->where('idCedula', $id)
                 ->delete();
             $formatedEnfermedades = [];
             foreach ($enfermedades as $enfermedad) {
-                array_push($formatedEnfermedades, [
-                    'idCedula' => $id,
-                    'idEnfermedad' => $enfermedad,
-                ]);
+                if ($enfermedad != null) {
+                    array_push($formatedEnfermedades, [
+                        'idCedula' => $id,
+                        'idEnfermedad' => $enfermedad,
+                    ]);
+                }
             }
-            DB::table('diagnostico_enfermedades')->insert(
-                $formatedEnfermedades
-            );
-
-            DB::table('diagnostico_atenciones_medicas')
+            if (count($formatedEnfermedades) > 0) {
+                DB::table('diagnosticos_enfermedades')->insert(
+                    $formatedEnfermedades
+                );
+            }
+            DB::table('diagnosticos_atenciones_medicas')
                 ->where('idCedula', $id)
                 ->delete();
             $formatedAtencionesMedicas = [];
             foreach ($atencionesMedicas as $atencion) {
-                array_push($formatedAtencionesMedicas, [
-                    'idCedula' => $id,
-                    'idAtencionMedica' => $atencion,
-                ]);
+                if ($atencion != null) {
+                    array_push($formatedAtencionesMedicas, [
+                        'idCedula' => $id,
+                        'idAtencionMedica' => $atencion,
+                    ]);
+                }
             }
-            DB::table('diagnostico_atenciones_medicas')->insert(
-                $formatedAtencionesMedicas
-            );
 
-            $oldFiles = DB::table('diagnostico_cedula_archivos')
+            if (count($formatedAtencionesMedicas) > 0) {
+                DB::table('diagnosticos_atenciones_medicas')->insert(
+                    $formatedAtencionesMedicas
+                );
+            }
+
+            $oldFiles = DB::table('diagnosticos_cedula_archivos')
                 ->select('id', 'idClasificacion')
                 ->where('idCedula', $id)
                 ->whereRaw('FechaElimino IS NULL')
@@ -1265,7 +1764,7 @@ class DiagnosticoController extends Controller
             }
 
             if (count($oldFilesIds) > 0) {
-                DB::table('diagnostico_cedula_archivos')
+                DB::table('diagnosticos_cedula_archivos')
                     ->whereIn('id', $oldFilesIds)
                     ->update([
                         'idUsuarioElimino' => $user->id,
@@ -1321,7 +1820,7 @@ class DiagnosticoController extends Controller
             $user = auth()->user();
 
             DB::beginTransaction();
-            $oldFiles = DB::table('diagnostico_cedula_archivos')
+            $oldFiles = DB::table('diagnosticos_cedula_archivos')
                 ->select('id', 'idClasificacion')
                 ->where('idCedula', $id)
                 ->whereRaw('FechaElimino IS NULL')
@@ -1349,7 +1848,7 @@ class DiagnosticoController extends Controller
             }
 
             if (count($oldFilesIds) > 0) {
-                DB::table('diagnostico_cedula_archivos')
+                DB::table('diagnosticos_cedula_archivos')
                     ->whereIn('id', $oldFilesIds)
                     ->update([
                         'idUsuarioElimino' => $user->id,
@@ -1396,7 +1895,7 @@ class DiagnosticoController extends Controller
             $user = auth()->user();
             $id = $params['id'];
 
-            $cedula = DB::table('diagnostico_cedula')
+            $cedula = DB::table('diagnosticos_cedulas')
                 ->where('id', $id)
                 ->first();
 
@@ -1420,94 +1919,30 @@ class DiagnosticoController extends Controller
 
             DB::beginTransaction();
 
-            DB::table('diagnostico_prestaciones')
+            DB::table('diagnosticos_prestaciones')
                 ->where('idCedula', $id)
                 ->delete();
 
-            DB::table('diagnostico_enfermedades')
+            DB::table('diagnosticos_enfermedades')
                 ->where('idCedula', $id)
                 ->delete();
 
-            DB::table('diagnostico_atenciones_medicas')
+            DB::table('diagnosticos_atenciones_medicas')
                 ->where('idCedula', $id)
                 ->delete();
 
-            DB::table('diagnostico_cedula_archivos')
+            DB::table('diagnosticos_cedula_archivos')
                 ->where('idCedula', $id)
                 ->update([
                     'idUsuarioElimino' => $user->id,
                     'FechaElimino' => date('Y-m-d H:i:s'),
                 ]);
 
-            DB::table('diagnostico_cedula')
+            DB::table('diagnosticos_cedulas')
                 ->where('id', $id)
                 ->update([
                     'idUsuarioElimino' => $user->id,
                     'FechaElimino' => date('Y-m-d H:i:s'),
-                ]);
-
-            DB::commit();
-
-            $response = [
-                'success' => true,
-                'results' => true,
-                'message' => 'Eliminada con éxito',
-                'data' => [],
-            ];
-            return response()->json($response, 200);
-        } catch (\Throwable $errors) {
-            //dd($errors);
-            DB::rollBack();
-            $response = [
-                'success' => false,
-                'results' => false,
-                'total' => 0,
-                'errors' => $errors,
-                'message' => 'Ha ocurrido un error, consulte al administrador',
-            ];
-
-            return response()->json($response, 200);
-        }
-    }
-
-    function validar(Request $request)
-    {
-        try {
-            $v = Validator::make($request->all(), [
-                'id' => 'required',
-            ]);
-            if ($v->fails()) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'errors' => $v->errors(),
-                ];
-                return response()->json($response, 200);
-            }
-            $params = $request->all();
-            $user = auth()->user();
-            $id = $params['id'];
-
-            $cedula = DB::table('diagnostico_cedula')
-                ->where('id', $id)
-                ->first();
-
-            if ($cedula == null) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'errors' => 'La cédula no fue encontrada',
-                ];
-                return response()->json($response, 200);
-            }
-
-            DB::beginTransaction();
-            DB::table('diagnostico_cedula')
-                ->where('id', $id)
-                ->update([
-                    'idEstatus' => '8',
-                    'idUsuarioActualizo' => $user->id,
-                    'FechaActualizo' => date('Y-m-d H:i:s'),
                 ]);
 
             DB::commit();
@@ -1557,6 +1992,10 @@ class DiagnosticoController extends Controller
         $clasificationArray,
         $userId
     ) {
+        $img = new Imagick();
+        $width = 1920;
+        $height = 1920;
+
         foreach ($files as $key => $file) {
             $originalName = $file->getClientOriginalName();
             $extension = explode('.', $originalName);
@@ -1576,9 +2015,36 @@ class DiagnosticoController extends Controller
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
 
-            Storage::disk('subidos')->put($uniqueName, File::get($file->getRealPath()), 'public');
+            if (
+                in_array(mb_strtolower($extension, 'utf-8'), [
+                    'png',
+                    'jpg',
+                    'jpeg',
+                    'gif',
+                    'tiff',
+                ])
+            ) {
+                //Ruta temporal para reducción de tamaño
+                $file->move('subidos/tmp', $uniqueName);
+                $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
+                $img->readImage($img_tmp_path);
+                $img->adaptiveResizeImage($width, $height);
 
-            DB::table('diagnostico_cedula_archivos')->insert($fileObject);
+                //Guardar en el nuevo storage
+                $url_storage = Storage::disk('subidos')->path($uniqueName);
+                // $img->writeImage(sprintf('subidos/%s', $uniqueName));
+                $img->writeImage($url_storage);
+                File::delete($img_tmp_path);
+            } else {
+                // $file->move('subidos', $uniqueName);
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    File::get($file->getRealPath()),
+                    'public'
+                );
+            }
+
+            DB::table('diagnosticos_cedula_archivos')->insert($fileObject);
         }
     }
 
@@ -1598,7 +2064,7 @@ class DiagnosticoController extends Controller
                     $oldFiles[$encontrado]->idClasificacion !=
                     $clasificationArray[$key]
                 ) {
-                    DB::table('diagnostico_cedula_archivos')
+                    DB::table('diagnosticos_cedula_archivos')
                         ->where('id', $fileAux->id)
                         ->update([
                             'idClasificacion' => $clasificationArray[$key],
@@ -1612,7 +2078,7 @@ class DiagnosticoController extends Controller
         return $oldFilesIds;
     }
 
-    public function uploadFilesDiagnostico(Request $request)
+    public function uploadFilesDiagnosticos(Request $request)
     {
         $v = Validator::make($request->all(), [
             'id' => 'required',
@@ -1631,36 +2097,39 @@ class DiagnosticoController extends Controller
             return response()->json($response, 200);
         }
 
-        $params             = $request->all();
-        $id                 = $params['id'];
-        $files              = $params['NewFiles'];
-        $arrayClasifiacion  = $params['ArrayClasificacion'];
-        $extension          = $params['ArrayExtension'];
-        $names              = $params['NamesFiles'];
+        $params = $request->all();
+        $id = $params['id'];
+        $files = $params['NewFiles'];
+        $arrayClasifiacion = $params['ArrayClasificacion'];
+        $extension = $params['ArrayExtension'];
+        $names = $params['NamesFiles'];
 
         try {
-            $solicitud = DB::table('diagnostico_cedula')
+            $solicitud = DB::table('diagnosticos_cedulas')
                 ->select('idUsuarioCreo', 'id')
-                ->where('id', $id)
+                ->where('diagnosticos_cedulas.idSolicitud', $id)
                 ->first();
 
             if ($solicitud == null) {
                 $response = [
                     'success' => true,
                     'results' => false,
-                    'errors' => 'No se encuentra la cedula de diagnostico',
+                    'errors' => 'No se encuentra la cedula',
                 ];
                 return response()->json($response, 200);
             }
 
             foreach ($files as $key => $file) {
+                $imageContent = $this->imageBase64Content($file);
+                $uniqueName = uniqid() . $extension[$key];
+                $clasification = $arrayClasifiacion[$key];
+                $originalName = $names[$key];
 
-                $imageContent   = $this->imageBase64Content($file);
-                $uniqueName     = uniqid() . $extension[$key];
-                $clasification  = $arrayClasifiacion[$key];
-                $originalName   = $names[$key];
-
-                Storage::disk('subidos')->put($uniqueName, $imageContent, 'public');
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    $imageContent,
+                    'public'
+                );
 
                 $fileObject = [
                     'idCedula' => intval($solicitud->id),
@@ -1675,7 +2144,7 @@ class DiagnosticoController extends Controller
                     'idUsuarioCreo' => $solicitud->idUsuarioCreo,
                     'FechaCreo' => date('Y-m-d H:i:s'),
                 ];
-                $tableArchivos = 'diagnostico_cedula_archivos';
+                $tableArchivos = 'diagnosticos_cedula_archivos';
                 DB::table($tableArchivos)->insert($fileObject);
             }
             $response = [
@@ -1710,7 +2179,7 @@ class DiagnosticoController extends Controller
         $user = auth()->user();
         $parameters['UserCreated'] = $user->id;
         $tableSol = 'vales';
-        $res = DB::table('diagnostico_cedula as vales')
+        $res = DB::table('diagnosticos_cedulas as vales')
             ->select(
                 'et_cat_municipio.SubRegion AS Region',
                 'vales.Folio AS Folio',
@@ -2202,7 +2671,7 @@ class DiagnosticoController extends Controller
                             THEN
                                 'Por validar'
                             ELSE
-                                'Validada'
+                                'Completada'
                             END
                         AS Estatus"
                 ),
@@ -2435,7 +2904,7 @@ class DiagnosticoController extends Controller
         $municipioRegion = [];
         $mun = [];
         $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
-            ->where('api', '=', 'getDiagnosticoVentanilla')
+            ->where('api', '=', 'getDiagnostico')
             ->first();
         if ($filtro_usuario) {
             $hoy = date('Y-m-d H:i:s');
@@ -2577,39 +3046,6 @@ class DiagnosticoController extends Controller
         $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
 
         $largo = count($res);
-        //colocar los bordes
-        // self::crearBordes($largo, 'B', $sheet);
-        // self::crearBordes($largo, 'C', $sheet);
-        // self::crearBordes($largo, 'D', $sheet);
-        // self::crearBordes($largo, 'E', $sheet);
-        // self::crearBordes($largo, 'F', $sheet);
-        // self::crearBordes($largo, 'G', $sheet);
-        // self::crearBordes($largo, 'H', $sheet);
-        // self::crearBordes($largo, 'I', $sheet);
-        // self::crearBordes($largo, 'J', $sheet);
-        // self::crearBordes($largo, 'K', $sheet);
-        // self::crearBordes($largo, 'L', $sheet);
-        // self::crearBordes($largo, 'M', $sheet);
-        // self::crearBordes($largo, 'N', $sheet);
-        // self::crearBordes($largo, 'O', $sheet);
-        // self::crearBordes($largo, 'P', $sheet);
-        // self::crearBordes($largo, 'Q', $sheet);
-        // self::crearBordes($largo, 'R', $sheet);
-        // self::crearBordes($largo, 'S', $sheet);
-        // self::crearBordes($largo, 'T', $sheet);
-        // self::crearBordes($largo, 'U', $sheet);
-        // self::crearBordes($largo, 'V', $sheet);
-        // self::crearBordes($largo, 'W', $sheet);
-        // self::crearBordes($largo, 'X', $sheet);
-        // self::crearBordes($largo, 'Y', $sheet);
-        // self::crearBordes($largo, 'Z', $sheet);
-        // self::crearBordes($largo, 'AA', $sheet);
-        // self::crearBordes($largo, 'AB', $sheet);
-        // self::crearBordes($largo, 'AC', $sheet);
-        // self::crearBordes($largo, 'AD', $sheet);
-        // self::crearBordes($largo, 'AE', $sheet);
-        // self::crearBordes($largo, 'AF', $sheet);
-        // self::crearBordes($largo, 'AG', $sheet);
 
         //Llenar excel con el resultado del query
         $sheet->fromArray($res, null, 'C11');
@@ -2649,40 +3085,121 @@ class DiagnosticoController extends Controller
         );
     }
 
-    //funcion para generar bordes en el excel.
-    public static function crearBordes($largo, $columna, &$sheet)
-    {
-        for ($i = 0; $i < $largo; $i++) {
-            $inicio = 11 + $i;
+    // public function getCampoUsuario($cedula)
+    // {
+    //     if ($cedula->idUsuarioCreo == 1312) {
+    //         $getUserOffline = DB::table('users_aplicativo_web')
+    //             ->select('Nombre')
+    //             ->where('UserName', $cedula->UsuarioAplicativo)
+    //             ->get()
+    //             ->first();
+    //         if ($getUserOffline != null && $getUserOffline != '') {
+    //             return json_encode(
+    //                 [
+    //                     'nombre' => $getUserOffline->Nombre,
+    //                     'observaciones' => '',
+    //                 ],
+    //                 JSON_UNESCAPED_UNICODE
+    //             );
+    //         }
+    //     }
 
-            $sheet
-                ->getStyle($columna . $inicio)
-                ->getBorders()
-                ->getTop()
-                ->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
+    //     $solicitud = DB::table('yopuedo_solicitudes')
+    //         ->select('Enlace')
+    //         ->where('id', $cedula->idSolicitud)
+    //         ->whereNull('FechaElimino')
+    //         ->get()
+    //         ->first();
+
+    //     if ($solicitud->Enlace != null || $solicitud->Enlace != '') {
+    //         return json_encode(
+    //             [
+    //                 'nombre' => $solicitud->Enlace,
+    //                 'observaciones' => '',
+    //             ],
+    //             JSON_UNESCAPED_UNICODE
+    //         );
+    //     }
+
+    //     $getUserApi = DB::table('users')
+    //         ->select('Nombre', 'Paterno', 'Materno')
+    //         ->where('id', $cedula->idUsuarioCreo)
+    //         ->get()
+    //         ->first();
+
+    //     return json_encode(
+    //         [
+    //             'nombre' =>
+    //                 $getUserApi->Nombre .
+    //                 ' ' .
+    //                 $getUserApi->Paterno .
+    //                 ' ' .
+    //                 $getUserApi->Materno,
+    //             'observaciones' => '',
+    //         ],
+    //         JSON_UNESCAPED_UNICODE
+    //     );
+    // }
+    function getArticuladoresVentanilla(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        $id_valor = $user->id;
+        $permisos = $this->getPermisos();
+        $seguimiento = $permisos->Seguimiento;
+        $viewall = $permisos->ViewAll;
+
+        try {
+            $res = DB::table('users_aplicativo_web')
+                ->select('idUser', 'Nombre')
+                ->where('programa', '=', 'Diagnostico');
+
+            if ($viewall < 1 && $seguimiento < 1) {
+                $res = DB::table('users_aplicativo_web')
+                    ->select('idUser', 'Nombre')
+                    ->where('idUser', $user->id);
+            } elseif ($viewall < 1) {
+                $res->whereIn('idUserOwner', function ($query) use ($id_valor) {
+                    $query
+                        ->select('idUserOwner')
+                        ->from('users_aplicativo_web')
+                        ->where('idUser', '=', $id_valor);
+                });
+            }
+
+            if ($res->count() === 0) {
+                $res = DB::table('users_aplicativo_web')->select(
+                    'idUser',
+                    'Nombre'
                 );
-            $sheet
-                ->getStyle($columna . $inicio)
-                ->getBorders()
-                ->getBottom()
-                ->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-                );
-            $sheet
-                ->getStyle($columna . $inicio)
-                ->getBorders()
-                ->getLeft()
-                ->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-                );
-            $sheet
-                ->getStyle($columna . $inicio)
-                ->getBorders()
-                ->getRight()
-                ->setBorderStyle(
-                    \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-                );
+            }
+
+            $res = $res->orderBy('Nombre');
+
+            $total = $res->count();
+            $res = $res->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'filtros' => $parameters['filtered'],
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'filtros' => $parameters['filtered'],
+                'errors' => $e->getMessage(),
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
         }
     }
 }

@@ -62,8 +62,29 @@ Route::post(
 
 Route::get('/hashPassword', 'ZisController@hashPassword');
 
-//Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
+Route::post('/updateLocation', 'CedulasController@updateLocation');
 
+Route::post('/acuse', 'CedulasController@getFile');
+
+Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
+
+// Route::post(
+//     '/envioMasivoVentanilla',
+//     'CedulasController@envioMasivoVentanilla'
+// );
+
+// Route::post(
+//     '/envioMasivoVentanillaC',
+//     'CalentadoresController@envioMasivoVentanillaC'
+// );
+
+//Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
+//Route::post('/convertirImagenes', 'CedulasController@convertImage');
+Route::post('/archivosYoPuedo', 'YopuedoController@getFilesFromSocioeducativo');
+Route::post(
+    '/validacionMasivaCalentadores',
+    'CalentadoresController@ValidarEstatusCalentadorVentanilla'
+);
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/register', 'AuthController@register');
@@ -155,6 +176,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'ReportesController@getReportesolicitudVales'
     );
     Route::get(
+        '/getReporteCompletoVales',
+        'CedulasController@getReporteCompletoVales'
+    );
+    Route::get(
         '/getReporteSolicitudVentanillaVales',
         'CedulasController@getReporteSolicitudVentanillaVales'
     );
@@ -165,6 +190,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get(
         '/getReporteSolicitudVentanillaYoPuedo',
         'YoPuedoController@getReporteSolicitudVentanillaYoPuedo'
+    );
+    Route::get(
+        '/getReporteSolicitudVentanillaDiagnosticoV2',
+        'DiagnosticoV2Controller@getReporteSolicitudVentanillaDiagnostico'
     );
     Route::get(
         '/getReporteSolicitudVentanillaProyectos',
@@ -192,7 +221,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getReporteFoliosValidar',
         'ReportesController@getReporteFoliosValidar'
     );
-
+    Route::get('/getReporteAcuseVales', 'ReportesController@getAcuseVales');
     Route::get(
         '/getReporteNominaVales',
         'ReportesController@getReporteNominaVales'
@@ -261,7 +290,12 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/getVales', 'VValesController@getVales');
     Route::post('/getValesResumen', 'VValesController@getValesResumen');
 
-    Route::post('/getValesAvances2021', 'VValesController@getValesAvances2021');
+    Route::post('/getValesAvances', 'VValesController@getValesAvances');
+    Route::post(
+        '/getCalentadoresAvances',
+        'CalentadoresController@getCalentadoresAvances'
+    );
+    Route::get('/getReporteAvances', 'VValesController@getReporteAvances');
     Route::post('/getHistoryVales', 'VValesController@getHistoryVales');
     Route::post('/getValesInHistory', 'VValesController@getValesInHistory');
     Route::post('/getValesV2', 'VValesController@getValesV2');
@@ -355,6 +389,16 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getArticuladoresVentanilla'
     );
 
+    Route::post(
+        '/getArticuladoresYoPuedo',
+        'YoPuedoController@getArticuladoresVentanilla'
+    );
+
+    Route::post(
+        '/getArticuladoresDiagnosticos',
+        'DiagnosticoV2Controller@getArticuladoresVentanilla'
+    );
+
     Route::post('/getUsersRecepcionoV2', 'UserController@getUsersRecepcionoV2');
 
     Route::post('/getEstatusGlobal', 'ValesStatusController@getEstatusGlobal');
@@ -409,6 +453,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'ReportesController@getReporteNominaValesDetalle'
     );
     Route::post('/getMisRemesas', 'ReportesController@getMisRemesas');
+    Route::post('/getRemesasAvancesGrupos', 'ReportesController@getRemesas');
     Route::post('/getAvanceRemesas', 'ReportesController@getAvanceRemesas');
     Route::post('/getSearchFolio', 'VValesController@getSearchFolio');
     Route::post(
@@ -486,11 +531,35 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/updateSolicitudCedula', 'CedulasController@updateSolicitud');
     Route::post('/deleteSolicitudCedula', 'CedulasController@deleteSolicitud');
     Route::get('/getCatalogsCedula', 'CedulasController@getCatalogsCedula');
+    Route::get(
+        '/getCatalogsCedulaYoPuedo',
+        'YoPuedoController@getCatalogsCedula'
+    );
+
+    Route::get(
+        '/getCatalogsCedulaDiagnosticos',
+        'DiagnosticoV2Controller@getCatalogsCedula'
+    );
 
     Route::post(
         '/createSolicitudCalentador',
         'CalentadoresController@createSolicitud'
     );
+    Route::post(
+        '/createSolicitudCedulaCalentador',
+        'CalentadoresController@createSolicitudNewFormat'
+    );
+
+    Route::post(
+        '/createSolicitudCedulaProyectos',
+        'ProyectosController@createSolicitudNewFormat'
+    );
+
+    Route::post(
+        '/createSolicitudCedulaYoPuedo',
+        'YoPuedoController@createSolicitudNewFormat'
+    );
+
     Route::post(
         '/getSolicitudesCalentadores',
         'CalentadoresController@getSolicitudes'
@@ -500,8 +569,33 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CalentadoresController@updateSolicitud'
     );
     Route::post(
+        '/updateSolicitudCedulaCalentador',
+        'CalentadoresController@updateSolicitudCedula'
+    );
+    Route::post(
+        '/updateSolicitudCedulaProyectos',
+        'ProyectosController@updateSolicitudCedula'
+    );
+    Route::post(
+        '/updateSolicitudCedulaYoPuedo',
+        'YoPuedoController@updateSolicitudCedula'
+    );
+    Route::post(
         '/deleteSolicitudCalentador',
         'CalentadoresController@deleteSolicitud'
+    );
+    Route::post(
+        '/deleteSolicitudCedulaCalentador',
+        'CalentadoresController@deleteSolicitudCedula'
+    );
+
+    Route::post(
+        '/deleteSolicitudCedulaProyectos',
+        'ProyectosController@deleteSolicitudCedula'
+    );
+    Route::post(
+        '/deleteSolicitudCedulaYoPuedo',
+        'YoPuedoController@deleteSolicitudCedula'
     );
     Route::post(
         '/createSolicitudProyectos',
@@ -522,6 +616,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/getCedulasDiagnostico', 'DiagnosticoController@getCedulas');
     Route::post('/getSolicitudesYoPuedo', 'YoPuedoController@getSolicitudes');
     Route::post('/createSolicitudYoPuedo', 'YoPuedoController@createSolicitud');
+    Route::post('/updateEstatusYoPuedo', 'YoPuedoController@updateEstatus');
     Route::post('/updateSolicitudYoPuedo', 'YoPuedoController@updateSolicitud');
     Route::post('/deleteSolicitudYoPuedo', 'YoPuedoController@deleteSolicitud');
     Route::post(
@@ -542,6 +637,23 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CalentadoresController@getFilesByIdSolicitud'
     );
 
+    Route::post(
+        '/getSolicitudesDiagnosticos',
+        'DiagnosticoV2Controller@getSolicitudes'
+    );
+    Route::post(
+        '/createSolicitudDiagnosticos',
+        'DiagnosticoV2Controller@createSolicitud'
+    );
+    Route::post(
+        '/updateSolicitudDiagnosticos',
+        'DiagnosticoV2Controller@updateSolicitud'
+    );
+    Route::post(
+        '/deleteSolicitudDiagnosticos',
+        'DiagnosticoV2Controller@deleteSolicitud'
+    );
+
     Route::group(['prefix' => 'cedula'], function ($route) {
         Route::get(
             '/getCatalogsCedulaCompletos',
@@ -554,6 +666,11 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::get(
             '/getLocalidadesByMunicipio/{id}',
             'CedulasController@getLocalidadesByMunicipio'
+        );
+
+        Route::get(
+            '/getTipoAsentamiento/{id}',
+            'CedulasController@getTipoAsentamientoLocalidad'
         );
         Route::get(
             '/getAgebsManzanasByLocalidad/{id}',
@@ -579,6 +696,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     });
 
     Route::group(['prefix' => 'calentadores'], function ($route) {
+        Route::post(
+            '/getMunicipiosVales',
+            'CalentadoresController@getMunicipiosVales'
+        );
         Route::post('/create', 'CalentadoresController@create');
         Route::get('/getById/{id}', 'CalentadoresController@getById');
         Route::get('/getArchivosByIdC/{id}', 'CedulasController@getFilesByIdC');
@@ -673,15 +794,37 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('/enviarIGTO', 'YoPuedoController@enviarIGTO');
     });
 
-    Route::post(
-        '/envioMasivoVentanilla',
-        'CedulasController@envioMasivoVentanilla'
-    );
-
-    Route::post(
-        '/envioMasivoVentanillaC',
-        'CalentadoresController@envioMasivoVentanillaC'
-    );
+    Route::group(['prefix' => 'diagnosticos'], function ($route) {
+        Route::post('/getMunicipios', 'DiagnosticoV2Controller@getMunicipios');
+        Route::post(
+            '/getEstatusGlobalVentanillaDiagnosticosV2',
+            'DiagnosticoV2Controller@getEstatusGlobal'
+        );
+        Route::get(
+            '/getCatalogosCedulas',
+            'DiagnosticoV2Controller@getCatalogosCedulas'
+        );
+        Route::post('/create', 'DiagnosticoV2Controller@create');
+        Route::get('/getById/{id}', 'DiagnosticoV2Controller@getById');
+        Route::get(
+            '/getArchivosByIdD/{id}',
+            'DiagnosticoV2Controller@getFilesById'
+        );
+        Route::get(
+            '/getClasificacionArchivos',
+            'CedulasController@getClasificacionArchivos'
+        );
+        Route::get(
+            '/getArchivosByIdSolicitud/{id}',
+            'DiagnosticoV2Controller@getFilesByIdSolicitud'
+        );
+        Route::post('/update', 'DiagnosticoV2Controller@update');
+        Route::post('/delete', 'DiagnosticoV2Controller@delete');
+        Route::post(
+            '/updateArchivosCedula',
+            'DiagnosticoV2Controller@updateArchivosCedula'
+        );
+    });
 
     Route::post(
         '/descargarArchivosMasivo',
