@@ -2456,15 +2456,15 @@ class ProyectosController extends Controller
             ->whereRaw('proyectos_cedula_archivos.FechaElimino IS NULL')
             ->get();
 
-        if ($filesEvidencias == null) {
-            $response = [
-                'success' => true,
-                'results' => false,
-                'errors' => 'Faltan evidencias por cargar',
-                'message' => 'Faltan evidencias por cargar',
-            ];
-            return response()->json($response, 200);
-        }
+        // if ($filesEvidencias == null) {
+        //     $response = [
+        //         'success' => true,
+        //         'results' => false,
+        //         'errors' => 'Faltan evidencias por cargar',
+        //         'message' => 'Faltan evidencias por cargar',
+        //     ];
+        //     return response()->json($response, 200);
+        // }
 
         $filesEspecifico = DB::table('proyectos_cedula_archivos')
             ->select(
@@ -2523,7 +2523,7 @@ class ProyectosController extends Controller
 
         $formatedFiles = array_merge($formatedFiles, $formatedFilesAcuse);
 
-        $programa = $this->getPrograma();
+        $programa = $this->getPrograma(1);
 
         $docs = json_encode(
             [
@@ -2533,7 +2533,17 @@ class ProyectosController extends Controller
             JSON_UNESCAPED_UNICODE
         );
 
-        $cUsuario = $this->getCampoUsuario($cedula);
+        if ($cedula->Enlace != null) {
+            $cUsuario = json_encode(
+                [
+                    'nombre' => $cedula->Enlace,
+                    'observaciones' => '',
+                ],
+                JSON_UNESCAPED_UNICODE
+            );
+        } else {
+            $cUsuario = $this->getCampoUsuario($cedula);
+        }
 
         if ($cedula->idUsuarioCreo == 1312) {
             $authUsuario = $this->getAuthUsuario($cedula->UsuarioAplicativo, 1);
@@ -2575,7 +2585,7 @@ class ProyectosController extends Controller
                 $file['header']
             );
         }
-        dd('Cambiar info programa');
+
         try {
             $response = $request2->send();
             $message = json_decode($response->getBody());
@@ -3995,7 +4005,7 @@ class ProyectosController extends Controller
         );
     }
 
-    public function getPrograma($Diferenciador)
+    public function getPrograma($diferenciador)
     {
         $modalidad = [
             'q' => 'Q3075',
@@ -4012,38 +4022,38 @@ class ProyectosController extends Controller
             ],
         ];
 
-        //MODALIDAD 01
-        //TIPO APOYO 02
-        $modalidad = [
-            'q' => 'Q3075',
-            'nombre' => 'Impulso Productivo Social e Infraestructura',
-            'modalidad' => [
-                'nombre' =>
-                    'Entrega de apoyo que permita iniciar, consolidar o fortalecer alguna actividad económica de tipo industrial, comercial o de servicios, y exista un proceso de producción o prestación de servicio que genere valor y utilidad.',
-                'clave' => 'Q3075-01',
-            ],
-            'tipoApoyo' => [
-                'clave' => 'Q3075-01-02',
-                'nombre' =>
-                    'Apoyo Otorgado para los Proyectos Productivos (Creatividad e Innovación)',
-            ],
-        ];
-        //MODALIDAD 02
-        //TIPO APOYO 01
-        $modalidad = [
-            'q' => 'Q3075',
-            'nombre' => 'Impulso Productivo Social e Infraestructura',
-            'modalidad' => [
-                'nombre' =>
-                    'Entrega del apoyo que permita consolidar o fortalecer alguna actividad económica de tipo industrial, comercial o de servicios, y exista un proceso de producción o prestación de servicio que genere valor y utilidad.',
-                'clave' => 'Q3075-02',
-            ],
-            'tipoApoyo' => [
-                'clave' => 'Q3075-02-01',
-                'nombre' =>
-                    'Apoyo Otorgado para los Proyectos Productivos (Segundo Apoyo)',
-            ],
-        ];
+        // //MODALIDAD 01
+        // //TIPO APOYO 02
+        // $modalidad = [
+        //     'q' => 'Q3075',
+        //     'nombre' => 'Impulso Productivo Social e Infraestructura',
+        //     'modalidad' => [
+        //         'nombre' =>
+        //             'Entrega de apoyo que permita iniciar, consolidar o fortalecer alguna actividad económica de tipo industrial, comercial o de servicios, y exista un proceso de producción o prestación de servicio que genere valor y utilidad.',
+        //         'clave' => 'Q3075-01',
+        //     ],
+        //     'tipoApoyo' => [
+        //         'clave' => 'Q3075-01-02',
+        //         'nombre' =>
+        //             'Apoyo Otorgado para los Proyectos Productivos (Creatividad e Innovación)',
+        //     ],
+        // ];
+        // //MODALIDAD 02
+        // //TIPO APOYO 01
+        // $modalidad = [
+        //     'q' => 'Q3075',
+        //     'nombre' => 'Impulso Productivo Social e Infraestructura',
+        //     'modalidad' => [
+        //         'nombre' =>
+        //             'Entrega del apoyo que permita consolidar o fortalecer alguna actividad económica de tipo industrial, comercial o de servicios, y exista un proceso de producción o prestación de servicio que genere valor y utilidad.',
+        //         'clave' => 'Q3075-02',
+        //     ],
+        //     'tipoApoyo' => [
+        //         'clave' => 'Q3075-02-01',
+        //         'nombre' =>
+        //             'Apoyo Otorgado para los Proyectos Productivos (Segundo Apoyo)',
+        //     ],
+        // ];
 
         $programa = json_encode(
             [
