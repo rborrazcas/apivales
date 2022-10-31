@@ -654,12 +654,23 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'DiagnosticoV2Controller@deleteSolicitud'
     );
 
+    Route::post(
+        '/getConciliaciones',
+        'CedulasController@getConciliacionArchivos'
+    );
+
+    Route::get(
+        '/getValesConciliados',
+        'CedulasController@getValesConciliacion'
+    );
+
     Route::group(['prefix' => 'cedula'], function ($route) {
         Route::get(
             '/getCatalogsCedulaCompletos',
             'CedulasController@getCatalogsCedulaCompletos'
         );
         Route::post('/create', 'CedulasController@create');
+        Route::post('/uploadFile', 'CedulasController@uploadExcel');
         Route::get('/getByIdV/{id}', 'CedulasController@getByIdV');
         Route::get('/getByIdC/{id}', 'CedulasController@getByIdC');
         Route::get('/getArchivosByIdV/{id}', 'CedulasController@getFilesByIdV');
