@@ -37,7 +37,11 @@ class CedulasController extends Controller
             ->where(['idUser' => $user->id, 'idMenu' => '13'])
             ->get()
             ->first();
-        return $permisos;
+        if ($permisos !== null) {
+            return $permisos;
+        } else {
+            return null;
+        }
     }
 
     function getEstatusGlobal(Request $request)
@@ -46,6 +50,17 @@ class CedulasController extends Controller
         $user = auth()->user();
 
         $permisos = $this->getPermisos();
+
+        if ($permisos === null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => 'No tiene permisos en este módulo',
+            ];
+
+            return response()->json($response, 200);
+        }
 
         $seguimiento = $permisos->Seguimiento;
         $viewall = $permisos->ViewAll;
@@ -103,7 +118,19 @@ class CedulasController extends Controller
             ->where('idUser', $user->id)
             ->get()
             ->first();
+
         $permisos = $this->getPermisos();
+        if ($permisos === null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => 'No tiene permisos en este módulo',
+            ];
+
+            return response()->json($response, 200);
+        }
+
         try {
             if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
                 $res_Vales = DB::table('cedulas_solicitudes')
@@ -126,6 +153,15 @@ class CedulasController extends Controller
                     $region = 6;
                 } elseif ($userName->Region == 'VII') {
                     $region = 7;
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene región asignada',
+                    ];
+
+                    return response()->json($response, 200);
                 }
 
                 $res_Vales = DB::table('et_cat_municipio')
@@ -175,6 +211,16 @@ class CedulasController extends Controller
             );
 
             $permisos = $this->getPermisos();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
 
             if ($permisos->ViewAll < 1) {
                 $idUserOwner = DB::table('users_aplicativo_web')
@@ -416,6 +462,16 @@ class CedulasController extends Controller
             $user = auth()->user();
 
             $permisos = $this->getPermisos();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
 
             $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
@@ -1043,10 +1099,10 @@ class CedulasController extends Controller
                 }
             }
 
-            $fechaINE = intval($params['FechaINE']);
             $year_start = idate('Y', strtotime('first day of January', time()));
 
             if (isset($params['FechaINE'])) {
+                $fechaINE = intval($params['FechaINE']);
                 if ($year_start > $fechaINE) {
                     $response = [
                         'success' => true,
@@ -1060,6 +1116,10 @@ class CedulasController extends Controller
 
             if ($program == 1) {
                 $curpRegistrado = DB::table('cedulas_solicitudes')
+                    ->select(
+                        DB::RAW('lpad( hex(idVale ), 6, 0 ) AS FolioSolicitud'),
+                        'CURP'
+                    )
                     ->where('CURP', $params['CURP'])
                     ->whereRaw('FechaElimino IS NULL')
                     ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
@@ -1074,12 +1134,16 @@ class CedulasController extends Controller
                             'El Beneficiario con CURP ' .
                             $params['CURP'] .
                             ' ya se encuentra registrado para el ejercicio ' .
-                            $year_start,
+                            $year_start .
+                            ' con el Folio ' .
+                            $curpRegistrado->FolioSolicitud,
                         'message' =>
                             'El Beneficiario con CURP ' .
                             $params['CURP'] .
                             ' ya se encuentra registrado para el ejercicio ' .
-                            $year_start,
+                            $year_start .
+                            ' con el Folio ' .
+                            $curpRegistrado->FolioSolicitud,
                     ];
 
                     return response()->json($response, 200);
@@ -1285,96 +1349,83 @@ class CedulasController extends Controller
         try {
             $v = Validator::make($request->all(), [
                 'id' => 'required',
-                'FechaSolicitud' => 'required',
+                // 'FechaSolicitud' => 'required',
                 'Nombre' => 'required',
                 'Paterno' => 'required',
-                'Materno' => 'required',
-                'FechaNacimiento' => 'required',
-                'Edad' => 'required',
-                'Sexo' => 'required',
-                'idEntidadNacimiento' => 'required',
+                //'Materno' => 'required',
+                // 'FechaNacimiento' => 'required',
+                // 'Edad' => 'required',
+                // 'Sexo' => 'required',
+                // 'idEntidadNacimiento' => 'required',
                 'CURP' => 'required',
-                'idEstadoCivil' => 'required',
-                'idParentescoJefeHogar' => 'required',
-                'NumHijos' => 'required',
-                'NumHijas' => 'required',
-                'Afromexicano' => 'required',
-                'idSituacionActual' => 'required',
-                'TarjetaImpulso' => 'required',
-                'ContactoTarjetaImpulso' => 'required',
-                'NecesidadSolicitante' => 'required',
-                'CostoNecesidad' => 'required',
-                'idEntidadVive' => 'required',
+                // 'idEstadoCivil' => 'required',
+                // 'idParentescoJefeHogar' => 'required',
+                // 'NumHijos' => 'required',
+                // 'NumHijas' => 'required',
+                // 'Afromexicano' => 'required',
+                // 'idSituacionActual' => 'required',
+                // 'TarjetaImpulso' => 'required',
+                // 'ContactoTarjetaImpulso' => 'required',
+                // 'NecesidadSolicitante' => 'required',
+                // 'CostoNecesidad' => 'required',
+                // 'idEntidadVive' => 'required',
                 'MunicipioVive' => 'required',
                 'LocalidadVive' => 'required',
                 'CPVive' => 'required',
                 'ColoniaVive' => 'required',
                 'CalleVive' => 'required',
                 'NoExtVive' => 'required',
-                'NoIntVive' => 'required',
-                'Referencias' => 'required',
-                'Folio' => 'required',
+                // 'NoIntVive' => 'required',
+                // 'Referencias' => 'required',
+                // 'Folio' => 'required',
             ]);
 
-            // if ($v->fails()){
-            //     $response =  [
-            //         'success'=>true,
-            //         'results'=>false,
-            //         'errors'=>$v->errors()
-            //     ];
-            //     return response()->json($response,200);
-            // }
-            $params = $request->all();
-            $curp = $params['CURP'];
-            $program = 1;
-
-            $program = 1;
-
-            if ($program > 1) {
-                $tableSol = 'calentadores_solicitudes';
-                $tableCedulas = 'calentadores_cedulas';
-            } else {
-                $tableSol = 'cedulas_solicitudes';
-                $tableCedulas = 'cedulas';
-            }
-
-            $solicitud = DB::table($tableSol)
-                ->select(
-                    $tableSol . '.idEstatus',
-                    $tableCedulas . '.id AS idCedula',
-                    $tableSol . '.ListaParaEnviar'
-                )
-                ->leftJoin(
-                    $tableCedulas,
-                    $tableCedulas . '.idSolicitud',
-                    $tableSol . '.id'
-                )
-                ->where($tableSol . '.id', $params['id'])
-                ->first();
-
-            try {
-                if (
-                    ($solicitud->idEstatus != 1 ||
-                        isset($solicitud->idCedula)) &&
-                    $program > 1
-                ) {
-                    $response = [
-                        'success' => true,
-                        'results' => false,
-                        'errors' =>
-                            'La solicitud no se puede editar, tiene una cédula activa o ya fue aceptada',
-                    ];
-                    return response()->json($response, 200);
-                }
-            } catch (Exception $e) {
+            if ($v->fails()) {
                 $response = [
                     'success' => true,
                     'results' => false,
                     'errors' =>
-                        'Ocurrio un error al validar la cedula de la solicitud',
+                        'Uno o más campos obligatorios están vaciós o no tiene el formato correcto',
+                    'message' =>
+                        'Uno o más campos obligatorios están vaciós o no tiene el formato correcto',
                 ];
                 return response()->json($response, 200);
             }
+            $params = $request->all();
+            $curp = $params['CURP'];
+
+            if ($curp === '' || $curp === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'Ocurrio un error con el CURP al actualizar, recargue la página e intente nuevamente',
+                    'message' =>
+                        'Ocurrio un error con el CURP al actualizar, recargue la página e intente nuevamente',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $program = 1;
+            $tableSol = 'cedulas_solicitudes';
+            $tableCedulas = 'cedulas';
+
+            $solicitud = DB::table($tableSol)
+                ->select('idEstatus')
+                ->where('id', $params['id'])
+                ->whereNull('FechaElimino')
+                ->first();
+
+            if ($solicitud !== null && $solicitud->idEstatus > 1) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'La solicitud se encuentra validada, no se puede editar',
+                ];
+                return response()->json($response, 200);
+            }
+
             $oldClasificacion = isset($params['OldClasificacion'])
                 ? $params['OldClasificacion']
                 : [];
@@ -1396,7 +1447,7 @@ class CedulasController extends Controller
             unset($params['FolioSolicitud']);
 
             $params['idUsuarioActualizo'] = $user->id;
-            $params['FechaActualizo'] = date('Y-m-d');
+            $params['FechaActualizo'] = date('Y-m-d H:i:s');
             if (!isset($params['idEstatus'])) {
                 $params['idEstatus'] = 1;
             }
@@ -1423,50 +1474,6 @@ class CedulasController extends Controller
                     return response()->json($response, 200);
                 }
             }
-
-            // if ($user->id != '1312') {
-            //     $idMunicipio = DB::table('et_cat_municipio')
-            //         ->select('id')
-            //         ->where('Nombre', $params['MunicipioVive'])
-            //         ->get()
-            //         ->first();
-
-            //     $tipoAsentamiento = DB::table('et_cat_localidad')
-            //         ->select('Ambito')
-            //         ->where([
-            //             'Nombre' => $params['LocalidadVive'],
-            //             'IdMunicipio' => $idMunicipio->id,
-            //         ])
-            //         ->get()
-            //         ->first();
-
-            //     if ($tipoAsentamiento != null) {
-            //         $montoMaximo = 0;
-            //         if ($tipoAsentamiento->Ambito === 'R') {
-            //             $montoMaximo = 2870;
-            //         } else {
-            //             $montoMaximo = 4042;
-            //         }
-
-            //         if ($params['IngresoPercapita'] > $montoMaximo) {
-            //             $response = [
-            //                 'success' => true,
-            //                 'results' => false,
-            //                 'errors' =>
-            //                     'El Ingreso pércapita excede el límite permitido',
-            //             ];
-            //             return response()->json($response, 200);
-            //         }
-            //     } else {
-            //         $response = [
-            //             'success' => true,
-            //             'results' => false,
-            //             'errors' =>
-            //                 'Ocurrio un error al actualizar la informacion de la solicitud',
-            //         ];
-            //         return response()->json($response, 200);
-            //     }
-            // }
 
             if (isset($params['Actualizada'])) {
                 $solicitudAnterior = DB::table('cedulas_solicitudes')
@@ -1576,19 +1583,24 @@ class CedulasController extends Controller
                 $idVale = DB::table($tableSol)
                     ->select('idVale', 'CURP')
                     ->where('id', $id)
+                    ->whereNull('FechaElimino')
                     ->get()
                     ->first();
 
                 if ($idVale != null) {
                     $remesa = DB::table('vales')
+                        ->select('Remesa')
                         ->where('id', $idVale->idVale)
                         ->get()
                         ->first();
 
-                    if ($remesa->Remesa != null) {
+                    if ($remesa != null) {
                         $validarCurp = DB::table('vales')
                             ->where('id', $idVale->idVale)
-                            ->where('CURP', $curp)
+                            ->where([
+                                'CURP' => $curp,
+                                'Nombre' => $params['Nombre'],
+                            ])
                             ->get()
                             ->first();
                         //dd($validarCurp);
@@ -1727,13 +1739,10 @@ class CedulasController extends Controller
             $tableCedulas = 'cedulas';
 
             $solicitud = DB::table($tableSol)
-                ->select(
-                    $tableSol . '.idEstatus',
-                    $tableSol . '.ListaParaEnviar',
-                    $tableSol . '.idVale'
-                )
-                ->where($tableSol . '.id', $params['id'])
+                ->select('idEstatus', 'ListaParaEnviar', 'idVale')
+                ->where('id', $params['id'])
                 ->first();
+
             if ($solicitud->idEstatus > 1) {
                 $response = [
                     'success' => true,
@@ -1744,15 +1753,10 @@ class CedulasController extends Controller
                 return response()->json($response, 200);
             }
 
-            $idVale = DB::table($tableSol)
-                ->select('idVale')
-                ->where('id', $params['id'])
-                ->get()
-                ->first();
-
-            if ($idVale != null) {
+            if ($solicitud != null) {
                 $remesa = DB::table('vales')
-                    ->where('id', $idVale->idVale)
+                    ->select('Remesa')
+                    ->where('id', $solicitud->idVale)
                     ->get()
                     ->first();
 
@@ -1768,7 +1772,7 @@ class CedulasController extends Controller
             }
 
             DB::table('vales')
-                ->where('id', $idVale->idVale)
+                ->where('id', $solicitud->idVale)
                 ->delete();
 
             DB::table($tableSol)
@@ -5445,31 +5449,49 @@ class CedulasController extends Controller
         }
 
         $dataVales = [
-            'FechaSolicitud' => $solicitud->FechaSolicitud,
-            'FolioSolicitud' => $solicitud->Folio,
+            'FechaSolicitud' => $solicitud->FechaSolicitud
+                ? $solicitud->FechaSolicitud
+                : null,
+            'FolioSolicitud' => $solicitud->Folio ? $solicitud->Folio : null,
             'idIncidencia' => '1',
-            'CURP' => $solicitud->CURP,
-            'Ocupacion' => $solicitud->OcupacionJefeHogar,
-            'Nombre' => $solicitud->Nombre,
-            'Paterno' => $solicitud->Paterno,
-            'Materno' => $solicitud->Materno,
-            'Sexo' => $solicitud->Sexo,
-            'FechaNacimiento' => $solicitud->FechaNacimiento,
-            'Calle' => $solicitud->CalleVive,
-            'NumInt' => $solicitud->NoIntVive,
-            'NumExt' => $solicitud->NoExtVive,
-            'Colonia' => $solicitud->ColoniaVive,
-            'CP' => $solicitud->CPVive,
-            'idMunicipio' => $idMunicipio->id,
-            'idLocalidad' => $idLocalidad->id,
-            'TelFijo' => $solicitud->Telefono,
-            'TelCelular' => $solicitud->Celular,
-            'TelRecados' => $solicitud->TelRecados,
-            'CorreoElectronico' => $solicitud->Correo,
+            'CURP' => $solicitud->CURP ? $solicitud->CURP : null,
+            'Ocupacion' => $solicitud->OcupacionJefeHogar
+                ? $solicitud->OcupacionJefeHogar
+                : null,
+            'Nombre' => $solicitud->Nombre ? $solicitud->Nombre : null,
+            'Paterno' => $solicitud->Paterno ? $solicitud->Paterno : null,
+            'Materno' => $solicitud->Materno ? $solicitud->Materno : null,
+            'Sexo' => $solicitud->Sexo ? $solicitud->Sexo : null,
+            'FechaNacimiento' => $solicitud->FechaNacimiento
+                ? $solicitud->FechaNacimiento
+                : null,
+            'Calle' => $solicitud->CalleVive ? $solicitud->CalleVive : null,
+            'NumInt' => $solicitud->NoIntVive ? $solicitud->NoIntVive : null,
+            'NumExt' => $solicitud->NoExtVive ? $solicitud->NoExtVive : null,
+            'Colonia' => $solicitud->ColoniaVive
+                ? $solicitud->ColoniaVive
+                : null,
+            'CP' => $solicitud->CPVive ? $solicitud->CPVive : null,
+            'idMunicipio' => $idMunicipio->id ? $idMunicipio->id : null,
+            'idLocalidad' => $idLocalidad->id ? $idLocalidad->id : null,
+            'TelFijo' => $solicitud->Telefono ? $solicitud->Telefono : null,
+            'TelCelular' => $solicitud->Celular ? $solicitud->Celular : null,
+            'TelRecados' => $solicitud->TelRecados
+                ? $solicitud->TelRecados
+                : null,
+            'CorreoElectronico' => $solicitud->Correo
+                ? $solicitud->Correo
+                : null,
             'idStatus' => 1,
-            'IngresoPercibido' => $solicitud->IngresoMensual,
-            'OtrosIngresos' => $solicitud->OtrosIngresos,
-            'NumeroPersonas' => $solicitud->PersonasDependientes,
+            'IngresoPercibido' => $solicitud->IngresoMensual
+                ? $solicitud->IngresoMensual
+                : null,
+            'OtrosIngresos' => $solicitud->OtrosIngresos
+                ? $solicitud->OtrosIngresos
+                : null,
+            'NumeroPersonas' => $solicitud->PersonasDependientes
+                ? $solicitud->PersonasDependientes
+                : null,
             'UserOwned' =>
                 $userOwned != null
                     ? $userOwned
@@ -5477,7 +5499,9 @@ class CedulasController extends Controller
                         ? $userCreo->idUser
                         : $solicitud->idUsuarioCreo),
 
-            'TotalIngresos' => $solicitud->TotalIngreso,
+            'TotalIngresos' => $solicitud->TotalIngreso
+                ? $solicitud->TotalIngreso
+                : null,
             //'OcupacionOtro' => 0,
             'UserCreated' =>
                 $solicitud->idUsuarioCreo == 1312 && $userCreo != null
@@ -5692,6 +5716,16 @@ class CedulasController extends Controller
 
         //Agregando Filtros por permisos
         $permisos = $this->getPermisos();
+        if ($permisos === null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => 'No tiene permisos en este módulo',
+            ];
+
+            return response()->json($response, 200);
+        }
 
         $seguimiento = $permisos->Seguimiento;
         $viewall = $permisos->ViewAll;
@@ -6078,6 +6112,16 @@ class CedulasController extends Controller
         $user = auth()->user();
         $id_valor = $user->id;
         $permisos = $this->getPermisos();
+        if ($permisos === null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => 'No tiene permisos en este módulo',
+            ];
+
+            return response()->json($response, 200);
+        }
         $seguimiento = $permisos->Seguimiento;
         $viewall = $permisos->ViewAll;
 

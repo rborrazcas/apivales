@@ -913,7 +913,6 @@ class UserController extends Controller
     function getArticularSolicitudes(Request $request)
     {
         $parameters = $request->all();
-
         try {
             $res = DB::table('vales as V')
                 ->select(
@@ -937,8 +936,12 @@ class UserController extends Controller
                 ->where('V.idStatus', '=', 5)
                 //->whereNotNull('V.Remesa')
                 ->where('V.idIncidencia', '=', 1)
+                ->WhereRaw('YEAR(V.created_at) = 2022')
                 ->whereNotIn('V.id', function ($query) {
-                    $query->select('idSolicitud')->from('vales_solicitudes');
+                    $query
+                        ->select('idSolicitud')
+                        ->from('vales_solicitudes')
+                        ->whereRaw('Ejercicio = 2022');
                 })
                 /* ->whereNotIn(DB::raw('concat(V.UserOwned,V.idMunicipio,V.Remesa)'),function($query){
                 $query->select(DB::raw('concat(UserOwned,idMunicipio,Remesa)'))->from('vales_grupos');
@@ -948,7 +951,6 @@ class UserController extends Controller
                 ->groupBy('M.SubRegion')
                 ->groupBy('V.idMunicipio')
                 ->groupBy('V.Remesa');
-
             $flag = 0;
             if (isset($parameters['filtered'])) {
                 for ($i = 0; $i < count($parameters['filtered']); $i++) {

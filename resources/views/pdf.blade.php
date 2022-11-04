@@ -138,11 +138,11 @@
                             <td colspan="2" class="encabezado">Responsable:</td>
                         </tr>
                         <tr>
-                            <td colspan="2" class="informacion">{{ $vale->id }}</td>
-                            <td colspan="3"class="informacion">{{ $vale->folio }}</td>
-                            <td colspan="4"class="informacion">{{ $vale->acuerdo }}</td>
-                            <td colspan="1"class="informacion">{{ $vale->region }}</td>
-                            <td colspan="2" class="informacion">{{ $vale->enlace }}</td>
+                            <td colspan="2" class="informacion">{{ $vale['id'] }}</td>
+                            <td colspan="3"class="informacion">{{ $vale['folio'] }}</td>
+                            <td colspan="4"class="informacion">{{ $vale['acuerdo'] }}</td>
+                            <td colspan="1"class="informacion">{{ $vale['region'] }}</td>
+                            <td colspan="2" class="informacion">{{ $vale['enlace'] }}</td>
                         </tr>
                         {{-- <tr>
                         <td colspan="2" class="encabezado">Responsable:</td>
@@ -170,9 +170,9 @@
                             <td colspan="6"class="encabezado">Domicilio del Beneficiario:</td>
                         </tr>
                         <tr>
-                            <td colspan="3" class="informacion">{{ $vale->nombre }}</td>
-                            <td colspan="3" class="informacion">{{ $vale->curp }}</td>
-                            <td colspan="6" class="informacion">{{ $vale->domicilio }}</td>
+                            <td colspan="3" class="informacion">{{ $vale['nombre'] }}</td>
+                            <td colspan="3" class="informacion">{{ $vale['curp'] }}</td>
+                            <td colspan="6" class="informacion">{{ $vale['domicilio'] }}</td>
                         </tr>
                         <tr>
                             <td colspan="3"class="encabezado">Municipio:</td>
@@ -181,10 +181,10 @@
                             <td colspan="3"class="encabezado">CP:</td>
                         </tr>
                         <tr>
-                            <td colspan="3" class="informacion">{{ $vale->municipio }}</td>
-                            <td colspan="3" class="informacion">{{ $vale->localidad }}</td>
-                            <td colspan="3" class="informacion">{{ $vale->colonia }}</td>
-                            <td colspan="3" class="informacion">{{ $vale->cp }}</td>
+                            <td colspan="3" class="informacion">{{ $vale['municipio'] }}</td>
+                            <td colspan="3" class="informacion">{{ $vale['localidad'] }}</td>
+                            <td colspan="3" class="informacion">{{ $vale['colonia'] }}</td>
+                            <td colspan="3" class="informacion">{{ $vale['cp'] }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -213,8 +213,8 @@
                         <tr>
                             <td class="informacion">VALE</td>
                             <td class="informacion">10</td>
-                            <td class="informacion">{{ $vale->folioinicial }}</td>
-                            <td class="informacion">{{ $vale->foliofinal }}</td>
+                            <td class="informacion">{{ $vale['folioinicial'] }}</td>
+                            <td class="informacion">{{ $vale['foliofinal'] }}</td>
                             <td class="informacion"></td>
                             <td class="informacion" colspan="7"></td>
                         </tr>

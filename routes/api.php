@@ -222,6 +222,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'ReportesController@getReporteFoliosValidar'
     );
     Route::get('/getReporteAcuseVales', 'ReportesController@getAcuseVales');
+    Route::post('/validarGrupo', 'ReportesController@validarGrupo');
     Route::get(
         '/getReporteNominaVales',
         'ReportesController@getReporteNominaVales'
