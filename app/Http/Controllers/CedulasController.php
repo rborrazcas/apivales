@@ -1595,23 +1595,25 @@ class CedulasController extends Controller
                         ->first();
 
                     if ($remesa != null) {
-                        $validarCurp = DB::table('vales')
-                            ->where('id', $idVale->idVale)
-                            ->where([
-                                'CURP' => $curp,
-                                'Nombre' => $params['Nombre'],
-                            ])
-                            ->get()
-                            ->first();
-                        //dd($validarCurp);
-                        if ($validarCurp == null) {
-                            $response = [
-                                'success' => true,
-                                'results' => false,
-                                'errors' =>
-                                    'El beneficiario ya fue aprobado, ¡No se puede modificar la información personal del solicitante !',
-                            ];
-                            return response()->json($response, 200);
+                        if ($remesa->Remesa != null) {
+                            $validarCurp = DB::table('vales')
+                                ->where('id', $idVale->idVale)
+                                ->where([
+                                    'CURP' => $curp,
+                                    'Nombre' => $params['Nombre'],
+                                ])
+                                ->get()
+                                ->first();
+                            //dd($validarCurp);
+                            if ($validarCurp == null) {
+                                $response = [
+                                    'success' => true,
+                                    'results' => false,
+                                    'errors' =>
+                                        'El beneficiario ya fue aprobado, ¡No se puede modificar la información personal del solicitante !',
+                                ];
+                                return response()->json($response, 200);
+                            }
                         }
                     }
                     DB::table($tableSol)
