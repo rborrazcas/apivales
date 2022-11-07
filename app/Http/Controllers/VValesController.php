@@ -3414,7 +3414,7 @@ class VValesController extends Controller
                 ->select('vales_solicitudes.idSolicitud')
                 ->toSql();
 
-            $res = DB::table('vales')
+            $res = DB::table('vales_aprobados_2022 AS vales')
                 ->select(
                     'vales.id',
                     DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),

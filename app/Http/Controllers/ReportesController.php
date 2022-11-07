@@ -7409,7 +7409,6 @@ class ReportesController extends Controller
 
         $counter = 0;
         foreach (array_chunk($d, 5) as $arrayData) {
-            //foreach ($data as $arrayData) {
             $counter++;
             $vales = $arrayData;
             $pdf = \PDF::loadView('pdf', compact('vales'))->save(

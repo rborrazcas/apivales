@@ -914,7 +914,7 @@ class UserController extends Controller
     {
         $parameters = $request->all();
         try {
-            $res = DB::table('vales as V')
+            $res = DB::table('vales_aprobados_2022 as V')
                 ->select(
                     'V.UserOwned',
                     'M.SubRegion AS Region',

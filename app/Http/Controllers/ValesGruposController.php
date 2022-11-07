@@ -284,7 +284,7 @@ class ValesGruposController extends Controller
                 ->whereRaw('Ejercicio = 2022')
                 ->toSql();
 
-            $res_validacion = DB::table('vales')
+            $res_validacion = DB::table('vales_aprobados_2022 AS vales')
                 ->select('vales.id')
                 ->where('vales.idStatus', '=', 5)
                 ->whereRaw('YEAR(vales.created_at) = 2022')
