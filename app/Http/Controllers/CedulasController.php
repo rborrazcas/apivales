@@ -25,8 +25,8 @@ use HTTP_Request2;
 use GuzzleHttp\Client;
 use App\VNegociosFiltros;
 use Carbon\Carbon as time;
-use Maatwebsite\Excel\Facades\Excel;
-
+use Excel;
+use App\Imports\ConciliacionImport;
 class CedulasController extends Controller
 {
     function getPermisos()
@@ -37,7 +37,11 @@ class CedulasController extends Controller
             ->where(['idUser' => $user->id, 'idMenu' => '13'])
             ->get()
             ->first();
-        return $permisos;
+        if ($permisos !== null) {
+            return $permisos;
+        } else {
+            return null;
+        }
     }
 
     function getEstatusGlobal(Request $request)
@@ -46,6 +50,17 @@ class CedulasController extends Controller
         $user = auth()->user();
 
         $permisos = $this->getPermisos();
+
+        if ($permisos === null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => 'No tiene permisos en este módulo',
+            ];
+
+            return response()->json($response, 200);
+        }
 
         $seguimiento = $permisos->Seguimiento;
         $viewall = $permisos->ViewAll;
@@ -103,7 +118,19 @@ class CedulasController extends Controller
             ->where('idUser', $user->id)
             ->get()
             ->first();
+
         $permisos = $this->getPermisos();
+        if ($permisos === null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => 'No tiene permisos en este módulo',
+            ];
+
+            return response()->json($response, 200);
+        }
+
         try {
             if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
                 $res_Vales = DB::table('cedulas_solicitudes')
@@ -126,6 +153,15 @@ class CedulasController extends Controller
                     $region = 6;
                 } elseif ($userName->Region == 'VII') {
                     $region = 7;
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene región asignada',
+                    ];
+
+                    return response()->json($response, 200);
                 }
 
                 $res_Vales = DB::table('et_cat_municipio')
@@ -175,6 +211,16 @@ class CedulasController extends Controller
             );
 
             $permisos = $this->getPermisos();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
 
             if ($permisos->ViewAll < 1) {
                 $idUserOwner = DB::table('users_aplicativo_web')
@@ -416,6 +462,16 @@ class CedulasController extends Controller
             $user = auth()->user();
 
             $permisos = $this->getPermisos();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
 
             $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
@@ -1043,10 +1099,10 @@ class CedulasController extends Controller
                 }
             }
 
-            $fechaINE = intval($params['FechaINE']);
             $year_start = idate('Y', strtotime('first day of January', time()));
 
             if (isset($params['FechaINE'])) {
+                $fechaINE = intval($params['FechaINE']);
                 if ($year_start > $fechaINE) {
                     $response = [
                         'success' => true,
@@ -1060,6 +1116,10 @@ class CedulasController extends Controller
 
             if ($program == 1) {
                 $curpRegistrado = DB::table('cedulas_solicitudes')
+                    ->select(
+                        DB::RAW('lpad( hex(idVale ), 6, 0 ) AS FolioSolicitud'),
+                        'CURP'
+                    )
                     ->where('CURP', $params['CURP'])
                     ->whereRaw('FechaElimino IS NULL')
                     ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
@@ -1074,12 +1134,16 @@ class CedulasController extends Controller
                             'El Beneficiario con CURP ' .
                             $params['CURP'] .
                             ' ya se encuentra registrado para el ejercicio ' .
-                            $year_start,
+                            $year_start .
+                            ' con el Folio ' .
+                            $curpRegistrado->FolioSolicitud,
                         'message' =>
                             'El Beneficiario con CURP ' .
                             $params['CURP'] .
                             ' ya se encuentra registrado para el ejercicio ' .
-                            $year_start,
+                            $year_start .
+                            ' con el Folio ' .
+                            $curpRegistrado->FolioSolicitud,
                     ];
 
                     return response()->json($response, 200);
@@ -1285,96 +1349,83 @@ class CedulasController extends Controller
         try {
             $v = Validator::make($request->all(), [
                 'id' => 'required',
-                'FechaSolicitud' => 'required',
+                // 'FechaSolicitud' => 'required',
                 'Nombre' => 'required',
                 'Paterno' => 'required',
-                'Materno' => 'required',
-                'FechaNacimiento' => 'required',
-                'Edad' => 'required',
-                'Sexo' => 'required',
-                'idEntidadNacimiento' => 'required',
+                //'Materno' => 'required',
+                // 'FechaNacimiento' => 'required',
+                // 'Edad' => 'required',
+                // 'Sexo' => 'required',
+                // 'idEntidadNacimiento' => 'required',
                 'CURP' => 'required',
-                'idEstadoCivil' => 'required',
-                'idParentescoJefeHogar' => 'required',
-                'NumHijos' => 'required',
-                'NumHijas' => 'required',
-                'Afromexicano' => 'required',
-                'idSituacionActual' => 'required',
-                'TarjetaImpulso' => 'required',
-                'ContactoTarjetaImpulso' => 'required',
-                'NecesidadSolicitante' => 'required',
-                'CostoNecesidad' => 'required',
-                'idEntidadVive' => 'required',
+                // 'idEstadoCivil' => 'required',
+                // 'idParentescoJefeHogar' => 'required',
+                // 'NumHijos' => 'required',
+                // 'NumHijas' => 'required',
+                // 'Afromexicano' => 'required',
+                // 'idSituacionActual' => 'required',
+                // 'TarjetaImpulso' => 'required',
+                // 'ContactoTarjetaImpulso' => 'required',
+                // 'NecesidadSolicitante' => 'required',
+                // 'CostoNecesidad' => 'required',
+                // 'idEntidadVive' => 'required',
                 'MunicipioVive' => 'required',
                 'LocalidadVive' => 'required',
                 'CPVive' => 'required',
                 'ColoniaVive' => 'required',
                 'CalleVive' => 'required',
                 'NoExtVive' => 'required',
-                'NoIntVive' => 'required',
-                'Referencias' => 'required',
-                'Folio' => 'required',
+                // 'NoIntVive' => 'required',
+                // 'Referencias' => 'required',
+                // 'Folio' => 'required',
             ]);
 
-            // if ($v->fails()){
-            //     $response =  [
-            //         'success'=>true,
-            //         'results'=>false,
-            //         'errors'=>$v->errors()
-            //     ];
-            //     return response()->json($response,200);
-            // }
-            $params = $request->all();
-            $curp = $params['CURP'];
-            $program = 1;
-
-            $program = 1;
-
-            if ($program > 1) {
-                $tableSol = 'calentadores_solicitudes';
-                $tableCedulas = 'calentadores_cedulas';
-            } else {
-                $tableSol = 'cedulas_solicitudes';
-                $tableCedulas = 'cedulas';
-            }
-
-            $solicitud = DB::table($tableSol)
-                ->select(
-                    $tableSol . '.idEstatus',
-                    $tableCedulas . '.id AS idCedula',
-                    $tableSol . '.ListaParaEnviar'
-                )
-                ->leftJoin(
-                    $tableCedulas,
-                    $tableCedulas . '.idSolicitud',
-                    $tableSol . '.id'
-                )
-                ->where($tableSol . '.id', $params['id'])
-                ->first();
-
-            try {
-                if (
-                    ($solicitud->idEstatus != 1 ||
-                        isset($solicitud->idCedula)) &&
-                    $program > 1
-                ) {
-                    $response = [
-                        'success' => true,
-                        'results' => false,
-                        'errors' =>
-                            'La solicitud no se puede editar, tiene una cédula activa o ya fue aceptada',
-                    ];
-                    return response()->json($response, 200);
-                }
-            } catch (Exception $e) {
+            if ($v->fails()) {
                 $response = [
                     'success' => true,
                     'results' => false,
                     'errors' =>
-                        'Ocurrio un error al validar la cedula de la solicitud',
+                        'Uno o más campos obligatorios están vaciós o no tiene el formato correcto',
+                    'message' =>
+                        'Uno o más campos obligatorios están vaciós o no tiene el formato correcto',
                 ];
                 return response()->json($response, 200);
             }
+            $params = $request->all();
+            $curp = $params['CURP'];
+
+            if ($curp === '' || $curp === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'Ocurrio un error con el CURP al actualizar, recargue la página e intente nuevamente',
+                    'message' =>
+                        'Ocurrio un error con el CURP al actualizar, recargue la página e intente nuevamente',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $program = 1;
+            $tableSol = 'cedulas_solicitudes';
+            $tableCedulas = 'cedulas';
+
+            $solicitud = DB::table($tableSol)
+                ->select('idEstatus')
+                ->where('id', $params['id'])
+                ->whereNull('FechaElimino')
+                ->first();
+
+            if ($solicitud !== null && $solicitud->idEstatus > 1) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'La solicitud se encuentra validada, no se puede editar',
+                ];
+                return response()->json($response, 200);
+            }
+
             $oldClasificacion = isset($params['OldClasificacion'])
                 ? $params['OldClasificacion']
                 : [];
@@ -1396,7 +1447,7 @@ class CedulasController extends Controller
             unset($params['FolioSolicitud']);
 
             $params['idUsuarioActualizo'] = $user->id;
-            $params['FechaActualizo'] = date('Y-m-d');
+            $params['FechaActualizo'] = date('Y-m-d H:i:s');
             if (!isset($params['idEstatus'])) {
                 $params['idEstatus'] = 1;
             }
@@ -1423,50 +1474,6 @@ class CedulasController extends Controller
                     return response()->json($response, 200);
                 }
             }
-
-            // if ($user->id != '1312') {
-            //     $idMunicipio = DB::table('et_cat_municipio')
-            //         ->select('id')
-            //         ->where('Nombre', $params['MunicipioVive'])
-            //         ->get()
-            //         ->first();
-
-            //     $tipoAsentamiento = DB::table('et_cat_localidad')
-            //         ->select('Ambito')
-            //         ->where([
-            //             'Nombre' => $params['LocalidadVive'],
-            //             'IdMunicipio' => $idMunicipio->id,
-            //         ])
-            //         ->get()
-            //         ->first();
-
-            //     if ($tipoAsentamiento != null) {
-            //         $montoMaximo = 0;
-            //         if ($tipoAsentamiento->Ambito === 'R') {
-            //             $montoMaximo = 2870;
-            //         } else {
-            //             $montoMaximo = 4042;
-            //         }
-
-            //         if ($params['IngresoPercapita'] > $montoMaximo) {
-            //             $response = [
-            //                 'success' => true,
-            //                 'results' => false,
-            //                 'errors' =>
-            //                     'El Ingreso pércapita excede el límite permitido',
-            //             ];
-            //             return response()->json($response, 200);
-            //         }
-            //     } else {
-            //         $response = [
-            //             'success' => true,
-            //             'results' => false,
-            //             'errors' =>
-            //                 'Ocurrio un error al actualizar la informacion de la solicitud',
-            //         ];
-            //         return response()->json($response, 200);
-            //     }
-            // }
 
             if (isset($params['Actualizada'])) {
                 $solicitudAnterior = DB::table('cedulas_solicitudes')
@@ -1576,30 +1583,37 @@ class CedulasController extends Controller
                 $idVale = DB::table($tableSol)
                     ->select('idVale', 'CURP')
                     ->where('id', $id)
+                    ->whereNull('FechaElimino')
                     ->get()
                     ->first();
 
                 if ($idVale != null) {
                     $remesa = DB::table('vales')
+                        ->select('Remesa')
                         ->where('id', $idVale->idVale)
                         ->get()
                         ->first();
 
-                    if ($remesa->Remesa != null) {
-                        $validarCurp = DB::table('vales')
-                            ->where('id', $idVale->idVale)
-                            ->where('CURP', $curp)
-                            ->get()
-                            ->first();
-                        //dd($validarCurp);
-                        if ($validarCurp == null) {
-                            $response = [
-                                'success' => true,
-                                'results' => false,
-                                'errors' =>
-                                    'El beneficiario ya fue aprobado, ¡No se puede modificar la información personal del solicitante !',
-                            ];
-                            return response()->json($response, 200);
+                    if ($remesa != null) {
+                        if ($remesa->Remesa != null) {
+                            $validarCurp = DB::table('vales')
+                                ->where('id', $idVale->idVale)
+                                ->where([
+                                    'CURP' => $curp,
+                                    'Nombre' => $params['Nombre'],
+                                ])
+                                ->get()
+                                ->first();
+                            //dd($validarCurp);
+                            if ($validarCurp == null) {
+                                $response = [
+                                    'success' => true,
+                                    'results' => false,
+                                    'errors' =>
+                                        'El beneficiario ya fue aprobado, ¡No se puede modificar la información personal del solicitante !',
+                                ];
+                                return response()->json($response, 200);
+                            }
                         }
                     }
                     DB::table($tableSol)
@@ -1727,13 +1741,10 @@ class CedulasController extends Controller
             $tableCedulas = 'cedulas';
 
             $solicitud = DB::table($tableSol)
-                ->select(
-                    $tableSol . '.idEstatus',
-                    $tableSol . '.ListaParaEnviar',
-                    $tableSol . '.idVale'
-                )
-                ->where($tableSol . '.id', $params['id'])
+                ->select('idEstatus', 'ListaParaEnviar', 'idVale')
+                ->where('id', $params['id'])
                 ->first();
+
             if ($solicitud->idEstatus > 1) {
                 $response = [
                     'success' => true,
@@ -1744,15 +1755,10 @@ class CedulasController extends Controller
                 return response()->json($response, 200);
             }
 
-            $idVale = DB::table($tableSol)
-                ->select('idVale')
-                ->where('id', $params['id'])
-                ->get()
-                ->first();
-
-            if ($idVale != null) {
+            if ($solicitud != null) {
                 $remesa = DB::table('vales')
-                    ->where('id', $idVale->idVale)
+                    ->select('Remesa')
+                    ->where('id', $solicitud->idVale)
                     ->get()
                     ->first();
 
@@ -1768,7 +1774,7 @@ class CedulasController extends Controller
             }
 
             DB::table('vales')
-                ->where('id', $idVale->idVale)
+                ->where('id', $solicitud->idVale)
                 ->delete();
 
             DB::table($tableSol)
@@ -5445,31 +5451,49 @@ class CedulasController extends Controller
         }
 
         $dataVales = [
-            'FechaSolicitud' => $solicitud->FechaSolicitud,
-            'FolioSolicitud' => $solicitud->Folio,
+            'FechaSolicitud' => $solicitud->FechaSolicitud
+                ? $solicitud->FechaSolicitud
+                : null,
+            'FolioSolicitud' => $solicitud->Folio ? $solicitud->Folio : null,
             'idIncidencia' => '1',
-            'CURP' => $solicitud->CURP,
-            'Ocupacion' => $solicitud->OcupacionJefeHogar,
-            'Nombre' => $solicitud->Nombre,
-            'Paterno' => $solicitud->Paterno,
-            'Materno' => $solicitud->Materno,
-            'Sexo' => $solicitud->Sexo,
-            'FechaNacimiento' => $solicitud->FechaNacimiento,
-            'Calle' => $solicitud->CalleVive,
-            'NumInt' => $solicitud->NoIntVive,
-            'NumExt' => $solicitud->NoExtVive,
-            'Colonia' => $solicitud->ColoniaVive,
-            'CP' => $solicitud->CPVive,
-            'idMunicipio' => $idMunicipio->id,
-            'idLocalidad' => $idLocalidad->id,
-            'TelFijo' => $solicitud->Telefono,
-            'TelCelular' => $solicitud->Celular,
-            'TelRecados' => $solicitud->TelRecados,
-            'CorreoElectronico' => $solicitud->Correo,
+            'CURP' => $solicitud->CURP ? $solicitud->CURP : null,
+            'Ocupacion' => $solicitud->OcupacionJefeHogar
+                ? $solicitud->OcupacionJefeHogar
+                : null,
+            'Nombre' => $solicitud->Nombre ? $solicitud->Nombre : null,
+            'Paterno' => $solicitud->Paterno ? $solicitud->Paterno : null,
+            'Materno' => $solicitud->Materno ? $solicitud->Materno : null,
+            'Sexo' => $solicitud->Sexo ? $solicitud->Sexo : null,
+            'FechaNacimiento' => $solicitud->FechaNacimiento
+                ? $solicitud->FechaNacimiento
+                : null,
+            'Calle' => $solicitud->CalleVive ? $solicitud->CalleVive : null,
+            'NumInt' => $solicitud->NoIntVive ? $solicitud->NoIntVive : null,
+            'NumExt' => $solicitud->NoExtVive ? $solicitud->NoExtVive : null,
+            'Colonia' => $solicitud->ColoniaVive
+                ? $solicitud->ColoniaVive
+                : null,
+            'CP' => $solicitud->CPVive ? $solicitud->CPVive : null,
+            'idMunicipio' => $idMunicipio->id ? $idMunicipio->id : null,
+            'idLocalidad' => $idLocalidad->id ? $idLocalidad->id : null,
+            'TelFijo' => $solicitud->Telefono ? $solicitud->Telefono : null,
+            'TelCelular' => $solicitud->Celular ? $solicitud->Celular : null,
+            'TelRecados' => $solicitud->TelRecados
+                ? $solicitud->TelRecados
+                : null,
+            'CorreoElectronico' => $solicitud->Correo
+                ? $solicitud->Correo
+                : null,
             'idStatus' => 1,
-            'IngresoPercibido' => $solicitud->IngresoMensual,
-            'OtrosIngresos' => $solicitud->OtrosIngresos,
-            'NumeroPersonas' => $solicitud->PersonasDependientes,
+            'IngresoPercibido' => $solicitud->IngresoMensual
+                ? $solicitud->IngresoMensual
+                : null,
+            'OtrosIngresos' => $solicitud->OtrosIngresos
+                ? $solicitud->OtrosIngresos
+                : null,
+            'NumeroPersonas' => $solicitud->PersonasDependientes
+                ? $solicitud->PersonasDependientes
+                : null,
             'UserOwned' =>
                 $userOwned != null
                     ? $userOwned
@@ -5477,7 +5501,9 @@ class CedulasController extends Controller
                         ? $userCreo->idUser
                         : $solicitud->idUsuarioCreo),
 
-            'TotalIngresos' => $solicitud->TotalIngreso,
+            'TotalIngresos' => $solicitud->TotalIngreso
+                ? $solicitud->TotalIngreso
+                : null,
             //'OcupacionOtro' => 0,
             'UserCreated' =>
                 $solicitud->idUsuarioCreo == 1312 && $userCreo != null
@@ -5692,6 +5718,16 @@ class CedulasController extends Controller
 
         //Agregando Filtros por permisos
         $permisos = $this->getPermisos();
+        if ($permisos === null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => 'No tiene permisos en este módulo',
+            ];
+
+            return response()->json($response, 200);
+        }
 
         $seguimiento = $permisos->Seguimiento;
         $viewall = $permisos->ViewAll;
@@ -6078,6 +6114,16 @@ class CedulasController extends Controller
         $user = auth()->user();
         $id_valor = $user->id;
         $permisos = $this->getPermisos();
+        if ($permisos === null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => 'No tiene permisos en este módulo',
+            ];
+
+            return response()->json($response, 200);
+        }
         $seguimiento = $permisos->Seguimiento;
         $viewall = $permisos->ViewAll;
 
@@ -6790,6 +6836,349 @@ class CedulasController extends Controller
             $file,
             $user->email .
                 'SolicitudesValesGrandeza' .
+                date('Y-m-d H:i:s') .
+                '.xlsx'
+        );
+    }
+
+    public function uploadExcel(Request $request)
+    {
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 600);
+        $v = Validator::make($request->all(), [
+            'NewFiles' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'No se envió ningun archivo',
+                'errors' => 'No se envió ningun archivo',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $userId = JWTAuth::parseToken()->toUser()->id;
+
+        $conciliacionPendiente = DB::table('users_filtros')
+            ->where('UserCreated', $userId)
+            ->where('api', 'uploadClasificacion')
+            ->get()
+            ->first();
+
+        if ($conciliacionPendiente != null) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'Su usuario tiene una conciliacion pendiente, Contacte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+
+        DB::table('users_filtros')->insert([
+            'UserCreated' => $userId,
+            'Api' => 'uploadClasificacion',
+            'Consulta' => '',
+            'created_at' => date('Y-m-d h-m-s'),
+        ]);
+
+        $file = $params['NewFiles'][0];
+
+        DB::table('preconciliacion_vales')
+            ->where('idUser', $userId)
+            ->delete();
+
+        Excel::import(new ConciliacionImport(), $file);
+
+        $totalRows = DB::table('preconciliacion_vales')
+            ->selectRaw('COUNT(id) AS total')
+            ->where('idUser', $userId)
+            ->get()
+            ->first();
+
+        if ($totalRows->total == 0) {
+            $this->limpiarTabla();
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'El excel esta vacio o los encabezados no coinciden',
+                'errors' =>
+                    'El excel esta vacio o los encabezados no coinciden',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $nombreArchivo = $file->getClientOriginalName();
+        $fechaActual = date('Y-m-d h-m-s');
+        $size = $file->getSize();
+        $total = intval($totalRows->total);
+
+        $archivoConciliacion = [
+            'Quincena' => $fechaActual,
+            'Nombre' => $nombreArchivo,
+            'Peso' => $size,
+            'Registros' => $total,
+            'FechaUpload' => $fechaActual,
+            'UserUpload' => $userId,
+        ];
+
+        DB::beginTransaction();
+        $id = DB::table('conciliacion_archivos')->insertGetId(
+            $archivoConciliacion
+        );
+        DB::commit();
+
+        $infoVales = DB::table('preconciliacion_vales')
+            ->select(
+                'idUser',
+                'folio_vale',
+                'cantidad',
+                'codigo',
+                'responsable_de_escaneo',
+                'farmacia',
+                'fecha_de_canje',
+                'tipo_de_operacion',
+                'fecha_de_captura',
+                'mes_de_canje',
+                'observacion'
+            )
+            ->where('idUser', $userId)
+            ->get()
+            ->chunk(1000);
+
+        try {
+            foreach ($infoVales as $items) {
+                $insert_data = [];
+                $folios = [];
+                foreach ($items as $data) {
+                    $insert_data[] = [
+                        'cantidad' => $data->cantidad,
+                        'codigo' => $data->codigo,
+                        'responsable_de_escaneo' =>
+                            $data->responsable_de_escaneo,
+                        'farmacia' => $data->farmacia,
+                        'fecha_de_canje' => $data->fecha_de_canje,
+                        'tipo_de_operacion' => $data->tipo_de_operacion,
+                        'fecha_de_captura' => $data->fecha_de_captura,
+                        'mes_de_canje' => $data->mes_de_canje,
+                        'folio_vale' => $data->folio_vale,
+                        'observacion' => $data->observacion,
+                        'idArchivo' => $id,
+                    ];
+                    $folios[] = $data->folio_vale;
+                }
+                DB::table('conciliacion_vales')->insert($insert_data);
+                DB::table('vales_series_2022')
+                    ->whereIn('Serie', $folios)
+                    ->update(['Conciliado' => 1]);
+                unset($insert_data);
+                unset($folios);
+            }
+
+            $this->limpiarTabla($userId);
+
+            return [
+                'success' => true,
+                'results' => true,
+                'message' => 'Cargado con éxito',
+            ];
+        } catch (\Illuminate\Database\QueryException $e) {
+            $this->limpiarTabla($userId);
+            return [
+                'success' => false,
+                'message' =>
+                    'Ha ocurrido un error en la petición ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function limpiarTabla($userId)
+    {
+        DB::table('preconciliacion_vales')
+            ->where('idUser', $userId)
+            ->delete();
+
+        DB::table('users_filtros')
+            ->where('UserCreated', $userId)
+            ->where('api', 'uploadClasificacion')
+            ->delete();
+    }
+
+    public function getConciliacionArchivos(Request $request)
+    {
+        $params = $request->all();
+        try {
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
+            $startIndex = $page * $pageSize;
+
+            $res = DB::table('conciliacion_archivos as a')
+                ->select(
+                    'a.id',
+                    'a.Quincena',
+                    'a.Nombre',
+                    'a.Peso',
+                    'a.Registros',
+                    'a.FechaUpload',
+                    DB::raw(
+                        "CONCAT_WS(' ',b.Nombre,IFNULL(b.Paterno,''),IFNULL(b.Materno,'')) as UserUpload"
+                    )
+                )
+                ->leftJoin('users as b', 'b.id', '=', 'a.UserUpload');
+            $total = $res->count();
+
+            $data = $res
+                ->orderBy('a.id', 'desc')
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'data' => $data,
+            ];
+        } catch (\Illuminate\Database\QueryException $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    public function getValesConciliacion(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'id' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'Ocurrio un error.',
+            ];
+            return response()->json($response, 200);
+        }
+        ini_set('memory_limit', '-1');
+        $params = $request->all();
+        $idArchivo = $params['id'];
+        $user = auth()->user();
+        $res = DB::table('conciliacion_vales AS cv')
+            ->select(
+                'cv.cantidad',
+                'cv.codigo',
+                'cv.responsable_de_escaneo',
+                'cv.farmacia',
+                'cv.fecha_de_canje',
+                'cv.tipo_de_operacion',
+                'cv.mes_de_canje',
+                'cv.observacion',
+                'cv.folio_vale',
+                'vs.SerieInicial',
+                'vs.SerieFinal',
+                'vr.RemesaSistema',
+                'vss.CURP',
+                'vss.idSolicitud',
+                DB::RAW('lpad( hex( vss.idSolicitud ), 6, 0 ) FolioSolicitud'),
+                'vss.Nombre',
+                'vss.Paterno',
+                'vss.Materno',
+                'vss.Municipio',
+                'v.entrega_at',
+                'vss.Articulador'
+            )
+            ->join('vales_series_2022 AS vs', 'cv.folio_vale', 'vs.Serie')
+            ->join(
+                DB::RAW(
+                    '(SELECT * FROM vales_solicitudes WHERE Ejercicio = 2022 ) AS vss'
+                ),
+                'vs.SerieInicial',
+                'vss.SerieInicial'
+            )
+            ->join('vales AS v', 'vss.IdSolicitud', 'v.id')
+            ->join('vales_remesas AS vr', 'v.Remesa', 'vr.Remesa')
+            ->where('cv.idArchivo', $idArchivo)
+            ->orderBy('cv.folio_vale')
+            ->get();
+
+        //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
+
+        $total = $res->count();
+        if ($total == 0) {
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoReporteSolicitudVales11.xlsx'
+            );
+            $writer = new Xlsx($spreadsheet);
+            $writer->save(
+                'archivos/' . $user->email . 'reporteConciliacionVales.xlsx'
+            );
+            $file =
+                public_path() .
+                '/archivos/' .
+                $user->email .
+                'reporteConciliacionVales.xlsx';
+
+            return response()->download(
+                $file,
+                'ConciliacionValesGrandeza' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        //!Mapeamos el resultado como un array
+        $res = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+
+        $reader = IOFactory::createReader('Xlsx');
+        $spreadsheet = $reader->load(
+            public_path() . '/archivos/formatoReporteSolicitudVales10.xlsx'
+        );
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet
+            ->getPageSetup()
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)
+            ->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+        $sheet->getPageSetup()->setPrintArea('A1:V' . (intval($total) + 10));
+
+        // //Llenar excel con el resultado del query
+        $sheet->fromArray($res, null, 'B5');
+        unset($res);
+        //Agregamos la fecha
+        $sheet->setCellValue('H2', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+        // // //Agregar el indice autonumerico
+        for ($i = 1; $i <= $total; $i++) {
+            $inicio = 4 + $i;
+            $sheet->setCellValue('A' . $inicio, $i);
+        }
+        $sheet->getDefaultRowDimension()->setRowHeight(-1);
+        // //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+        $writer = new Xlsx($spreadsheet);
+        $writer->save(
+            'archivos/' . $user->email . 'ConciliacionValesGrandeza.xlsx'
+        );
+        unset($sheet);
+        unset($writer);
+        $file =
+            public_path() .
+            '/archivos/' .
+            $user->email .
+            'ConciliacionValesGrandeza.xlsx';
+
+        return response()->download(
+            $file,
+            $user->email .
+                'ConciliacionValesGrandeza' .
                 date('Y-m-d H:i:s') .
                 '.xlsx'
         );
