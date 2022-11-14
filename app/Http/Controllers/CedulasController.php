@@ -1148,6 +1148,47 @@ class CedulasController extends Controller
 
                     return response()->json($response, 200);
                 }
+                $beneficiarioRegistrado = DB::table('cedulas_solicitudes')
+                    ->select(
+                        DB::RAW('lpad( hex(idVale ), 6, 0 ) AS FolioSolicitud'),
+                        'CURP',
+                        'Nombre',
+                        'Paterno',
+                        'Materno'
+                    )
+                    ->where([
+                        'CURP' => $params['CURP'],
+                        'Nombre' => $params['Nombre'],
+                        'Paterno' => $params['Paterno'],
+                        'Materno' => $params['Materno'],
+                    ])
+                    ->whereRaw('FechaElimino IS NULL')
+                    ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
+                    ->get()
+                    ->first();
+
+                if ($beneficiarioRegistrado != null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'El Beneficiario con CURP ' .
+                            $params['CURP'] .
+                            ' ya se encuentra registrado para el ejercicio ' .
+                            $year_start .
+                            ' con el Folio ' .
+                            $curpRegistrado->FolioSolicitud,
+                        'message' =>
+                            'El Beneficiario con CURP ' .
+                            $params['CURP'] .
+                            ' ya se encuentra registrado para el ejercicio ' .
+                            $year_start .
+                            ' con el Folio ' .
+                            $curpRegistrado->FolioSolicitud,
+                    ];
+
+                    return response()->json($response, 200);
+                }
             }
 
             if ($program != 1) {
@@ -1620,7 +1661,7 @@ class CedulasController extends Controller
                         ->where('id', $id)
                         ->update($params);
 
-                    $infoVale = $this->setVales($id);
+                    $infoVale = $this->setValesUpdate($id);
                     DB::beginTransaction();
                     DB::table('vales')
                         ->where('id', $idVale->idVale)
@@ -5519,6 +5560,113 @@ class CedulasController extends Controller
             // 'BloqueadoUser' => $user->id,
             'BloqueadoDate' => date('Y-m-d H:i:s'),
             'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        return $dataVales;
+    }
+
+    public function setValesUpdate($id)
+    {
+        $user = auth()->user();
+        $userCreo = null;
+        $userOwned = null;
+
+        $solicitud = DB::table('cedulas_solicitudes')
+            ->where('id', $id)
+            ->get()
+            ->first();
+
+        $userCreo = null;
+
+        if ($solicitud->idEnlace != null) {
+            $userOwned = $solicitud->idEnlace;
+        }
+
+        $idMunicipio = DB::table('et_cat_municipio')
+            ->select('id')
+            ->where('Nombre', $solicitud->MunicipioVive)
+            ->get()
+            ->first();
+
+        $idLocalidad = DB::table('et_cat_localidad_2022')
+            ->select('id')
+            ->where([
+                'idMunicipio' => $idMunicipio->id,
+                'Nombre' => $solicitud->LocalidadVive,
+            ])
+            ->get()
+            ->first();
+        if ($solicitud->idUsuarioCreo == 1312) {
+            if ($solicitud->UsuarioAplicativo != null) {
+                $userCreo = DB::table('users_aplicativo_web')
+                    ->select('idUser')
+                    ->where('UserName', $solicitud->UsuarioAplicativo)
+                    ->get()
+                    ->first();
+            }
+        }
+
+        $dataVales = [
+            'FechaSolicitud' => $solicitud->FechaSolicitud
+                ? $solicitud->FechaSolicitud
+                : null,
+            'FolioSolicitud' => $solicitud->Folio ? $solicitud->Folio : null,
+            'idIncidencia' => '1',
+            'CURP' => $solicitud->CURP ? $solicitud->CURP : null,
+            'Ocupacion' => $solicitud->OcupacionJefeHogar
+                ? $solicitud->OcupacionJefeHogar
+                : null,
+            'Nombre' => $solicitud->Nombre ? $solicitud->Nombre : null,
+            'Paterno' => $solicitud->Paterno ? $solicitud->Paterno : null,
+            'Materno' => $solicitud->Materno ? $solicitud->Materno : null,
+            'Sexo' => $solicitud->Sexo ? $solicitud->Sexo : null,
+            'FechaNacimiento' => $solicitud->FechaNacimiento
+                ? $solicitud->FechaNacimiento
+                : null,
+            'Calle' => $solicitud->CalleVive ? $solicitud->CalleVive : null,
+            'NumInt' => $solicitud->NoIntVive ? $solicitud->NoIntVive : null,
+            'NumExt' => $solicitud->NoExtVive ? $solicitud->NoExtVive : null,
+            'Colonia' => $solicitud->ColoniaVive
+                ? $solicitud->ColoniaVive
+                : null,
+            'CP' => $solicitud->CPVive ? $solicitud->CPVive : null,
+            'idMunicipio' => $idMunicipio->id ? $idMunicipio->id : null,
+            'idLocalidad' => $idLocalidad->id ? $idLocalidad->id : null,
+            'TelFijo' => $solicitud->Telefono ? $solicitud->Telefono : null,
+            'TelCelular' => $solicitud->Celular ? $solicitud->Celular : null,
+            'TelRecados' => $solicitud->TelRecados
+                ? $solicitud->TelRecados
+                : null,
+            'CorreoElectronico' => $solicitud->Correo
+                ? $solicitud->Correo
+                : null,
+            'IngresoPercibido' => $solicitud->IngresoMensual
+                ? $solicitud->IngresoMensual
+                : null,
+            'OtrosIngresos' => $solicitud->OtrosIngresos
+                ? $solicitud->OtrosIngresos
+                : null,
+            'NumeroPersonas' => $solicitud->PersonasDependientes
+                ? $solicitud->PersonasDependientes
+                : null,
+            'UserOwned' =>
+                $userOwned != null
+                    ? $userOwned
+                    : ($solicitud->idUsuarioCreo == 1312 && $userCreo != null
+                        ? $userCreo->idUser
+                        : $solicitud->idUsuarioCreo),
+
+            'TotalIngresos' => $solicitud->TotalIngreso
+                ? $solicitud->TotalIngreso
+                : null,
+            'UserUpdated' =>
+                $solicitud->idUsuarioCreo == 1312 && $userCreo != null
+                    ? $userCreo->idUser
+                    : $solicitud->idUsuarioCreo,
+            'Bloqueado' => 1,
+            // 'BloqueadoUser' => $user->id,
+            'BloqueadoDate' => date('Y-m-d H:i:s'),
             'updated_at' => date('Y-m-d H:i:s'),
         ];
 

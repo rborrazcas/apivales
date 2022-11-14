@@ -4601,8 +4601,8 @@ class YoPuedoController extends Controller
         $tableSol = 'vales';
         $res = DB::table('yopuedo_solicitudes as vales')
             ->select(
+                DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
                 'et_cat_municipio.SubRegion AS Region',
-                //DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
                 'vales.Folio AS Folio',
                 'vales.FechaSolicitud',
                 'vales.CURP',
@@ -4611,12 +4611,10 @@ class YoPuedoController extends Controller
                 DB::raw("IFNULL(vales.Materno,'')"),
                 'vales.Sexo',
                 'vales.FechaNacimiento',
-                'proyectos_cedulas.ColoniaVive',
-                'proyectos_cedulas.CalleVive',
-                'proyectos_cedulas.NoExtVive',
-                'proyectos_cedulas.NoIntVive',
-                'yopuedo_cedulas.AGEBVive AS ClaveAGEB',
-                'yopuedo_cedulas.ManzanaVive AS Manzana',
+                'vales.ColoniaVive',
+                'vales.CalleVive',
+                'vales.NoExtVive',
+                'vales.NoIntVive',
                 'vales.CPVive',
                 'vales.MunicipioVive AS Municipio',
                 'vales.LocalidadVive AS Localidad',
@@ -4663,6 +4661,9 @@ class YoPuedoController extends Controller
                 'yopuedo_cedulas.PersonaJefaFamilia',
                 'vales_status.Estatus',
                 DB::raw(
+                    'CONCAT_WS( " ", u.Nombre, u.Paterno, u.Materno )  AS Enlace'
+                ),
+                DB::raw(
                     "CASE 
                         WHEN 
                             vales.idUsuarioCreo = 1312 
@@ -4673,10 +4674,22 @@ class YoPuedoController extends Controller
                         END 
                     AS UserInfoCapturo"
                 ),
-                'vales.Enlace AS Enlace'
+                DB::raw(
+                    "CASE 
+                        WHEN 
+                            vales.idUsuarioCreo = 1312 
+                        THEN 
+                            users_aplicativo_web.Nombre 
+                        ELSE 
+                            CONCAT_WS( ' ', up.Nombre, up.Paterno, up.Materno ) 
+                        END 
+                    AS UserInfoActualizo"
+                )
             )
             ->leftJoin('vales_status', 'vales_status.id', '=', 'idEstatus')
             ->leftJoin('users', 'users.id', '=', 'vales.idUsuarioCreo')
+            ->leftJoin('users AS u', 'u.id', '=', 'vales.Enlace')
+            ->leftJoin('users AS up', 'up.id', '=', 'vales.idUsuarioActualizo')
             ->leftJoin(
                 'et_cat_municipio',
                 'et_cat_municipio.Nombre',
@@ -4895,12 +4908,10 @@ class YoPuedoController extends Controller
             ->orderBy('vales.Materno', 'asc')
             ->orderBy('vales.Nombre', 'asc')
             ->get();
-        //$data2 = $resGrupo->first();
 
-        //dd($data);
+        //dd(str_replace_array('?', $data->getBindings(), $data->toSql()));
 
-        if (count($data) == 0) {
-            //return response()->json(['success'=>false,'results'=>false,'message'=>$res->toSql()]);
+        if ($data->count() == 0) {
             $reader = IOFactory::createReader('Xlsx');
             $spreadsheet = $reader->load(
                 public_path() . '/archivos/formatoReporteSolicitudValesV3.xlsx'
@@ -4930,14 +4941,6 @@ class YoPuedoController extends Controller
             ->toArray();
 
         //------------------------------------------------- Para generar el archivo excel ----------------------------------------------------------------
-        // $spreadsheet = new Spreadsheet();
-        // $sheet = $spreadsheet->getActiveSheet();
-
-        //Para los titulos del excel
-        // $titulos = ['Grupo','Folio','Nombre','Paterno','Materno','Fecha de Nacimiento','Sexo','Calle','Numero','Colonia','Municipio','Localidad','CP','Terminación'];
-        // $sheet->fromArray($titulos,null,'A1');
-        // $sheet->getStyle('A1:N1')->getFont()->getColor()->applyFromArray(['rgb' => '808080']);
-
         $reader = IOFactory::createReader('Xlsx');
         $spreadsheet = $reader->load(
             public_path() . '/archivos/formatoReporteSolicitudValesV6.xlsx'
@@ -4952,39 +4955,6 @@ class YoPuedoController extends Controller
         $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
 
         $largo = count($res);
-        //colocar los bordes
-        // self::crearBordes($largo, 'B', $sheet);
-        // self::crearBordes($largo, 'C', $sheet);
-        // self::crearBordes($largo, 'D', $sheet);
-        // self::crearBordes($largo, 'E', $sheet);
-        // self::crearBordes($largo, 'F', $sheet);
-        // self::crearBordes($largo, 'G', $sheet);
-        // self::crearBordes($largo, 'H', $sheet);
-        // self::crearBordes($largo, 'I', $sheet);
-        // self::crearBordes($largo, 'J', $sheet);
-        // self::crearBordes($largo, 'K', $sheet);
-        // self::crearBordes($largo, 'L', $sheet);
-        // self::crearBordes($largo, 'M', $sheet);
-        // self::crearBordes($largo, 'N', $sheet);
-        // self::crearBordes($largo, 'O', $sheet);
-        // self::crearBordes($largo, 'P', $sheet);
-        // self::crearBordes($largo, 'Q', $sheet);
-        // self::crearBordes($largo, 'R', $sheet);
-        // self::crearBordes($largo, 'S', $sheet);
-        // self::crearBordes($largo, 'T', $sheet);
-        // self::crearBordes($largo, 'U', $sheet);
-        // self::crearBordes($largo, 'V', $sheet);
-        // self::crearBordes($largo, 'W', $sheet);
-        // self::crearBordes($largo, 'X', $sheet);
-        // self::crearBordes($largo, 'Y', $sheet);
-        // self::crearBordes($largo, 'Z', $sheet);
-        // self::crearBordes($largo, 'AA', $sheet);
-        // self::crearBordes($largo, 'AB', $sheet);
-        // self::crearBordes($largo, 'AC', $sheet);
-        // self::crearBordes($largo, 'AD', $sheet);
-        // self::crearBordes($largo, 'AE', $sheet);
-        // self::crearBordes($largo, 'AF', $sheet);
-        // self::crearBordes($largo, 'AG', $sheet);
 
         //Llenar excel con el resultado del query
         $sheet->fromArray($res, null, 'C11');
@@ -4998,37 +4968,20 @@ class YoPuedoController extends Controller
             $sheet->setCellValue('B' . $inicio, $i);
         }
 
-        if ($largo > 75) {
-            //     //dd('Se agrega lineBreak');
-            for ($lb = 70; $lb < $largo; $lb += 70) {
-                //         $veces++;
-                //         //dd($largo);
-                $sheet->setBreak(
-                    'B' . ($lb + 10),
-                    \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
-                );
-            }
-        }
-
         $sheet->getDefaultRowDimension()->setRowHeight(-1);
 
         //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
         $writer = new Xlsx($spreadsheet);
-        $writer->save(
-            'archivos/' . $user->email . 'SolicitudesValesGrandeza.xlsx'
-        );
+        $writer->save('archivos/' . $user->email . 'SolicitudesYoPuedo.xlsx');
         $file =
             public_path() .
             '/archivos/' .
             $user->email .
-            'SolicitudesValesGrandeza.xlsx';
+            'SolicitudesYoPuedo.xlsx';
 
         return response()->download(
             $file,
-            $user->email .
-                'SolicitudesCalentadores' .
-                date('Y-m-d H:i:s') .
-                '.xlsx'
+            $user->email . 'SolicitudesYoPuedo' . date('Y-m-d H:i:s') . '.xlsx'
         );
     }
 

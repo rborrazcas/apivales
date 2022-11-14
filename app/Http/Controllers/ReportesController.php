@@ -54,34 +54,31 @@ class ReportesController extends Controller
 
         $user = auth()->user();
 
-        $catRemesas = DB::table('vales_remesas')
-            ->select('Remesa')
-            ->where('Fecha', '=', $parameters['Remesa'])
-            ->orderBy('Fecha', 'desc')
-            ->get()
-            ->pluck('Remesa')
-            ->toArray();
-
-        //dd($catRemesas);
+        $remesaSistema = $parameters['Remesa'];
 
         try {
             $select =
                 'G.Remesa, G.Region, G.Municipio, G.Responsable, G.Total, A.Avance, (G.Total -if(A.Avance is null, 0, A.Avance)) as Restan';
 
             $table1 =
-                "(select Remesa,  Region, concat_ws('-',Remesa, Municipio, Responsable) Clave, Municipio, Responsable, Total from vales_grupos_totales  order by Region, Municipio, Responsable ) as G";
+                "(select Remesa,  Region, concat_ws('-',Remesa, Municipio, Responsable) Clave, Municipio, Responsable, Total from vales_grupos_totales  WHERE Remesa IN (SELECT Remesa FROM vales_remesas WHERE RemesaSistema = '" .
+                $remesaSistema .
+                "') order by Region, Municipio, Responsable ) as G";
 
             $table2 =
-                "(select concat_ws('-',Remesa, Municipio, Articulador) Clave, Municipio, Articulador, count(distinct idSolicitud) as Avance from vales_solicitudes  group by Remesa, Municipio, Articulador) as A ";
+                "(select concat_ws('-',Remesa, Municipio, Articulador) Clave, Municipio, Articulador, count(distinct idSolicitud) as Avance from vales_solicitudes WHERE Remesa IN (SELECT Remesa FROM vales_remesas WHERE RemesaSistema = '" .
+                $remesaSistema .
+                "') group by Remesa, Municipio, Articulador) as A ";
 
             $res = DB::table(DB::raw($table1))
                 ->select(DB::raw($select))
                 ->leftJoin(DB::raw($table2), 'G.Clave', '=', 'A.Clave')
-                ->whereIn('G.Remesa', $catRemesas)
                 ->orderBy('G.Region', 'ASC')
                 ->orderBy('G.Municipio', 'ASC')
-                ->orderBy('G.Responsable', 'ASC')
-                ->get();
+                ->orderBy('G.Responsable', 'ASC');
+
+            dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
+            //->get();
 
             //dd($res);
 
@@ -376,7 +373,7 @@ class ReportesController extends Controller
         $year_start = idate('Y', strtotime('first day of January', time()));
 
         $remesas = DB::table('vales_remesas')
-            ->select('Remesa as label', 'Fecha AS value')
+            ->select('Remesa as label', 'RemesaSistema AS value')
             ->whereRaw('YEAR(Fecha)=' . $year_start)
             ->groupBy('Fecha')
             ->get();
@@ -6216,7 +6213,7 @@ class ReportesController extends Controller
                 '=',
                 'L.Id'
             )
-            ->Join('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->leftJoin('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
             ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
             ->where('N.UserOwned', '=', $resGpo->UserOwned)
