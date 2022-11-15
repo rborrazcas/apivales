@@ -757,41 +757,48 @@ class VValesController extends Controller
                     where MM.Ejercicio=$anio) as M ";
 
             $tabla3 = "(
-                    select idMunicipio, count(id) as AprobadosComite
-                    from vales
-                    where Remesa is not null and YEAR(FechaSolicitud) = $anio
-                    group by idMunicipio) as AC";
-
+                        select 
+                            vales.idMunicipio, count(vales.id) as AprobadosComite
+                        from vales 
+                            JOIN (SELECT * FROM vales_remesas WHERE Ejercicio = $anio) AS vales_remesas 
+                                ON vales.Remesa = vales_remesas.Remesa 
+                        where vales.Remesa is not null 
+                        group by vales.idMunicipio) as AC";
             $tabla4 = "(
-                        select idMunicipio, count(id) as Entregados
+                        select 
+                            vales.idMunicipio, count(vales.id) as Entregados
                         from vales
-                        where Remesa is not null and YEAR(FechaSolicitud) = $anio and isEntregado=1
-                        group by idMunicipio) as ET";
-
+                            JOIN (SELECT * FROM vales_remesas WHERE Ejercicio = $anio) AS vales_remesas
+                                ON vales.Remesa = vales_remesas.Remesa
+                        where vales.Remesa is not null and vales.isEntregado=1
+                        group by vales.idMunicipio) as ET";
             $tablaIncidencias = "(
-                            select idMunicipio, count(id) as Incidencias
+                            select 
+                                vales.idMunicipio, count(vales.id) as Incidencias
                             from vales
-                            where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = $anio
-                            group by idMunicipio) as VI";
+                                JOIN (SELECT * FROM vales_remesas WHERE Ejercicio = $anio) AS vales_remesas
+                                    ON vales.Remesa = vales_remesas.Remesa
+                            where vales.Remesa is not null and vales.idIncidencia !=1
+                            group by vales.idMunicipio) as VI";
 
             if ($anio == 2022) {
                 $tabla1 = "(
                         select vales.idMunicipio, count(vales.id) as SolicitudesPorAprobar
                         from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
-                        where vales.Remesa is null and YEAR(vales.FechaSolicitud) = $anio
+                        where vales.Remesa is null and YEAR(vales.created_at) = $anio
                         group by vales.idMunicipio
                         ) as S ";
 
                 $tabla2 = "(
                     select vales.idMunicipio, count(vales.id) as ExpedientesRecibidos
                     from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
-                    where YEAR(vales.FechaSolicitud) = $anio AND cedulas_solicitudes.ExpedienteCompleto = 1
+                    where cedulas_solicitudes.ExpedienteCompleto = 1 AND cedulas_solicitudes.FechaElimino IS NULL
                     group by idMunicipio) as E";
             } else {
                 $tabla1 = "(
                     select idMunicipio, count(id) as SolicitudesPorAprobar
                     from vales
-                    where Remesa is null and YEAR(FechaSolicitud) = $anio and  isDocumentacionEntrega=0
+                    where Remesa is null and YEAR(created_at) = $anio and  isDocumentacionEntrega=0
                     group by idMunicipio
                     ) as S ";
 
