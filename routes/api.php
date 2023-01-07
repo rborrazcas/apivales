@@ -85,6 +85,8 @@ Route::post(
     '/validacionMasivaCalentadores',
     'CalentadoresController@ValidarEstatusCalentadorVentanilla'
 );
+
+Route::post('/acuseUnico', 'ReportesController@getAcuseValesUnico');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/register', 'AuthController@register');
@@ -837,6 +839,140 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'DiagnosticoV2Controller@updateArchivosCedula'
         );
     });
+
+    Route::group(['prefix' => 'trabajemos'], function ($route) {
+        //Informativos
+        Route::post(
+            '/getSolicitudesTrabajemos',
+            'TrabajemosJuntosController@getSolicitudes'
+        );
+        Route::post(
+            '/getEstatusGlobalTrabajemos',
+            'TrabajemosJuntosController@getEstatusGlobal'
+        );
+        Route::get('/getCatalogs', 'TrabajemosJuntosController@getCatalogs');
+        Route::get('/getById/{id}', 'TrabajemosJuntosController@getByIdV');
+        Route::get(
+            '/getLocalidadesByMunicipio/{id}',
+            'TrabajemosJuntosController@getLocalidadesByMunicipio'
+        );
+        Route::post(
+            '/getMunicipios',
+            'TrabajemosJuntosController@getMunicipios'
+        );
+        Route::post(
+            '/getArticuladores',
+            'TrabajemosJuntosController@getArticuladores'
+        );
+        Route::post('/getGrupos', 'TrabajemosJuntosController@getGrupos');
+
+        Route::post(
+            '/getGruposDisponibles',
+            'TrabajemosJuntosController@getGruposDisponibles'
+        );
+
+        //Creación, actualización y eliminado de solicitudes
+        Route::post(
+            '/createSolicitud',
+            'TrabajemosJuntosController@createSolicitud'
+        );
+        Route::post(
+            '/updateSolicitud',
+            'TrabajemosJuntosController@updateSolicitud'
+        );
+        Route::post(
+            '/deleteSolicitud',
+            'TrabajemosJuntosController@deleteSolicitud'
+        );
+
+        //Archivos
+        Route::get(
+            '/getArchivosById/{id}',
+            'TrabajemosJuntosController@getFilesById'
+        );
+        Route::get(
+            '/getClasificacionArchivos',
+            'TrabajemosJuntosController@getClasificacionArchivos'
+        );
+        Route::post(
+            '/updateArchivosSolicitud',
+            'TrabajemosJuntosController@updateArchivosSolicitud'
+        );
+
+        //Reportes
+        Route::get(
+            '/getReporteSolicitudTrabajemos',
+            'TrabajemosJuntosController@getReporteSolicitudTrabajemos'
+        );
+    });
+
+    // ! Trabajemos Grupos
+    Route::group(['prefix' => 'trabajemosGrupos'], function ($route) {
+        Route::post(
+            '/getEstatusGlobalTrabajemosGrupos',
+            'GruposTrabajemosJuntosController@getEstatusGlobal'
+        );
+
+        Route::post(
+            '/getSolicitudesTrabajemos',
+            'GruposTrabajemosJuntosController@getSolicitudes'
+        );
+
+        Route::post(
+            '/getGruposTrabajemos',
+            'GruposTrabajemosJuntosController@getGrupos'
+        );
+
+        Route::get(
+            '/getCatalogs',
+            'GruposTrabajemosJuntosController@getCatalogs'
+        );
+        Route::get(
+            '/getById/{id}',
+            'GruposTrabajemosJuntosController@getByIdV'
+        );
+        //Creación, actualización y eliminado de solicitudes
+        Route::post(
+            '/createGrupo',
+            'GruposTrabajemosJuntosController@createGrupo'
+        );
+        Route::post(
+            '/updateGrupo',
+            'GruposTrabajemosJuntosController@updateGrupo'
+        );
+        Route::post(
+            '/deleteGrupo',
+            'GruposTrabajemosJuntosController@deleteGrupo'
+        );
+
+        //Archivos
+        Route::get(
+            '/getArchivosById/{id}',
+            'GruposTrabajemosJuntosController@getFilesById'
+        );
+        Route::get(
+            '/getClasificacionArchivos',
+            'GruposTrabajemosJuntosController@getClasificacionArchivos'
+        );
+        Route::post(
+            '/updateArchivosSolicitud',
+            'GruposTrabajemosJuntosController@updateArchivosSolicitud'
+        );
+        //Reportes
+        Route::get(
+            '/getReporteSolicitudTrabajemosGrupos',
+            'GruposTrabajemosJuntosController@getReporteSolicitudTrabajemosGrupos'
+        );
+
+        Route::post(
+            '/getSolicitudesDisponibles',
+            'GruposTrabajemosJuntosController@getSolicitudesDisponibles'
+        );
+    });
+
+    Route::post('/deleteRelation', 'TrabajemosJuntosController@deleteRelation');
+
+    Route::post('/addRelation', 'TrabajemosJuntosController@addRelation');
 
     Route::post(
         '/descargarArchivosMasivo',

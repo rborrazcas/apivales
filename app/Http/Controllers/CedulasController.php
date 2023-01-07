@@ -1116,10 +1116,7 @@ class CedulasController extends Controller
 
             if ($program == 1) {
                 $curpRegistrado = DB::table('cedulas_solicitudes')
-                    ->select(
-                        DB::RAW('lpad( hex(idVale ), 6, 0 ) AS FolioSolicitud'),
-                        'CURP'
-                    )
+                    ->select('idVale', 'CURP')
                     ->where('CURP', $params['CURP'])
                     ->whereRaw('FechaElimino IS NULL')
                     ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
@@ -1127,68 +1124,81 @@ class CedulasController extends Controller
                     ->first();
 
                 if ($curpRegistrado != null) {
-                    $response = [
-                        'success' => true,
-                        'results' => false,
-                        'errors' =>
-                            'El Beneficiario con CURP ' .
-                            $params['CURP'] .
-                            ' ya se encuentra registrado para el ejercicio ' .
-                            $year_start .
-                            ' con el Folio ' .
-                            $curpRegistrado->FolioSolicitud,
-                        'message' =>
-                            'El Beneficiario con CURP ' .
-                            $params['CURP'] .
-                            ' ya se encuentra registrado para el ejercicio ' .
-                            $year_start .
-                            ' con el Folio ' .
-                            $curpRegistrado->FolioSolicitud,
-                    ];
+                    if ($curpRegistrado->idVale != null) {
+                        $curpSinRemesa = DB::table('vales')
+                            ->select(
+                                DB::RAW(
+                                    'lpad( hex(id ), 6, 0 ) AS FolioSolicitud'
+                                ),
+                                'CURP'
+                            )
+                            ->where('CURP', $params['CURP'])
+                            ->whereRaw('Remesa IS NULL')
+                            ->get()
+                            ->first();
 
-                    return response()->json($response, 200);
+                        if ($curpSinRemesa != null) {
+                            $response = [
+                                'success' => true,
+                                'results' => false,
+                                'errors' =>
+                                    'El Beneficiario con CURP ' .
+                                    $params['CURP'] .
+                                    ' ya cuenta con una solicitud por aprobar con el Folio ' .
+                                    $curpSinRemesa->FolioSolicitud,
+                                'message' =>
+                                    'El Beneficiario con CURP ' .
+                                    $params['CURP'] .
+                                    ' ya cuenta con una solicitud por aprobar con el Folio ' .
+                                    $curpSinRemesa->FolioSolicitud,
+                            ];
+
+                            return response()->json($response, 200);
+                        }
+                    }
                 }
-                $beneficiarioRegistrado = DB::table('cedulas_solicitudes')
-                    ->select(
-                        DB::RAW('lpad( hex(idVale ), 6, 0 ) AS FolioSolicitud'),
-                        'CURP',
-                        'Nombre',
-                        'Paterno',
-                        'Materno'
-                    )
-                    ->where([
-                        'CURP' => $params['CURP'],
-                        'Nombre' => $params['Nombre'],
-                        'Paterno' => $params['Paterno'],
-                        'Materno' => $params['Materno'],
-                    ])
-                    ->whereRaw('FechaElimino IS NULL')
-                    ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
-                    ->get()
-                    ->first();
 
-                if ($beneficiarioRegistrado != null) {
-                    $response = [
-                        'success' => true,
-                        'results' => false,
-                        'errors' =>
-                            'El Beneficiario con CURP ' .
-                            $params['CURP'] .
-                            ' ya se encuentra registrado para el ejercicio ' .
-                            $year_start .
-                            ' con el Folio ' .
-                            $curpRegistrado->FolioSolicitud,
-                        'message' =>
-                            'El Beneficiario con CURP ' .
-                            $params['CURP'] .
-                            ' ya se encuentra registrado para el ejercicio ' .
-                            $year_start .
-                            ' con el Folio ' .
-                            $curpRegistrado->FolioSolicitud,
-                    ];
+                // $beneficiarioRegistrado = DB::table('cedulas_solicitudes')
+                //     ->select(
+                //         DB::RAW('lpad( hex(idVale ), 6, 0 ) AS FolioSolicitud'),
+                //         'CURP',
+                //         'Nombre',
+                //         'Paterno',
+                //         'Materno'
+                //     )
+                //     ->where([
+                //         'CURP' => $params['CURP'],
+                //         'Nombre' => $params['Nombre'],
+                //         'Paterno' => $params['Paterno'],
+                //         'Materno' => $params['Materno'],
+                //     ])
+                //     ->whereRaw('FechaElimino IS NULL')
+                //     ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
+                //     ->get()
+                //     ->first();
 
-                    return response()->json($response, 200);
-                }
+                // if ($beneficiarioRegistrado != null) {
+                //     $response = [
+                //         'success' => true,
+                //         'results' => false,
+                //         'errors' =>
+                //             'El Beneficiario con CURP ' .
+                //             $params['CURP'] .
+                //             ' ya se encuentra registrado para el ejercicio ' .
+                //             $year_start .
+                //             ' con el Folio ' .
+                //             $curpRegistrado->FolioSolicitud,
+                //         'message' =>
+                //             'El Beneficiario con CURP ' .
+                //             $params['CURP'] .
+                //             ' ya se encuentra registrado para el ejercicio ' .
+                //             $year_start .
+                //             ' con el Folio ' .
+                //             $curpRegistrado->FolioSolicitud,
+                //     ];
+
+                //     return response()->json($response, 200);
+                // }
             }
 
             if ($program != 1) {
@@ -1629,48 +1639,95 @@ class CedulasController extends Controller
                     ->first();
 
                 if ($idVale != null) {
-                    $remesa = DB::table('vales')
-                        ->select('Remesa')
-                        ->where('id', $idVale->idVale)
-                        ->get()
-                        ->first();
+                    if ($idVale->idVale != null) {
+                        $remesa = DB::table('vales')
+                            ->select('Remesa')
+                            ->where('id', $idVale->idVale)
+                            ->get()
+                            ->first();
 
-                    if ($remesa != null) {
-                        if ($remesa->Remesa != null) {
-                            $validarCurp = DB::table('vales')
-                                ->where('id', $idVale->idVale)
-                                ->where([
-                                    'CURP' => $curp,
-                                    'Nombre' => $params['Nombre'],
-                                ])
-                                ->get()
-                                ->first();
-                            //dd($validarCurp);
-                            if ($validarCurp == null) {
-                                $response = [
-                                    'success' => true,
-                                    'results' => false,
-                                    'errors' =>
-                                        'El beneficiario ya fue aprobado, ¡No se puede modificar la información personal del solicitante !',
-                                ];
-                                return response()->json($response, 200);
+                        if ($remesa != null && $user->id != 1) {
+                            if ($remesa->Remesa != null) {
+                                $validarCurp = DB::table('vales')
+                                    ->where('id', $idVale->idVale)
+                                    ->where([
+                                        'CURP' => $curp,
+                                        'Nombre' => $params['Nombre'],
+                                    ])
+                                    ->get()
+                                    ->first();
+                                //dd($validarCurp);
+                                if ($validarCurp == null) {
+                                    $response = [
+                                        'success' => true,
+                                        'results' => false,
+                                        'errors' =>
+                                            'El beneficiario ya fue aprobado, ¡No se puede modificar la información personal del solicitante !',
+                                    ];
+                                    return response()->json($response, 200);
+                                }
                             }
                         }
-                    }
-                    DB::table($tableSol)
-                        ->where('id', $id)
-                        ->update($params);
+                        DB::table($tableSol)
+                            ->where('id', $id)
+                            ->update($params);
 
-                    $infoVale = $this->setValesUpdate($id);
-                    DB::beginTransaction();
-                    DB::table('vales')
-                        ->where('id', $idVale->idVale)
-                        ->update($infoVale);
-                    DB::commit();
+                        $infoVale = $this->setValesUpdate($id);
+                        DB::beginTransaction();
+                        DB::table('vales')
+                            ->where('id', $idVale->idVale)
+                            ->update($infoVale);
+                        DB::commit();
+                    } else {
+                        if ($user->id == 1) {
+                            DB::beginTransaction();
+                            DB::table($tableSol)
+                                ->where('id', $id)
+                                ->update($params);
+                            DB::commit();
+
+                            $infoVale = $this->setVales($id);
+                            DB::beginTransaction();
+                            $idVale = DB::table('vales')->insertGetId(
+                                $infoVale
+                            );
+                            DB::commit();
+
+                            DB::beginTransaction();
+                            DB::table('cedulas_solicitudes')
+                                ->where('id', $id)
+                                ->update([
+                                    'idVale' => $idVale,
+                                ]);
+                            DB::commit();
+                        } else {
+                            DB::table($tableSol)
+                                ->where('id', $id)
+                                ->update($params);
+                        }
+                    }
                 } else {
-                    DB::table($tableSol)
-                        ->where('id', $id)
-                        ->update($params);
+                    if ($user->id == 1) {
+                        $infoVale = $this->setVales($id);
+                        DB::beginTransaction();
+                        $idVale = DB::table('vales')->insertGetId($infoVale);
+                        DB::commit();
+
+                        DB::beginTransaction();
+                        DB::table('cedulas_solicitudes')
+                            ->where('id', $id)
+                            ->update([
+                                'idVale' => $idVale,
+                            ]);
+                        DB::commit();
+                        DB::table($tableSol)
+                            ->where('id', $id)
+                            ->update($params);
+                    } else {
+                        DB::table($tableSol)
+                            ->where('id', $id)
+                            ->update($params);
+                    }
                 }
             } catch (Exception $e) {
                 $response = [

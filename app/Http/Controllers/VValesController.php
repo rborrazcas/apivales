@@ -3650,15 +3650,28 @@ class VValesController extends Controller
                                         $parameters['filtered'][$i]['value']
                                     );
                                 } else {
-                                    $res->where(
-                                        $parameters['filtered'][$i]['id'],
-                                        'LIKE',
-                                        '%' .
-                                            $parameters['filtered'][$i][
-                                                'value'
-                                            ] .
-                                            '%'
-                                    );
+                                    if (
+                                        strcmp(
+                                            $parameters['filtered'][$i]['id'],
+                                            'vales.Remesa'
+                                        ) === 0
+                                    ) {
+                                        $res->where(
+                                            $parameters['filtered'][$i]['id'],
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->where(
+                                            $parameters['filtered'][$i]['id'],
+                                            'LIKE',
+                                            '%' .
+                                                $parameters['filtered'][$i][
+                                                    'value'
+                                                ] .
+                                                '%'
+                                        );
+                                    }
                                 }
                             }
                         } else {
