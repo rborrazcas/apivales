@@ -186,6 +186,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getReporteSolicitudVentanillaVales'
     );
     Route::get(
+        '/getReporteVales2022',
+        'Vales2022Controller@getReporteVales2022'
+    );
+    Route::get(
         '/getReporteSolicitudVentanillaCalentadores',
         'CalentadoresController@getReporteSolicitudVentanillaCalentadores'
     );
@@ -392,6 +396,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getArticuladoresVentanilla'
     );
 
+    Route::post('/getRemesasVales', 'Vales2022Controller@getRemesas');
+
     Route::post(
         '/getArticuladoresYoPuedo',
         'YoPuedoController@getArticuladoresVentanilla'
@@ -527,6 +533,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getCodigoBarraAll',
         'ControllersPulseras\ReporteController@getCodigoBarras'
     );
+
+    Route::post('/getVales2022', 'Vales2022Controller@getSolicitudes');
 
     //CEDULAS
     Route::post('/createSolicitudCedula', 'CedulasController@createSolicitud');
