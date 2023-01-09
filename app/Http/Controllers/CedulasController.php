@@ -542,7 +542,8 @@ class CedulasController extends Controller
                         '.ListaParaEnviar,' .
                         'lpad(hex(' .
                         $tableSol .
-                        '.idVale),6,0) FolioSolicitud'
+                        '.idVale),6,0) FolioSolicitud,' .
+                        'v.Remesa'
                 )
                 ->leftJoin(
                     'cat_entidad AS entidadesNacimiento',
@@ -594,6 +595,7 @@ class CedulasController extends Controller
                     'm.Nombre',
                     $tableSol . '.MunicipioVive'
                 )
+                ->leftjoin('vales as v', 'v.id', $tableSol . '.idVale')
                 ->whereNull($tableSol . '.FechaElimino');
             $filterQuery = '';
             $municipioRegion = [];
@@ -855,6 +857,7 @@ class CedulasController extends Controller
                     'ValidadoTarjetaContigoSi' =>
                         $data->ValidadoTarjetaContigoSi,
                     'Formato' => $data->Formato,
+                    'Remesa' => $data->Remesa,
                 ];
 
                 array_push($array_res, $temp);
@@ -1099,8 +1102,8 @@ class CedulasController extends Controller
                 }
             }
 
-            $year_start = idate('Y', strtotime('first day of January', time()));
-
+            //$year_start = idate('Y', strtotime('first day of January', time()));
+            $year_start = 2022;
             if (isset($params['FechaINE'])) {
                 $fechaINE = intval($params['FechaINE']);
                 if ($year_start > $fechaINE) {
@@ -1510,10 +1513,11 @@ class CedulasController extends Controller
 
             if (isset($params['FechaINE'])) {
                 $fechaINE = intval($params['FechaINE']);
-                $year_start = idate(
-                    'Y',
-                    strtotime('first day of January', time())
-                );
+                // $year_start = idate(
+                //     'Y',
+                //     strtotime('first day of January', time())
+                // );
+                $year_start = 2022;
 
                 if ($year_start > $fechaINE) {
                     $response = [
