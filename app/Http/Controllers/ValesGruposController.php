@@ -287,7 +287,7 @@ class ValesGruposController extends Controller
             $res_validacion = DB::table('vales_aprobados_2022 AS vales')
                 ->select('vales.id')
                 ->where('vales.idStatus', '=', 5)
-                ->whereRaw('YEAR(vales.created_at) = 2022')
+                // ->whereRaw('YEAR(vales.created_at) = 2022')
                 ->where('vales.UserOwned', '=', $parameters['UserOwned'])
                 ->where('vales.idMunicipio', '=', $parameters['idMunicipio'])
                 ->where('vales.Remesa', '=', $parameters['Remesa'])

@@ -936,7 +936,7 @@ class UserController extends Controller
                 ->where('V.idStatus', '=', 5)
                 //->whereNotNull('V.Remesa')
                 ->where('V.idIncidencia', '=', 1)
-                ->WhereRaw('YEAR(V.created_at) = 2022')
+                //->WhereRaw('YEAR(V.created_at) = 2022')
                 ->whereNotIn('V.id', function ($query) {
                     $query
                         ->select('idSolicitud')
