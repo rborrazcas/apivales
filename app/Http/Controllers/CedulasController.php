@@ -518,12 +518,102 @@ class CedulasController extends Controller
                     ')';
             }
 
+            // $queryTotal = DB::table($tableSol)
+            //     ->SELECTRAW('COUNT(cedulas_solicitudes.idVale) AS Total')
+            //     ->JOIN(
+            //         'users AS creadores',
+            //         'creadores.id',
+            //         $tableSol . '.idUsuarioCreo'
+            //     )
+            //     ->JOIN(
+            //         'et_cat_municipio as m',
+            //         'm.Nombre',
+            //         $tableSol . '.MunicipioVive'
+            //     )
+            //     ->JOIN('vales as v', 'v.id', $tableSol . '.idVale')
+            //     ->WHERENULL('FechaElimino')
+            //     ->WHERERAW('idVale IS NOT NULL');
+
             $solicitudes = DB::table($tableSol)
 
                 ->selectRaw(
-                    $tableSol .
-                        ".*, 
-                            entidadesNacimiento.Entidad AS EntidadNacimiento, " .
+                    'cedulas_solicitudes.id, ' .
+                        'cedulas_solicitudes.FechaSolicitud, ' .
+                        'cedulas_solicitudes.FolioTarjetaImpulso, ' .
+                        'cedulas_solicitudes.Nombre, ' .
+                        'cedulas_solicitudes.Paterno, ' .
+                        'cedulas_solicitudes.Materno, ' .
+                        'cedulas_solicitudes.FechaNacimiento, ' .
+                        'cedulas_solicitudes.Edad, ' .
+                        'cedulas_solicitudes.Sexo, ' .
+                        'cedulas_solicitudes.idEntidadNacimiento, ' .
+                        'cedulas_solicitudes.CURP, ' .
+                        'cedulas_solicitudes.RFC, ' .
+                        'cedulas_solicitudes.idEstadoCivil, ' .
+                        'cedulas_solicitudes.idParentescoJefeHogar, ' .
+                        'cedulas_solicitudes.NumHijos, ' .
+                        'cedulas_solicitudes.NumHijas, ' .
+                        'cedulas_solicitudes.ComunidadIndigena, ' .
+                        'cedulas_solicitudes.Dialecto, ' .
+                        'cedulas_solicitudes.Afromexicano, ' .
+                        'cedulas_solicitudes.idSituacionActual, ' .
+                        'cedulas_solicitudes.TarjetaImpulso, ' .
+                        'cedulas_solicitudes.ContactoTarjetaImpulso, ' .
+                        'cedulas_solicitudes.Celular, ' .
+                        'cedulas_solicitudes.Telefono, ' .
+                        'cedulas_solicitudes.TelRecados, ' .
+                        'cedulas_solicitudes.Correo, ' .
+                        'cedulas_solicitudes.idParentescoTutor, ' .
+                        'cedulas_solicitudes.NombreTutor, ' .
+                        'cedulas_solicitudes.PaternoTutor, ' .
+                        'cedulas_solicitudes.MaternoTutor, ' .
+                        'cedulas_solicitudes.FechaNacimientoTutor, ' .
+                        'cedulas_solicitudes.EdadTutor, ' .
+                        'cedulas_solicitudes.CURPTutor, ' .
+                        'cedulas_solicitudes.TelefonoTutor, ' .
+                        'cedulas_solicitudes.CorreoTutor, ' .
+                        'cedulas_solicitudes.NecesidadSolicitante, ' .
+                        'cedulas_solicitudes.CostoNecesidad, ' .
+                        'cedulas_solicitudes.idEntidadVive, ' .
+                        'cedulas_solicitudes.MunicipioVive, ' .
+                        'cedulas_solicitudes.LocalidadVive, ' .
+                        'cedulas_solicitudes.TipoAsentamiento, ' .
+                        'cedulas_solicitudes.CPVive, ' .
+                        'cedulas_solicitudes.ColoniaVive, ' .
+                        'cedulas_solicitudes.CalleVive, ' .
+                        'cedulas_solicitudes.NoExtVive, ' .
+                        'cedulas_solicitudes.NoIntVive, ' .
+                        'cedulas_solicitudes.Referencias, ' .
+                        'cedulas_solicitudes.idEstatus, ' .
+                        'cedulas_solicitudes.idUsuarioCreo, ' .
+                        'cedulas_solicitudes.FechaCreo, ' .
+                        'cedulas_solicitudes.idUsuarioActualizo, ' .
+                        'cedulas_solicitudes.FechaActualizo, ' .
+                        'cedulas_solicitudes.SexoTutor, ' .
+                        'cedulas_solicitudes.idEntidadNacimientoTutor, ' .
+                        'cedulas_solicitudes.Folio, ' .
+                        'cedulas_solicitudes.ListaParaEnviar, ' .
+                        'cedulas_solicitudes.idUsuarioElimino, ' .
+                        'cedulas_solicitudes.FechaElimino, ' .
+                        'cedulas_solicitudes.UsuarioAplicativo, ' .
+                        'cedulas_solicitudes.idSolicitudAplicativo, ' .
+                        'cedulas_solicitudes.Region, ' .
+                        'cedulas_solicitudes.idEnlace, ' .
+                        'cedulas_solicitudes.Enlace, ' .
+                        'cedulas_solicitudes.Latitud, ' .
+                        'cedulas_solicitudes.Longitud, ' .
+                        'cedulas_solicitudes.IngresoMensual, ' .
+                        'cedulas_solicitudes.OtrosIngresos, ' .
+                        'cedulas_solicitudes.TotalIngreso, ' .
+                        'cedulas_solicitudes.PersonasDependientes, ' .
+                        'cedulas_solicitudes.IngresoPercapita, ' .
+                        'cedulas_solicitudes.OcupacionJefeHogar, ' .
+                        'cedulas_solicitudes.FechaINE, ' .
+                        'cedulas_solicitudes.ValidadoTarjetaContigoSi, ' .
+                        'cedulas_solicitudes.idVale, ' .
+                        'cedulas_solicitudes.ExpedienteCompleto, ' .
+                        'cedulas_solicitudes.Formato, ' .
+                        'entidadesNacimiento.Entidad AS EntidadNacimiento, ' .
                         'cat_estado_civil.EstadoCivil, ' .
                         'cat_parentesco_jefe_hogar.Parentesco, ' .
                         'cat_parentesco_tutor.Parentesco, ' .
@@ -570,7 +660,7 @@ class CedulasController extends Controller
                     'entidadesVive.id',
                     $tableSol . '.idEntidadVive'
                 )
-                ->leftJoin(
+                ->JOIN(
                     'users AS creadores',
                     'creadores.id',
                     $tableSol . '.idUsuarioCreo'
@@ -590,12 +680,12 @@ class CedulasController extends Controller
                     'ap.UserName',
                     $tableSol . '.UsuarioAplicativo'
                 )
-                ->leftJoin(
+                ->JOIN(
                     'et_cat_municipio as m',
                     'm.Nombre',
                     $tableSol . '.MunicipioVive'
                 )
-                ->leftjoin('vales as v', 'v.id', $tableSol . '.idVale')
+                ->JOIN('vales as v', 'v.id', $tableSol . '.idVale')
                 ->whereNull($tableSol . '.FechaElimino');
             $filterQuery = '';
             $municipioRegion = [];
@@ -700,10 +790,12 @@ class CedulasController extends Controller
             }
             if ($filterQuery != '') {
                 $solicitudes->whereRaw($filterQuery);
+                //$queryTotal->whereRaw($filterQuery);
             }
 
             if ($filtroCapturo !== '') {
                 $solicitudes->whereRaw($filtroCapturo);
+                //$queryTotal->whereRaw($filtroCapturo);
             }
 
             if ($idsUsers !== '') {
@@ -719,22 +811,26 @@ class CedulasController extends Controller
                     ')' .
                     ')';
                 $solicitudes->whereRaw($filtroArticuladores);
+                $queryTotal->whereRaw($filtroArticuladores);
             }
 
-            // dd(
-            //     str_replace_array(
-            //         '?',
-            //         $solicitudes->getBindings(),
-            //         $solicitudes->toSql()
-            //     )
+            // $dd = str_replace_array(
+            //     '?',
+            //     $solicitudes->getBindings(),
+            //     $solicitudes->toSql()
             // );
 
+            // $response = [
+            //     'success' => true,
+            //     'results' => false,
+            //     'data' => $dd,
+            // ];
+            // return response()->json($response, 200);
+            //$total = $queryTotal->first();
             $page = $params['page'];
             $pageSize = $params['pageSize'];
 
             $startIndex = $page * $pageSize;
-
-            $total = $solicitudes->count();
             $solicitudes = $solicitudes
                 ->OrderByRaw($tableSol . '.id', 'DESC')
                 ->offset($startIndex)
@@ -758,17 +854,6 @@ class CedulasController extends Controller
             }
 
             $array_res = [];
-
-            if ($total == 0) {
-                return [
-                    'success' => true,
-                    'results' => true,
-                    'total' => $total,
-                    'filtros' => $params['filtered'],
-                    'data' => $array_res,
-                ];
-            }
-
             $temp = [];
             foreach ($solicitudes as $data) {
                 $temp = [
@@ -867,6 +952,9 @@ class CedulasController extends Controller
             if (isset($params['filtered'])) {
                 $filtros = $params['filtered'];
             }
+
+            //$total = $solicitudes->count();
+            $total = count($array_res);
 
             $response = [
                 'success' => true,

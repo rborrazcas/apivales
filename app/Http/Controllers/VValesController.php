@@ -2050,6 +2050,7 @@ class VValesController extends Controller
             $flag = 0;
 
             $flag_ejercicio = false;
+
             if (isset($parameters['Ejercicio'])) {
                 $flag_ejercicio = true;
                 $res->where(
@@ -2057,13 +2058,14 @@ class VValesController extends Controller
                     '=',
                     $parameters['Ejercicio']
                 );
-            } else {
-                $res->where(
-                    DB::raw('YEAR(vales.FechaSolicitud)'),
-                    '=',
-                    date('Y')
-                );
             }
+            // else {
+            //     // $res->where(
+            //     //     DB::raw('YEAR(vales.created_at)'),
+            //     //     '=',
+            //     //     date('Y')
+            //     // );
+            // }
 
             // if (!isset($parameters['Ejercicio']) && is_null($parameters['Ejercicio'])){
             //     dd('No exuste Ejercicio');
@@ -2137,13 +2139,14 @@ class VValesController extends Controller
                     '=',
                     $valor_id
                 );
-            } else {
-                $res->where(
-                    DB::raw('YEAR(vales.FechaSolicitud)'),
-                    '=',
-                    date('Y')
-                );
             }
+            // else {
+            //     $res->where(
+            //         DB::raw('YEAR(vales.FechaSolicitud)'),
+            //         '=',
+            //         date('Y')
+            //     );
+            // }
 
             if (
                 isset($parameters['idMunicipio']) &&
@@ -2466,6 +2469,7 @@ class VValesController extends Controller
                 ->get();
             //->toSql();
             //dd($res);
+            //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
 
             $parameters_serializado = serialize($parameters);
             //$array = unserialize($parameters_serializado);

@@ -675,6 +675,12 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getValesConciliacion'
     );
 
+    Route::post('/getArchivosFechas', 'FechasEntregaController@getArchivos');
+    Route::get(
+        '/getCatalogsFechasEntrega',
+        'FechasEntregaController@getCatalogsFechasEntrega'
+    );
+
     Route::group(['prefix' => 'cedula'], function ($route) {
         Route::get(
             '/getCatalogsCedulaCompletos',

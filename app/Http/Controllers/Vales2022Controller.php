@@ -528,8 +528,13 @@ class Vales2022Controller extends Controller
                     'vales.Nombre, ' .
                     'vales.Paterno, ' .
                     'vales.Materno, ' .
+                    'vales.FechaNacimiento, ' .
+                    'entidad.Entidad, ' .
                     'm.SubRegion AS Region,' .
+                    'm.id AS idMunicipio,' .
                     'm.Nombre AS Municipio,' .
+                    'LPAD(l.Numero ,3,0)AS NumLocalidad,' .
+                    'l.CveInegi,' .
                     'l.Nombre AS Localidad,' .
                     'vales.Colonia, ' .
                     'vales.Calle, ' .
@@ -559,6 +564,11 @@ class Vales2022Controller extends Controller
                 ),
                 'c.idVale',
                 'vales.id'
+            )
+            ->LEFTJOIN(
+                'cat_entidad AS entidad',
+                'c.idEntidadNacimiento',
+                'entidad.id'
             )
             ->JOIN('et_cat_municipio AS m', 'm.id', 'vales.idMunicipio')
             ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'vales.idLocalidad')
