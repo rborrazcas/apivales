@@ -811,7 +811,7 @@ class CedulasController extends Controller
                     ')' .
                     ')';
                 $solicitudes->whereRaw($filtroArticuladores);
-                $queryTotal->whereRaw($filtroArticuladores);
+                //$queryTotal->whereRaw($filtroArticuladores);
             }
 
             // $dd = str_replace_array(
