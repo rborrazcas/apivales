@@ -5944,25 +5944,31 @@ class CedulasController extends Controller
                 'vales.Longitud',
                 'vales.Telefono',
                 'vales.Celular',
+                'vales_status.Estatus',
+                'i.Incidencia',
+                'v.Remesa',
+                's.SerieInicial',
+                's.SerieFinal',
                 //'vales.TelRecados',
-                'vales.Correo',
+                //'vales.Correo',
                 //'vales.IngresoMensual',
                 //'vales.OtrosIngresos',
                 //'vales.TotalIngreso',
                 //'vales.PersonasDependientes',
-                DB::raw("'Sin Incidencia' AS Incidencia"),
-                DB::raw("
-                    CASE
-                        WHEN
-                            vales.ListaParaEnviar = 1
-                        THEN
-                            'SI'
-                        ELSE
-                            'NO'
-                        END
-                    AS ListaParaEnviar
-                    "),
-                'vales_status.Estatus',
+                //DB::raw("'Sin Incidencia' AS Incidencia"),
+                // DB::raw("
+                //     CASE
+                //         WHEN
+                //             vales.ListaParaEnviar = 1
+                //         THEN
+                //             'SI'
+                //         ELSE
+                //             'NO'
+                //         END
+                //     AS ListaParaEnviar
+                //     "),
+
+                DB::raw("IF(d.idSolicitud IS NULL,'','DEVUELTO') AS Devuelto"),
                 DB::raw(
                     "CASE 
                         WHEN 
@@ -5989,7 +5995,7 @@ class CedulasController extends Controller
                         AS Enlace"
                 )
             )
-            ->leftJoin('vales_status', 'vales_status.id', '=', 'idEstatus')
+
             ->leftJoin('users', 'users.id', '=', 'vales.idUsuarioCreo')
             ->leftJoin(
                 'users as actualizo',
@@ -6009,6 +6015,11 @@ class CedulasController extends Controller
                 'vales.UsuarioAplicativo'
             )
             ->leftJoin('users AS enlace', 'enlace.id', '=', 'vales.idEnlace')
+            ->Join('vales AS v', 'v.id', '=', 'vales.idVale')
+            ->Join('vales_incidencias AS i', 'v.idIncidencia', '=', 'i.id')
+            ->Join('vales_status', 'vales_status.id', '=', 'v.idStatus')
+            ->LeftJoin('vales_devueltos AS d', 'v.id', '=', 'd.idSolicitud')
+            ->LeftJoin('vales_solicitudes AS s', 'v.id', '=', 's.idSolicitud')
             ->whereRaw('FechaElimino IS NULL');
 
         //dd($res->toSql());
