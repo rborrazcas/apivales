@@ -7419,6 +7419,74 @@ class ReportesController extends Controller
     //     return $pdf->download($nombreArchivo . '.pdf');
     // }
 
+    public function getAcuseUnico(Request $request)
+    {
+        $user = auth()->user();
+        $parameters = $request->all();
+
+        if (!isset($parameters['folio'])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados de la solicitud.',
+            ]);
+        }
+
+        $res = DB::table('vales_aprobados_2022 as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'c.Folio AS folio',
+                'vr.NumAcuerdo AS acuerdo',
+                'M.SubRegion AS region',
+                DB::raw(
+                    "concat_ws(' ',UOC.Nombre, UOC.Paterno, UOC.Materno) as enlace"
+                ),
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                ),
+                'N.curp',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                ),
+                'M.Nombre AS municipio',
+                'L.Nombre AS localidad',
+                'N.Colonia AS colonia',
+                'N.CP AS cp',
+                'VS.SerieInicial AS folioinicial',
+                'VS.SerieFinal AS foliofinal'
+            )
+            ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
+            ->Join('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+            ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
+            ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+            ->leftJoin('cedulas_solicitudes AS c', 'c.idVale', '=', 'N.id')
+            ->where('N.id', $parameters['folio']);
+        $data = $res
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.Colonia', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+        $d = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+        $vales = $d;
+        $nombreArchivo = 'acuses_vales' . date('Y-m-d H:i:s');
+
+        $pdf = \PDF::loadView('pdf', compact('vales'));
+
+        return $pdf->download($nombreArchivo . '.pdf');
+    }
+
     public function getAcuseValesUnico(Request $request)
     {
         $parameters = $request->all();
@@ -7524,6 +7592,121 @@ class ReportesController extends Controller
         $pdf = \PDF::loadView('pdf', compact('vales'));
 
         return $pdf->download($nombreArchivo . '.pdf');
+    }
+
+    public function getAcuseValesIndividual(Request $request)
+    {
+        if (!isset($request->folio['Folio'])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'Debe enviar un folio válido.',
+            ]);
+        }
+
+        $folio = $request->folio['Folio'];
+
+        if (!ctype_xdigit($folio)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'El folio ingresado no es válido.',
+            ]);
+        }
+
+        try {
+            $id = hexdec($folio);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'El folio ingresado no es válido.',
+            ]);
+        }
+        $user = auth()->user();
+
+        $validaRegistro = DB::table('vales')
+            ->select('id')
+            ->where('id', $id)
+            ->first();
+
+        if ($validaRegistro == null) {
+            return response()->json([
+                'success' => true,
+                'results' => true,
+                'data' => [],
+                'message' => 'No existe ninguna solicitud con este folio',
+            ]);
+        }
+
+        $res = DB::table('vales_aprobados_2022 as N')
+            ->select(
+                'N.id',
+                DB::raw('LPAD(HEX(N.id),6,0) AS Folio'),
+                'vr.RemesaSistema',
+                'N.Remesa',
+                'vr.NumAcuerdo AS acuerdo',
+                'M.SubRegion AS region',
+                DB::raw(
+                    "concat_ws(' ',UOC.Nombre, UOC.Paterno, UOC.Materno) as enlace"
+                ),
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                ),
+                'N.curp',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                ),
+                'M.Nombre AS municipio',
+                'L.Nombre AS localidad',
+                'N.Colonia AS colonia',
+                'N.CP AS cp',
+                'VS.SerieInicial AS folioinicial',
+                'VS.SerieFinal AS foliofinal'
+            )
+            ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
+            ->Join('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+            ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
+            ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+            ->leftJoin('cedulas_solicitudes AS c', 'c.idVale', '=', 'N.id')
+            ->where('N.id', $id);
+
+        $data = $res
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.Colonia', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) < 1) {
+            return response()->json([
+                'success' => true,
+                'results' => true,
+                'data' => [],
+                'message' => 'Esta solicitud no cuenta con remesa',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'results' => true,
+            'data' => $d,
+        ]);
     }
 
     public function getAcuseVales(Request $request)

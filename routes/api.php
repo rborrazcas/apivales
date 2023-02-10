@@ -992,4 +992,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/descargarArchivosMasivo',
         'YoPuedoController@getArchivosBeneficiaroYoPuedo'
     );
+
+    Route::post('/getAcuse', 'ReportesController@getAcuseValesIndividual');
+    Route::get('/getAcuseUnico', 'ReportesController@getAcuseUnico');
 });
