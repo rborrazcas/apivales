@@ -7915,7 +7915,7 @@ class ReportesController extends Controller
         $d = $data
             ->map(function ($x) {
                 $x = is_object($x) ? (array) $x : $x;
-                $x['codigo'] = DNS1D::getBarcodePNG($x['idVale'], 'C39');
+                $x['id'] = DNS1D::getBarcodePNG($x['idVale'], 'C39');
                 //dd($x);
                 return $x;
             })
@@ -8001,6 +8001,16 @@ class ReportesController extends Controller
 
         return response()->download(
             public_path('subidos/' . $carpeta . '.zip')
+        );
+    }
+
+    public function getSolicitudVales(Request $request)
+    {
+        $file = public_path() . '/archivos/SolicitudP.pdf';
+
+        return response()->download(
+            $file,
+            'Solicitud' . date('Y-m-d') . '.xlsx'
         );
     }
 

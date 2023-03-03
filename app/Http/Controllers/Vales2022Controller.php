@@ -325,7 +325,7 @@ class Vales2022Controller extends Controller
                     'i.id',
                     'vales.idIncidencia'
                 )
-                ->WHERE('r.Ejercicio', '2022');
+                ->WHERERAW('r.Ejercicio>2022');
 
             if ($viewall < 1) {
                 $region = DB::table('users_aplicativo_web')
@@ -419,7 +419,8 @@ class Vales2022Controller extends Controller
 
             $total = $solicitudes->count();
             $solicitudes = $solicitudes
-                ->OrderByRaw('vales.id', 'DESC')
+                ->OrderByRaw('r.RemesaSistema', 'DESC')
+                ->OrderByRaw('r.Remesa', 'ASC')
                 ->offset($startIndex)
                 ->take($pageSize)
                 ->get();
