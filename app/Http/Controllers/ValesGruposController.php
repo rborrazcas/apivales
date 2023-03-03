@@ -42,12 +42,12 @@ class ValesGruposController extends Controller
                     'et_cat_municipio.id',
                     '=',
                     'vales_grupos.idMunicipio'
-                );
-            //->leftJoin('vales','vales.UserOwned','=','vales_grupos.UserOwned')
-            //->whereIn('vales.id',function($query){
-            //    $query->select('idSolicitud')->from('vales_solicitudes');
-            // })
-            // ->where('vales.idStatus','=',5)
+                )
+                //->leftJoin('vales','vales.UserOwned','=','vales_grupos.UserOwned')
+                //->whereIn('vales.id',function($query){
+                //    $query->select('idSolicitud')->from('vales_solicitudes');
+                // })
+                ->whereRAW('YEAR(vales_grupos.created_at) > 2022');
             //->groupBy('vales_grupos.id');
 
             $flag = 0;

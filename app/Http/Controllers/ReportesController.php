@@ -327,15 +327,28 @@ class ReportesController extends Controller
 
         try {
             $catRemesas = DB::table('vales_grupos_totales')
-                ->select('Remesa')
+                ->select('vales_grupos_totales.Remesa')
+                ->JOIN(
+                    'vales_remesas AS r',
+                    'r.Remesa',
+                    'vales_grupos_totales.Remesa'
+                )
+                ->WhereRaw('r.Ejercicio > 2021')
                 ->groupBy('Remesa')
-                ->orderBy('Remesa', 'ASC')
+                ->orderBy('r.Ejercicio', 'DESC')
+                ->orderBy('r.Remesa', 'ASC')
                 ->get()
                 ->pluck('Remesa')
                 ->toArray();
 
             $catMunicipio = DB::table('vales_grupos_totales')
                 ->select('Municipio')
+                ->JOIN(
+                    'vales_remesas AS r',
+                    'r.Remesa',
+                    'vales_grupos_totales.Remesa'
+                )
+                ->WhereRaw('r.Ejercicio > 2021')
                 ->groupBy('Municipio')
                 ->orderBy('Municipio', 'ASC')
                 ->get()
@@ -344,6 +357,12 @@ class ReportesController extends Controller
 
             $catResponsable = DB::table('vales_grupos_totales')
                 ->select('Responsable')
+                ->JOIN(
+                    'vales_remesas AS r',
+                    'r.Remesa',
+                    'vales_grupos_totales.Remesa'
+                )
+                ->WhereRaw('r.Ejercicio > 2021')
                 ->groupBy('Responsable')
                 ->orderBy('Responsable', 'ASC')
                 ->get()
@@ -7198,7 +7217,7 @@ class ReportesController extends Controller
             )
             ->Join(
                 DB::RAW(
-                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2022) as VS'
+                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio > 2021) as VS'
                 ),
                 'VS.idSolicitud',
                 '=',
@@ -7746,6 +7765,7 @@ class ReportesController extends Controller
         $res = DB::table('vales_aprobados_2022 as N')
             ->select(
                 DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'N.id  AS idVale',
                 'c.Folio AS folio',
                 'vr.NumAcuerdo AS acuerdo',
                 'M.SubRegion AS region',
@@ -7775,7 +7795,7 @@ class ReportesController extends Controller
             )
             ->Join(
                 DB::RAW(
-                    '(SELECT * FROM vales_solicitudes WHERE Ejercicio = 2022) as VS'
+                    '(SELECT * FROM vales_solicitudes WHERE Ejercicio > 2021) as VS'
                 ),
                 'VS.idSolicitud',
                 '=',
@@ -7799,6 +7819,8 @@ class ReportesController extends Controller
         $d = $data
             ->map(function ($x) {
                 $x = is_object($x) ? (array) $x : $x;
+                $x['codigo'] = DNS1D::getBarcodePNG($x['idVale'], 'C39');
+                //dd($x);
                 return $x;
             })
             ->toArray();
