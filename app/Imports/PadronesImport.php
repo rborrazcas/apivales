@@ -229,6 +229,7 @@ class PadronesImport implements
                         $this->validarCadena($row['tel_cel'], true, 10) === 1
                             ? $this->validarTelefono($row['tel_cel'])
                             : 0,
+                    'NumExtValido' => $this->validarCadena($row['num_ext']),
                     'FechaIneValido' =>
                         $this->validarCadena(
                             $row['ano_de_vigencia_de_ine'],
@@ -300,7 +301,7 @@ class PadronesImport implements
 
     public function headingRow(): int
     {
-        return 4;
+        return 1;
     }
 
     public function is_curp($string)

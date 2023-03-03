@@ -397,6 +397,9 @@ class PadronesController extends Controller
                     "IF (p.CalleValido = 0,'LA CALLE NO ES VALIDA','') AS CalleValido"
                 ),
                 DB::raw(
+                    "IF (p.NumExtValido = 0,'EL NUMERO EXTERIOR NO ES VALIDO','') AS NumExtValido"
+                ),
+                DB::raw(
                     "IF (p.CPValido = 0,'EL CP NO ES VALIDO','') AS CPValido"
                 ),
                 DB::raw(
