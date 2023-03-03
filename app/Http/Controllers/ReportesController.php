@@ -8010,7 +8010,7 @@ class ReportesController extends Controller
 
         return response()->download(
             $file,
-            'Solicitud' . date('Y-m-d') . '.xlsx'
+            'Solicitud' . date('Y-m-d') . '.pdf'
         );
     }
 
