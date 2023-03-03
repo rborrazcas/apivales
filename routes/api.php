@@ -86,6 +86,11 @@ Route::post(
     'CalentadoresController@ValidarEstatusCalentadorVentanilla'
 );
 
+Route::post(
+    '/getExpedientesCalentadores',
+    'CalentadoresController@getExpediente'
+);
+
 Route::post('/acuseUnico', 'ReportesController@getAcuseValesUnico');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
@@ -228,6 +233,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'ReportesController@getReporteFoliosValidar'
     );
     Route::get('/getReporteAcuseVales', 'ReportesController@getAcuseVales');
+    Route::get(
+        '/getReporteSolicitudVales',
+        'ReportesController@getSolicitudVales'
+    );
     Route::post('/validarGrupo', 'ReportesController@validarGrupo');
     Route::get(
         '/getReporteNominaVales',
@@ -670,6 +679,19 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getConciliacionArchivos'
     );
 
+    Route::get('/getRemesasPadron', 'PadronesController@getRemesas');
+    Route::post('/getPadrones', 'PadronesController@getPadronesRemesasUpload');
+    Route::post('/uploadPadron', 'PadronesController@uploadExcel');
+    Route::get(
+        '/getIncidenciasPadron',
+        'PadronesController@getReporteIncidencias'
+    );
+    Route::get(
+        '/getPadronRemesa',
+        'PadronesController@getReportePadronCorrecto'
+    );
+    Route::get('/getPadronPlantilla', 'PadronesController@getPlantilla');
+
     Route::get(
         '/getValesConciliados',
         'CedulasController@getValesConciliacion'
@@ -983,6 +1005,19 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'GruposTrabajemosJuntosController@getSolicitudesDisponibles'
         );
     });
+    // ! Nuevas Rutas Solicitudes
+    Route::group(['prefix' => 'solicitudes'], function ($route) {
+        Route::get(
+            '/getArchivosCatalogos/{id}',
+            'SolicitudesController@getCatalogsFiles'
+        );
+        Route::post('/getArchivosSolicitud', 'SolicitudesController@getFiles');
+
+        Route::post(
+            '/cambiarEstatusArchivo',
+            'SolicitudesController@changeStatusFiles'
+        );
+    });
 
     Route::post('/deleteRelation', 'TrabajemosJuntosController@deleteRelation');
 
@@ -993,6 +1028,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'YoPuedoController@getArchivosBeneficiaroYoPuedo'
     );
 
+    Route::post('/setEntrega', 'ReportesController@setEntrega');
     Route::post('/getAcuse', 'ReportesController@getAcuseValesIndividual');
     Route::get('/getAcuseUnico', 'ReportesController@getAcuseUnico');
 });

@@ -2979,16 +2979,17 @@ class CedulasController extends Controller
     function getFilesByIdC(Request $request, $id)
     {
         try {
-            $archivos2 = DB::table('calentadores_cedula_archivos')
+            $archivos2 = DB::table('calentadores_cedula_archivos as a')
                 ->select(
-                    'id',
-                    'idClasificacion',
-                    'NombreOriginal AS name',
-                    'NombreSistema',
-                    'Tipo AS type'
+                    'a.id',
+                    'a.idClasificacion',
+                    'a.NombreOriginal AS name',
+                    'a.NombreSistema',
+                    'a.Tipo AS type',
+                    'a.idEstatus'
                 )
-                ->where('idCedula', $id)
-                ->whereRaw('FechaElimino IS NULL')
+                ->where('a.idCedula', $id)
+                ->whereRaw('a.FechaElimino IS NULL')
                 ->get();
             $archivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;

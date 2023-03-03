@@ -327,15 +327,28 @@ class ReportesController extends Controller
 
         try {
             $catRemesas = DB::table('vales_grupos_totales')
-                ->select('Remesa')
+                ->select('vales_grupos_totales.Remesa')
+                ->JOIN(
+                    'vales_remesas AS r',
+                    'r.Remesa',
+                    'vales_grupos_totales.Remesa'
+                )
+                ->WhereRaw('r.Ejercicio > 2021')
                 ->groupBy('Remesa')
-                ->orderBy('Remesa', 'ASC')
+                ->orderBy('r.Ejercicio', 'DESC')
+                ->orderBy('r.Remesa', 'ASC')
                 ->get()
                 ->pluck('Remesa')
                 ->toArray();
 
             $catMunicipio = DB::table('vales_grupos_totales')
                 ->select('Municipio')
+                ->JOIN(
+                    'vales_remesas AS r',
+                    'r.Remesa',
+                    'vales_grupos_totales.Remesa'
+                )
+                ->WhereRaw('r.Ejercicio > 2021')
                 ->groupBy('Municipio')
                 ->orderBy('Municipio', 'ASC')
                 ->get()
@@ -344,6 +357,12 @@ class ReportesController extends Controller
 
             $catResponsable = DB::table('vales_grupos_totales')
                 ->select('Responsable')
+                ->JOIN(
+                    'vales_remesas AS r',
+                    'r.Remesa',
+                    'vales_grupos_totales.Remesa'
+                )
+                ->WhereRaw('r.Ejercicio > 2021')
                 ->groupBy('Responsable')
                 ->orderBy('Responsable', 'ASC')
                 ->get()
@@ -7198,7 +7217,7 @@ class ReportesController extends Controller
             )
             ->Join(
                 DB::RAW(
-                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2022) as VS'
+                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio > 2021) as VS'
                 ),
                 'VS.idSolicitud',
                 '=',
@@ -7709,6 +7728,102 @@ class ReportesController extends Controller
         ]);
     }
 
+    public function setEntrega(Request $request)
+    {
+        if (!isset($request->folio['Folio'])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'Debe enviar un folio válido.',
+            ]);
+        }
+
+        $folio = $request->folio['Folio'];
+        $user = auth()->user();
+
+        if (!ctype_xdigit($folio)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'El folio ingresado no es válido.',
+            ]);
+        }
+
+        try {
+            $id = hexdec($folio);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'El folio ingresado no es válido.',
+            ]);
+        }
+
+        try {
+            $registro = DB::table('vales')
+                ->select('id', 'Remesa', 'isEntregado')
+                ->where('id', $id)
+                ->first();
+
+            if ($registro === null) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' =>
+                        'El folio ingresado no existe en la base de datos.',
+                ]);
+            } else {
+                if ($registro->Remesa === null) {
+                    return response()->json([
+                        'success' => true,
+                        'results' => false,
+                        'data' => [],
+                        'message' =>
+                            'El folio ingresado no cuentra con remesa.',
+                    ]);
+                } else {
+                    if ($registro->isEntregado === 1) {
+                        return response()->json([
+                            'success' => true,
+                            'results' => false,
+                            'data' => [],
+                            'message' =>
+                                'El folio ingresado ya fue marcado como entregado.',
+                        ]);
+                    }
+                }
+            }
+
+            $user = auth()->user();
+
+            DB::table('vales')
+                ->where('id', $id)
+                ->update([
+                    'isEntregado' => 1,
+                    'entrega_at' => date('Y-m-d'),
+                    'isEntregadoOwner' => $user->id,
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'results' => true,
+                'message' => 'El folio fue marcado como entregado',
+                'd' => [],
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'results' => false,
+                'message' => 'Consulte al administrador',
+                'errors' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function getAcuseVales(Request $request)
     {
         $parameters = $request->all();
@@ -7746,6 +7861,7 @@ class ReportesController extends Controller
         $res = DB::table('vales_aprobados_2022 as N')
             ->select(
                 DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'N.id  AS idVale',
                 'c.Folio AS folio',
                 'vr.NumAcuerdo AS acuerdo',
                 'M.SubRegion AS region',
@@ -7775,7 +7891,7 @@ class ReportesController extends Controller
             )
             ->Join(
                 DB::RAW(
-                    '(SELECT * FROM vales_solicitudes WHERE Ejercicio = 2022) as VS'
+                    '(SELECT * FROM vales_solicitudes WHERE Ejercicio > 2021) as VS'
                 ),
                 'VS.idSolicitud',
                 '=',
@@ -7799,6 +7915,8 @@ class ReportesController extends Controller
         $d = $data
             ->map(function ($x) {
                 $x = is_object($x) ? (array) $x : $x;
+                $x['id'] = DNS1D::getBarcodePNG($x['idVale'], 'C39');
+                //dd($x);
                 return $x;
             })
             ->toArray();
@@ -7883,6 +8001,16 @@ class ReportesController extends Controller
 
         return response()->download(
             public_path('subidos/' . $carpeta . '.zip')
+        );
+    }
+
+    public function getSolicitudVales(Request $request)
+    {
+        $file = public_path() . '/archivos/SolicitudP.pdf';
+
+        return response()->download(
+            $file,
+            'Solicitud' . date('Y-m-d') . '.xlsx'
         );
     }
 
