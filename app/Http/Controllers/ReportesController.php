@@ -7728,6 +7728,102 @@ class ReportesController extends Controller
         ]);
     }
 
+    public function setEntrega(Request $request)
+    {
+        if (!isset($request->folio['Folio'])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'Debe enviar un folio válido.',
+            ]);
+        }
+
+        $folio = $request->folio['Folio'];
+        $user = auth()->user();
+
+        if (!ctype_xdigit($folio)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'El folio ingresado no es válido.',
+            ]);
+        }
+
+        try {
+            $id = hexdec($folio);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'El folio ingresado no es válido.',
+            ]);
+        }
+
+        try {
+            $registro = DB::table('vales')
+                ->select('id', 'Remesa', 'isEntregado')
+                ->where('id', $id)
+                ->first();
+
+            if ($registro === null) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' =>
+                        'El folio ingresado no existe en la base de datos.',
+                ]);
+            } else {
+                if ($registro->Remesa === null) {
+                    return response()->json([
+                        'success' => true,
+                        'results' => false,
+                        'data' => [],
+                        'message' =>
+                            'El folio ingresado no cuentra con remesa.',
+                    ]);
+                } else {
+                    if ($registro->isEntregado === 1) {
+                        return response()->json([
+                            'success' => true,
+                            'results' => false,
+                            'data' => [],
+                            'message' =>
+                                'El folio ingresado ya fue marcado como entregado.',
+                        ]);
+                    }
+                }
+            }
+
+            $user = auth()->user();
+
+            DB::table('vales')
+                ->where('id', $id)
+                ->update([
+                    'isEntregado' => 1,
+                    'entrega_at' => date('Y-m-d'),
+                    'isEntregadoOwner' => $user->id,
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'results' => true,
+                'message' => 'El folio fue marcado como entregado',
+                'd' => [],
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'results' => false,
+                'message' => 'Consulte al administrador',
+                'errors' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function getAcuseVales(Request $request)
     {
         $parameters = $request->all();

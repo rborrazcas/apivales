@@ -686,6 +686,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getPadronRemesa',
         'PadronesController@getReportePadronCorrecto'
     );
+    Route::get('/getPadronPlantilla', 'PadronesController@getPlantilla');
 
     Route::get(
         '/getValesConciliados',
@@ -1023,6 +1024,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'YoPuedoController@getArchivosBeneficiaroYoPuedo'
     );
 
+    Route::post('/setEntrega', 'ReportesController@setEntrega');
     Route::post('/getAcuse', 'ReportesController@getAcuseValesIndividual');
     Route::get('/getAcuseUnico', 'ReportesController@getAcuseUnico');
 });

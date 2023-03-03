@@ -607,4 +607,10 @@ class PadronesController extends Controller
             $user->email . 'PlantillaPadron' . date('Y-m-d H:i:s') . '.xlsx'
         );
     }
+
+    public function getPlantilla()
+    {
+        $file = public_path() . '/archivos/PlantillaPadron.xlsx';
+        return response()->download($file, 'PlantillaPadron.xlsx');
+    }
 }
