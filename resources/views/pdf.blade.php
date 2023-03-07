@@ -142,17 +142,15 @@
                         </tr>
                         <tr>
                             <td colspan="2" class="encabezado">Folio Solicitud:</td>
-                            <td colspan="3" class="encabezado">Folio Impulso:</td>
-                            <td colspan="4" class="encabezado">Acuerdo:</td>
+                            <td colspan="5" class="encabezado">Acuerdo:</td>
                             <td colspan="1" class="encabezado">Región:</td>
-                            <td colspan="2" class="encabezado">Responsable:</td>
+                            <td colspan="4" class="encabezado">Responsable:</td>
                         </tr>
                         <tr>
                             <td colspan="2" class="informacion">{{ $vale['id'] }}</td>
-                            <td colspan="3"class="informacion">{{ $vale['folio'] }}</td>
-                            <td colspan="4"class="informacion">{{ $vale['acuerdo'] }}</td>
+                            <td colspan="5"class="informacion">{{ $vale['acuerdo'] }}</td>
                             <td colspan="1"class="informacion">{{ $vale['region'] }}</td>
-                            <td colspan="2" class="informacion">{{ $vale['enlace'] }}</td>
+                            <td colspan="4" class="informacion">{{ $vale['enlace'] }}</td>
                         </tr>
                     </tbody>
                 </table>
