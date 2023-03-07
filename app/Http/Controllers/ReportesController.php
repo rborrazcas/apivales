@@ -7915,7 +7915,7 @@ class ReportesController extends Controller
         $d = $data
             ->map(function ($x) {
                 $x = is_object($x) ? (array) $x : $x;
-                $x['id'] = DNS1D::getBarcodePNG($x['idVale'], 'C39');
+                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
                 //dd($x);
                 return $x;
             })
@@ -8010,8 +8010,219 @@ class ReportesController extends Controller
 
         return response()->download(
             $file,
-            'Solicitud' . date('Y-m-d') . '.xlsx'
+            'Solicitud' . date('Y-m-d') . '.pdf'
         );
+    }
+
+    public function getSolicitudValesUnico(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+
+        if (!isset($request->idGrupo)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados de la solicitud.',
+            ]);
+        }
+
+        $resGpo = DB::table('vales_grupos as G')
+            ->select(
+                'G.id',
+                'R.NumAcuerdo',
+                'R.Leyenda',
+                'R.FechaAcuerdo',
+                'G.UserOwned',
+                'G.idMunicipio',
+                'M.Nombre AS Municipio',
+                'G.Remesa',
+                DB::raw(
+                    "concat_ws(' ',UOC.Nombre, UOC.Paterno, UOC.Materno) as UserInfoOwned"
+                )
+            )
+            ->leftJoin('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
+            ->leftJoin('users as UOC', 'UOC.id', '=', 'G.UserOwned')
+            ->leftJoin('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
+            ->where('G.id', '=', $request->idGrupo)
+            ->first();
+
+        $carpeta =
+            $resGpo->id . $resGpo->idMunicipio . $resGpo->Remesa . '_Solicitud';
+
+        $path = public_path() . '/subidos/' . $carpeta;
+        $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
+
+        if (file_exists($fileExists)) {
+            return response()->download($fileExists);
+        }
+
+        $res = DB::table('vales_aprobados_2022 as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'N.FechaSolicitud',
+                DB::raw(
+                    'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                ),
+                'N.CURP',
+                'N.Sexo',
+                'N.Calle',
+                'N.NumExt',
+                'N.NumInt',
+                'N.CP',
+                'N.Colonia',
+                'l.Nombre AS Localidad',
+                'm.Nombre AS Municipio',
+                DB::raw(
+                    "concat_ws(' ',p.NombreTutor, p.PaternoTutor, p.MaternoTutor) as Tutor"
+                ),
+                'pt.Parentesco',
+                'p.CURPTutor',
+                'N.TelFijo AS Telefono',
+                'N.TelCelular AS Celular',
+                'N.CorreoElectronico AS Correo'
+            )
+            ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+            ->JOIN('et_cat_localidad_2022 as l', 'N.idLocalidad', '=', 'l.Id')
+            ->leftJoin('cedulas_solicitudes AS p', 'p.idVale', '=', 'N.id')
+            ->leftJoin(
+                'cat_parentesco_tutor AS pt',
+                'p.idParentescoTutor',
+                'pt.id'
+            )
+            ->where('N.UserOwned', '=', $resGpo->UserOwned)
+            ->where('N.idMunicipio', '=', $resGpo->idMunicipio)
+            ->where('N.Remesa', '=', $resGpo->Remesa);
+        $data = $res
+            ->orderBy('m.Nombre', 'asc')
+            ->orderBy('l.Nombre', 'asc')
+            ->orderBy('N.Colonia', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            //return response()->json(['success'=>false,'results'=>false,'message'=>$res->toSql()])
+
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx'
+            );
+
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setCellValue('N6', $resGpo->Municipio);
+            $sheet->setCellValue('N7', $resGpo->UserInfoOwned);
+            $sheet->setCellValue('N3', $resGpo->NumAcuerdo);
+            $sheet->setCellValue('N4', $resGpo->FechaAcuerdo);
+            $sheet->setCellValue('A2', $resGpo->Leyenda);
+            $sheet->setCellValue(
+                'A3',
+                'Aprobados mediante ' .
+                    $resGpo->NumAcuerdo .
+                    ' de fecha ' .
+                    $resGpo->FechaAcuerdo
+            );
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save(
+                'archivos/' .
+                    $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->UserOwned .
+                    '_formatoNominaVales.xlsx'
+            );
+            $file =
+                public_path() .
+                '/archivos/' .
+                $resGpo->Remesa .
+                '_' .
+                $resGpo->idMunicipio .
+                '_' .
+                $resGpo->UserOwned .
+                '_formatoNominaVales.xlsx';
+
+            return response()->download(
+                $file,
+                $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->UserOwned .
+                    '_NominaValesGrandeza' .
+                    date('Y-m-d') .
+                    '.xlsx'
+            );
+        }
+
+        $nombreArchivo =
+            'solicitud_vales_' .
+            $resGpo->id .
+            '_' .
+            $resGpo->idMunicipio .
+            '_' .
+            $resGpo->Remesa;
+
+        File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $counter++;
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'))->save(
+                $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
+            );
+        }
+
+        $this->createZipEvidencia($carpeta);
+
+        return response()->download(
+            public_path('subidos/' . $carpeta . '.zip')
+        );
+
+        // $d = [
+        //     [
+        //         'id' => '',
+        //         'FechaSolicitud' => '',
+        //         'Nombre' => '',
+        //         'CURP' => '',
+        //         'Sexo' => '',
+        //         'Calle' => '',
+        //         'NoExt' => '',
+        //         'NoInt' => '',
+        //         'CP' => '',
+        //         'Colonia' => '',
+        //         'Localidad' => '',
+        //         'Municipio' => '',
+        //         'Tutor' => '',
+        //         'Parentesco' => '',
+        //         'CURPTutor' => '',
+        //         'Telefono' => '',
+        //         'Celular' => '',
+        //         'Parentesco' => '',
+        //         'Correo' => '',
+        //     ],
+        // ];
+
+        // //dd($d);
+
+        // $vales = $d;
+        // $nombreArchivo = 'solicitud_vales' . date('Y-m-d H:i:s');
+
+        // $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+
+        // return $pdf->download($nombreArchivo . '.pdf');
     }
 
     private function createZipEvidencia($carpeta)
