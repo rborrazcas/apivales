@@ -661,7 +661,7 @@ class PadronesController extends Controller
         return response()->download($file, 'PlantillaPadron.xlsx');
     }
 
-    public function gsetStatusRemesa(Request $request)
+    public function setStatusRemesa(Request $request)
     {
         $v = Validator::make($request->all(), [
             'Remesa' => 'required',
