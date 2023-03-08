@@ -34,8 +34,8 @@ class PadronesController extends Controller
     {
         try {
             $res = DB::table('vales_remesas')
-                ->select('RemesaSistema AS label', 'RemesaSistema AS value')
-                ->where('Ejercicio', '2023')
+                ->select('Remesa AS label', 'Remesa AS value')
+                ->where(['Ejercicio' => '2023', 'Estatus' => 0])
                 ->orderBy('RemesaSistema')
                 ->distinct()
                 ->get();
@@ -73,9 +73,11 @@ class PadronesController extends Controller
                     'p.FechaUpload',
                     DB::raw(
                         "CONCAT_WS(' ',u.Nombre,IFNULL(u.Paterno,''),IFNULL(u.Materno,'')) as UserUpload"
-                    )
+                    ),
+                    'r.Estatus'
                 )
-                ->leftJoin('users as u', 'u.id', '=', 'p.UserUpload');
+                ->leftJoin('users as u', 'u.id', '=', 'p.UserUpload')
+                ->Join('vales_remesas as r', 'p.Remesa', 'r.Remesa');
             $total = $res->count();
 
             $data = $res
@@ -209,6 +211,7 @@ class PadronesController extends Controller
                 ->selectRaw('COUNT(id) AS total')
                 ->where(['Remesa' => $remesa, 'idArchivo' => $id])
                 ->first();
+            $flagCorrectors = false;
 
             if ($padronValido !== null) {
                 if ($padronValido->total > 0) {
@@ -240,6 +243,7 @@ class PadronesController extends Controller
                             ->where('id', $id)
                             ->update(['Registros' => $total->t]);
                     }
+                    $flagCorrectors = true;
                     unset($remesaRegistrada);
                 }
             }
@@ -248,17 +252,24 @@ class PadronesController extends Controller
             $errores = DB::table('padron_carga_inicial')
                 ->select('id')
                 ->where(['idArchivo' => $id])
-                ->first();
+                ->count();
 
             $flagErrores = false;
-            if ($errores !== null) {
+            $message = 'Cargado con éxito';
+            if ($errores > 0 && $flagCorrectors) {
                 $flagErrores = true;
+                $message =
+                    'Se cargo una parte del archivo con éxito, el resto de registros contienen incidencias, favor de revisar el archivo que se descargo automáticamente';
+            } elseif ($errores > 0 && !$flagCorrectors) {
+                $flagErrores = true;
+                $message =
+                    'Todos los registros del archivo contienen incidencia, favor de revisar el archivo que se descargo automáticamente';
             }
 
             return [
                 'success' => true,
                 'results' => true,
-                'message' => 'Cargado con éxito',
+                'message' => $message,
                 'incidencias' => $flagErrores,
                 'idArchivo' => $id,
             ];
@@ -288,17 +299,19 @@ class PadronesController extends Controller
 
                 if ($responseBody->Mensaje === 'OK') {
                     $curp = $responseBody->Resultado;
+                    $timestamp = strtotime($curp->fechNac);
                     DB::table('Renapo_Local')->insert([
                         'CURP' => $curp->CURP,
                         'apellido1' => $curp->apellido1,
                         'apellido2' => $curp->apellido2,
                         'nombres' => $curp->nombres,
                         'sexo' => $curp->sexo,
-                        'fechNac' => $curp->fechNac,
+                        'fechNac' => date('Y-m-d', $timestamp),
                         'nacionalidad' => $curp->nacionalidad,
                         'apellido1Limpio' => $curp->apellido1,
                         'apellido2Limpio' => $curp->apellido2,
                         'nombresLimpio' => $curp->nombres,
+                        'cveEntidadNac' => $curp->cveEntidadNac,
                     ]);
                     DB::table('padron_carga_inicial')
                         ->where('id', $solicitud->id)
@@ -318,6 +331,7 @@ class PadronesController extends Controller
         $res = DB::table('padron_carga_inicial AS p')
             ->select(
                 'p.Remesa',
+                'a.Codigo',
                 'p.Orden',
                 'p.OrdenMunicipio',
                 'p.Identificador',
@@ -334,6 +348,9 @@ class PadronesController extends Controller
                 'p.NumLocalidad',
                 'p.Localidad',
                 'p.Colonia',
+                'p.CveColonia',
+                'p.CveInterventor',
+                'p.CveTipoCalle',
                 'p.Calle',
                 'p.NumExt',
                 'p.NumInt',
@@ -359,6 +376,12 @@ class PadronesController extends Controller
                 'p.ValidadorCURPMenor',
                 'p.LargoCURPMenor',
                 'p.FrecuenciaCURPMenor',
+                'p.EnlaceIntervencion1',
+                'p.EnlaceIntervencion2',
+                'p.EnlaceIntervencion3',
+                'p.FechaSolicitud',
+                'p.ResponsableEntrega',
+                'p.EstatusOrigen',
                 DB::RAW(
                     "CONCAT_WS(' ',u.Nombre,u.Paterno,u.Materno) AS ResponsableDeValidacion"
                 ),
@@ -409,17 +432,22 @@ class PadronesController extends Controller
                     "IF (p.FechaIneValido = 0,'LA FECHA DE LA INE NO ES VALIDA','') AS FechaIneValido"
                 ),
                 DB::raw(
-                    "IF (p.EnlaceValido = 0,'EL ENLACE NO ES VALIDO','') AS EnlaceValido"
+                    "IF (p.EnlaceValido = 0,'EL ENLACE ORIGEN NO ES VALIDO','') AS EnlaceValido"
+                ),
+                DB::raw(
+                    "IF (p.ResponsableEntregaValido = 0,'EL RESPONSABLE DE ENTREGA NO ES VALIDO','') AS ResponsableEntregaValido"
                 )
             )
             ->Join('users AS u', 'u.id', '=', 'p.idUsuarioCreo')
+            ->Join('padron_archivos AS a', 'a.id', 'p.idArchivo')
             ->Where('p.idArchivo', $id)
             ->orderBy('p.id', 'asc')
             ->get();
 
         //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
 
-        if ($res->count() == 0) {
+        $totalReg = $res->count();
+        if ($totalReg === 0) {
             //return response()->json(['success'=>false,'results'=>false,'message'=>$res->toSql()]);
             $reader = IOFactory::createReader('Xlsx');
             $spreadsheet = $reader->load(
@@ -440,6 +468,11 @@ class PadronesController extends Controller
                 'PlantillaErroresPadron' . date('Y-m-d') . '.xlsx'
             );
         }
+
+        $archivo = DB::table('padron_archivos')
+            ->select('Codigo', 'Registros')
+            ->where('id', $id)
+            ->first();
 
         //Mapeamos el resultado como un array
         $res = $res
@@ -462,25 +495,27 @@ class PadronesController extends Controller
 
         $sheet->fromArray($res, null, 'A5');
 
-        $sheet->setCellValue('F1', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+        $sheet->setCellValue('F2', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+        $sheet->setCellValue(
+            'H2',
+            'Total registros de origen: ' . $archivo->Registros
+        );
+        $sheet->setCellValue('H2', 'Total registros con error: ' . $totalReg);
 
         $sheet->getDefaultRowDimension()->setRowHeight(-1);
 
         $writer = new Xlsx($spreadsheet);
-        $writer->save(
-            'archivos/' . $user->email . 'PlantillaErroresPadron.xlsx'
-        );
+        $writer->save('archivos/' . $user->email . 'ErroresPadron.xlsx');
         $file =
-            public_path() .
-            '/archivos/' .
-            $user->email .
-            'PlantillaErroresPadron.xlsx';
+            public_path() . '/archivos/' . $user->email . 'ErroresPadron.xlsx';
 
         DB::select('CALL padron_errores(' . $id . ')');
         return response()->download(
             $file,
             $user->email .
-                'PlantillaErroresPadron' .
+                'ErroresPadron_' .
+                $archivo->Codigo .
+                '_' .
                 date('Y-m-d H:i:s') .
                 '.xlsx'
         );
@@ -511,6 +546,9 @@ class PadronesController extends Controller
                 'p.NumLocalidad',
                 'p.Localidad',
                 'p.Colonia',
+                'p.CveColonia',
+                'p.CveInterventor',
+                'p.CveTipoCalle',
                 'p.Calle',
                 'p.NumExt',
                 'p.NumInt',
@@ -522,7 +560,7 @@ class PadronesController extends Controller
                 'p.FolioTarjetaContigoSi',
                 'p.Apoyo',
                 'p.Variante',
-                'p.Enlace',
+                'p.EnlaceOrigen',
                 'p.LargoCURP',
                 'p.FrecuenciaCURP',
                 'p.Periodo',
@@ -536,6 +574,12 @@ class PadronesController extends Controller
                 'p.ValidadorCURPMenor',
                 'p.LargoCURPMenor',
                 'p.FrecuenciaCURPMenor',
+                'p.EnlaceIntervencion1',
+                'p.EnlaceIntervencion2',
+                'p.EnlaceIntervencion3',
+                'p.FechaSolicitud',
+                'p.ResponsableEntrega',
+                'p.EstatusOrigen',
                 DB::RAW(
                     "CONCAT_WS(' ',u.Nombre,u.Paterno,u.Materno) AS ResponsableDeValidacion"
                 ),
@@ -615,5 +659,54 @@ class PadronesController extends Controller
     {
         $file = public_path() . '/archivos/PlantillaPadron.xlsx';
         return response()->download($file, 'PlantillaPadron.xlsx');
+    }
+
+    public function gsetStatusRemesa(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'Remesa' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'Contacte al administrador',
+                'errors' => 'No se envío la remesa',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $userId = JWTAuth::parseToken()->toUser()->id;
+        $fechaActual = date('Y-m-d h-m-s');
+
+        try {
+            DB::table('vales_remesas')
+                ->where('Remesa', $params['Remesa'])
+                ->update(['Estatus' => 1]);
+
+            DB::table('padron_validado')
+                ->where('Remesa', $params['Remesa'])
+                ->update([
+                    'idUsuarioCerro' => $userId,
+                    'FechaCerro' => date('Y-m-d H:i:s'),
+                    // ! Si los que se cargan son directamente aprobados se actualiza a aprobado comité
+                    'idEstatus' => 2,
+                ]);
+
+            return [
+                'success' => true,
+                'results' => true,
+                'message' => 'Remesa cerrada correctamente',
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => true,
+                'results' => false,
+                'message' => 'Contacte al administrador',
+                'errors' => $e->getMessage(),
+            ];
+        }
     }
 }

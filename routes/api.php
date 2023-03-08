@@ -680,6 +680,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::get('/getRemesasPadron', 'PadronesController@getRemesas');
+    Route::post('/updateStatusRemesa', 'PadronesController@gsetStatusRemesa');
     Route::post('/getPadrones', 'PadronesController@getPadronesRemesasUpload');
     Route::post('/uploadPadron', 'PadronesController@uploadExcel');
     Route::get(

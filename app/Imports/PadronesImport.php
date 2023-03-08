@@ -27,28 +27,57 @@ class PadronesImport implements
     private $codigo = null;
     private $remesa = null;
     private $headers = [
-        'orden' => 'orden',
-        'orden_x_mpio' => 'orden_x_mpio',
-        'id' => 'id',
-        'region' => 'region',
-        'nombres' => 'nombres',
-        'apellido_1' => 'apellido_1',
-        'apellido_2' => 'apellido_2',
-        'fecha_nac' => 'fecha_nac',
-        'sexo' => 'sexo',
-        'curp' => 'curp',
-        'validador' => 'validador',
-        'municipio' => 'municipio',
-        'num_loc' => 'num_loc',
-        'localidad' => 'localidad',
-        'colonia' => 'colonia',
-        'calle' => 'calle',
-        'num_ext' => 'num_ext',
-        'num_int' => 'num_int',
-        'cp' => 'cp',
-        'tel_casa' => 'tel_casa',
-        'tel_cel' => 'tel_cel',
-        'tel_recados' => 'tel_recados',
+        'orden' => null,
+        'orden_x_mpio' => null,
+        'id' => null,
+        'region' => null,
+        'nombres' => null,
+        'apellido_1' => null,
+        'apellido_2' => null,
+        'fecha_nac' => null,
+        'sexo' => null,
+        'edo_nac' => null,
+        'curp' => null,
+        'validador' => null,
+        'municipio' => null,
+        'num_loc' => null,
+        'localidad' => null,
+        'colonia' => null,
+        'cve_colonia' => null,
+        'cve_interventor' => null,
+        'cve_tipo_calle' => null,
+        'calle' => null,
+        'num_ext' => null,
+        'num_int' => null,
+        'cp' => null,
+        'tel_casa' => null,
+        'tel_cel' => null,
+        'tel_recados' => null,
+        'ano_de_vigencia_de_ine' => null,
+        'folio_tarjeta_contigo_si' => null,
+        'apoyo_solicitado' => null,
+        'vertiente' => null,
+        'enlace_origen' => null,
+        'largo_curp' => null,
+        'frecuencia_curp' => null,
+        'periodo' => null,
+        'nombres_del_menor' => null,
+        'apellido_1_del_menor' => null,
+        'apellido_2_del_menor' => null,
+        'fecha_nac_del_menor' => null,
+        'sexo_del_menor' => null,
+        'edo_nac_del_menor' => null,
+        'curp_del_menor' => null,
+        'validador_curp_del_menor' => null,
+        'largo_curp_menor' => null,
+        'frecuencia_curp_del_menor' => null,
+        'enlace_intervencion_1' => null,
+        'enlace_intervencion_2' => null,
+        'enlace_intervencion_3' => null,
+        'fecha_solicitud' => null,
+        'responsable_de_la_entrega' => null,
+        'validacion_datos_de_contacto' => null,
+        'estatus_origen' => null,
     ];
 
     public function __construct($dataFile)
@@ -65,7 +94,7 @@ class PadronesImport implements
 
         foreach ($rows as $row) {
             $headersValidation = array_intersect_key($this->headers, $row);
-            if (count($headersValidation) == 22) {
+            if (count($headersValidation) === 51) {
                 $nombre = $this->removeSpaces(
                     $this->cleanLetter($row['nombres'])
                 );
@@ -81,12 +110,8 @@ class PadronesImport implements
                 );
                 $calle = $this->removeSpaces($this->cleanLetter($row['calle']));
                 $insert_data[] = [
-                    'Orden' => is_numeric($row['orden'])
-                        ? trim($row['orden'])
-                        : null,
-                    'OrdenMunicipio' => is_numeric($row['orden_x_mpio'])
-                        ? trim($row['orden_x_mpio'])
-                        : null,
+                    'Orden' => trim($row['orden']),
+                    'OrdenMunicipio' => trim($row['orden_x_mpio']),
                     'Identificador' => trim($row['id'])
                         ? trim($row['id'])
                         : null,
@@ -119,13 +144,22 @@ class PadronesImport implements
                         ? trim($row['localidad'])
                         : null,
                     'Colonia' => $colonia,
+                    'CveColonia' => trim($row['cve_colonia'])
+                        ? $this->remesa . '2023' . trim($row['cve_colonia'])
+                        : null,
+                    'CveInterventor' => trim($row['cve_interventor'])
+                        ? $this->remesa . '2023' . trim($row['cve_interventor'])
+                        : null,
+                    'CveTipoCalle' => trim($row['cve_tipo_calle'])
+                        ? $this->remesa . '2023' . trim($row['cve_tipo_calle'])
+                        : null,
                     'Calle' => $calle,
                     'NumExt' => trim($row['num_ext'])
                         ? trim($row['num_ext'])
                         : null,
                     'NumInt' => trim($row['num_int'])
                         ? trim($row['num_int'])
-                        : null,
+                        : 'S/N',
                     'CP' => trim($row['cp']) ? trim($row['cp']) : null,
                     'Telefono' => trim($row['tel_casa'])
                         ? trim($row['tel_casa'])
@@ -140,9 +174,9 @@ class PadronesImport implements
                         ? trim($row['ano_de_vigencia_de_ine'])
                         : null,
                     'FolioTarjetaContigoSi' => trim(
-                        $row['folio_tarjeta_gto_contigo_si_impulso']
+                        $row['folio_tarjeta_contigo_si']
                     )
-                        ? trim($row['folio_tarjeta_gto_contigo_si_impulso'])
+                        ? trim($row['folio_tarjeta_contigo_si'])
                         : null,
                     'Apoyo' => trim($row['apoyo_solicitado'])
                         ? trim($row['apoyo_solicitado'])
@@ -162,48 +196,66 @@ class PadronesImport implements
                     'Periodo' => trim($row['periodo'])
                         ? trim($row['periodo'])
                         : null,
-                    'NombreMenor' => trim($row['nombres_del_menor'])
-                        ? trim($row['nombres_del_menor'])
+                    // 'NombreMenor' => trim($row['nombres_del_menor'])
+                    //     ? trim($row['nombres_del_menor'])
+                    //     : null,
+                    // 'PaternoMenor' => trim($row['apellido_1_del_menor'])
+                    //     ? trim($row['apellido_1_del_menor'])
+                    //     : null,
+                    // 'MaternoMenor' => trim($row['apellido_2_del_menor'])
+                    //     ? trim($row['apellido_1_del_menor2'])
+                    //     : null,
+                    // 'FechaNacimientoMenor' => is_numeric(
+                    //     $row['fecha_nac_del_menor']
+                    // )
+                    //     ? \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject(
+                    //         trim($row['fecha_nac_del_menor'])
+                    //     )
+                    //     : null,
+                    // 'SexoMenor' => trim($row['sexo_del_menor'])
+                    //     ? trim($row['sexo_del_menor'])
+                    //     : null,
+                    // 'EstadoNacimientoMenor' => trim($row['edo_nac_del_menor'])
+                    //     ? trim($row['edo_nac_del_menor'])
+                    //     : null,
+                    // 'CURPMenor' => trim($row['curp_del_menor'])
+                    //     ? trim($row['curp_del_menor'])
+                    //     : null,
+                    // 'ValidadorCURPMenor' => trim(
+                    //     $row['validador_curp_del_menor']
+                    // )
+                    //     ? trim($row['validador_curp_del_menor'])
+                    //     : null,
+                    // 'LargoCURPMenor' => trim($row['largo_curp_menor'])
+                    //     ? trim($row['largo_curp_menor'])
+                    //     : null,
+                    // 'FrecuenciaCURPMenor' => trim(
+                    //     $row['frecuencia_curp_del_menor']
+                    // )
+                    //     ? trim($row['frecuencia_curp_del_menor'])
+                    //     : null,
+                    'EnlaceIntervencion1' => trim($row['enlace_intervencion_1'])
+                        ? trim($row['enlace_intervencion_1'])
                         : null,
-                    'PaternoMenor' => trim($row['apellido_1_del_menor'])
-                        ? trim($row['apellido_1_del_menor'])
+                    'EnlaceIntervencion2' => trim($row['enlace_intervencion_2'])
+                        ? trim($row['enlace_intervencion_2'])
                         : null,
-                    'MaternoMenor' => trim($row['apellido_2_del_menor'])
-                        ? trim($row['apellido_1_del_menor2'])
+                    'EnlaceIntervencion3' => trim($row['enlace_intervencion_3'])
+                        ? trim($row['enlace_intervencion_3'])
                         : null,
-                    'FechaNacimientoMenor' => is_numeric(
-                        $row['fecha_nac_menor']
-                    )
+                    'FechaSolicitud' => is_numeric($row['fecha_solicitud'])
                         ? \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject(
-                            trim($row['fecha_nac_menor'])
+                            trim($row['fecha_solicitud'])
                         )
                         : null,
-                    'SexoMenor' => trim($row['sexo_del_menor'])
-                        ? trim($row['sexo_del_menor'])
-                        : null,
-                    'EstadoNacimientoMenor' => trim($row['edo_nac_del_menor'])
-                        ? trim($row['edo_nac_del_menor'])
-                        : null,
-                    'CURPMenor' => trim($row['curp_del_menor'])
-                        ? trim($row['curp_del_menor'])
-                        : null,
-                    'ValidadorCURPMenor' => trim(
-                        $row['validador_curp_del_menor']
+                    'ResponsableEntrega' => trim(
+                        $row['responsable_de_la_entrega']
                     )
-                        ? trim($row['validador_curp_del_menor'])
+                        ? trim($row['responsable_de_la_entrega'])
                         : null,
-                    'LargoCURPMenor' => trim($row['largo_curp_menor'])
-                        ? trim($row['largo_curp_menor'])
+                    'EstatusOrigen' => trim($row['estatus_origen'])
+                        ? trim($row['estatus_origen'])
                         : null,
-                    'FrecuenciaCURPMenor' => trim($row['frecuencia_curp_menor'])
-                        ? trim($row['frecuencia_curp_menor'])
-                        : null,
-                    // 'EdadTutor' => trim($row['edad_del_tutora'])
-                    //     ? trim($row['edad_del_tutora'])
-                    //     : null,
-                    // 'EdadMenor' => trim($row['edad_del_menor'])
-                    //     ? trim($row['edad_del_menor'])
-                    //     : null,
                     'idUsuarioCreo' => $userId,
                     'FechaCreo' => date('Y-m-d h-m-s'),
                     'idArchivo' => $this->idArchivo,
@@ -212,7 +264,6 @@ class PadronesImport implements
                     'NombreValido' => $this->validarCadena($nombre),
                     'PaternoValido' => $this->validarCadena($paterno),
                     'CURPValido' => $this->is_curp($row['curp']) ? 1 : 0,
-                    'CURPValidada' => $this->is_curp($row['curp']) ? 0 : 1,
                     'MunicipioValido' => $this->validarCadena(
                         $row['municipio']
                     ),
@@ -236,10 +287,16 @@ class PadronesImport implements
                             true,
                             4
                         ) === 1
-                            ? $this->esNumero($row['ano_de_vigencia_de_ine'])
+                            ? $this->esNumero(
+                                $row['ano_de_vigencia_de_ine'],
+                                true
+                            )
                             : 0,
                     'EnlaceValido' => $this->validarCadena(
                         $row['enlace_origen']
+                    ),
+                    'ResponsableEntregaValido' => $this->validarCadena(
+                        $row['responsable_de_la_entrega']
                     ),
                 ];
             }
@@ -398,10 +455,16 @@ class PadronesImport implements
         return 1;
     }
 
-    public function esNumero($cadena)
+    public function esNumero($cadena, $compara = false)
     {
         if ($cadena !== null) {
             if (is_numeric($cadena)) {
+                if ($compara) {
+                    $anioActual = date('Y');
+                    if ($cadena < $anioActual) {
+                        return 0;
+                    }
+                }
                 return 1;
             }
         }
