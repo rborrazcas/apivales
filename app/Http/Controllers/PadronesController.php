@@ -300,22 +300,46 @@ class PadronesController extends Controller
                 if ($responseBody->Mensaje === 'OK') {
                     $curp = $responseBody->Resultado;
                     $timestamp = strtotime($curp->fechNac);
-                    DB::table('Renapo_Local')->insert([
-                        'CURP' => $curp->CURP,
-                        'apellido1' => $curp->apellido1,
-                        'apellido2' => $curp->apellido2,
-                        'nombres' => $curp->nombres,
-                        'sexo' => $curp->sexo,
-                        'fechNac' => date('Y-m-d', $timestamp),
-                        'nacionalidad' => $curp->nacionalidad,
-                        'apellido1Limpio' => $curp->apellido1,
-                        'apellido2Limpio' => $curp->apellido2,
-                        'nombresLimpio' => $curp->nombres,
-                        'cveEntidadNac' => $curp->cveEntidadNac,
-                    ]);
+
+                    $curpRegistrada = DB::table('Renapo_Local')
+                        ->select('CURP')
+                        ->Where('CURP', $curp->CURP)
+                        ->first();
+
+                    if ($curpRegistrada === null) {
+                        DB::table('Renapo_Local')->insert([
+                            'CURP' => $curp->CURP,
+                            'apellido1' => $curp->apellido1,
+                            'apellido2' => $curp->apellido2,
+                            'nombres' => $curp->nombres,
+                            'sexo' => $curp->sexo,
+                            'fechNac' => date('Y-m-d', $timestamp),
+                            'nacionalidad' => $curp->nacionalidad,
+                            'apellido1Limpio' => $curp->apellido1,
+                            'apellido2Limpio' => $curp->apellido2,
+                            'nombresLimpio' => str_replace(
+                                '.',
+                                '',
+                                $curp->nombres
+                            ),
+                            'cveEntidadNac' => $curp->cveEntidadNac,
+                        ]);
+                    }
+
+                    $dataPadron = [
+                        'CURPValidada' => 1,
+                        'CURPRENAPO' => 1,
+                    ];
+
+                    if ($solicitud->CURP !== $curp->CURP) {
+                        $dataPadron['CURPAnterior'] = $solicitud->CURP;
+                        $dataPadron['CURP'] = $curp->CURP;
+                        $dataPadron['CURPRenapoDiferente'] = 1;
+                    }
+
                     DB::table('padron_carga_inicial')
                         ->where('id', $solicitud->id)
-                        ->update(['CURPValidada' => 1, 'CURPRENAPO' => 1]);
+                        ->update($dataPadron);
                 }
             }
         }
@@ -402,7 +426,7 @@ class PadronesController extends Controller
                     "IF (p.NombreValido = 0,'EL NOMBRE ES INVALIDO','') AS NombreValido"
                 ),
                 DB::raw(
-                    "IF (p.PaternoValido = 0,'EL APELLIDO 1 ES INVALIDO','') AS PaternoValido"
+                    "IF (p.PaternoValido = 0,'EL APELLIDO 1 ES INVALIDO (SI SOLO TIENE UN APELLIDO DEBE COLOCARLO EN EL APELLIDO 1)','') AS PaternoValido"
                 ),
                 DB::raw(
                     "IF (p.NombreRenapoValido = 0,'EL NOMBRE ES DIFERENTE A RENAPO','') AS NombreRenapoValido"
@@ -411,7 +435,7 @@ class PadronesController extends Controller
                     "IF (p.MunicipioValido = 0,'EL MUNICIPIO NO ES VALIDO','') AS MunicipioValido"
                 ),
                 DB::raw(
-                    "IF (p.LocalidadValido = 0,'LA LOCALIDAD NO ES VALIDA','') AS LocalidadValido"
+                    "IF (p.LocalidadValido = 0,'EL NÚMERO DE LOCALIDAD NO SE ENCUENTRA EN EL CATÁLOGO','') AS LocalidadValido"
                 ),
                 DB::raw(
                     "IF (p.ColoniaValido = 0,'LA COLONIA NO ES VALIDA','') AS ColoniaValido"
@@ -513,7 +537,7 @@ class PadronesController extends Controller
         return response()->download(
             $file,
             $user->email .
-                'ErroresPadron_' .
+                '_ErroresPadron_' .
                 $archivo->Codigo .
                 '_' .
                 date('Y-m-d H:i:s') .
@@ -528,6 +552,7 @@ class PadronesController extends Controller
         $user = auth()->user();
         $res = DB::table('padron_validado AS p')
             ->select(
+                DB::RAW('LPAD(HEX(p.id),6,0) AS FolioPadron'),
                 'p.Remesa',
                 'a.Codigo',
                 'p.Orden',
@@ -541,6 +566,7 @@ class PadronesController extends Controller
                 'p.Sexo',
                 'p.EstadoNacimiento',
                 'p.CURP',
+                'p.CURPAnterior',
                 'p.Validador',
                 'p.Municipio',
                 'p.NumLocalidad',
@@ -586,6 +612,9 @@ class PadronesController extends Controller
                 'FechaCreo',
                 DB::raw(
                     "IF (p.TieneApoyo = 1,'El BENEFICIARIO TIENE APOYO EN OTRA REMESA',NULL) AS ApoyoMultiple"
+                ),
+                DB::raw(
+                    "IF (p.CURPAnterior IS NOT NULL ,'El CURP FUE ACTUALIZADO POR RENAPO',NULL) AS CURPDiferente"
                 ),
                 'e.Estatus'
             )
@@ -651,7 +680,12 @@ class PadronesController extends Controller
 
         return response()->download(
             $file,
-            $user->email . 'PlantillaPadron' . date('Y-m-d H:i:s') . '.xlsx'
+            $user->email .
+                '_PlantillaPadron_' .
+                $id .
+                '_' .
+                date('Y-m-d H:i:s') .
+                '.xlsx'
         );
     }
 
@@ -692,7 +726,7 @@ class PadronesController extends Controller
                     'idUsuarioCerro' => $userId,
                     'FechaCerro' => date('Y-m-d H:i:s'),
                     // ! Si los que se cargan son directamente aprobados se actualiza a aprobado comité
-                    'idEstatus' => 2,
+                    //'idEstatus' => 2,
                 ]);
 
             return [
