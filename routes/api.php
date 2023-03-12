@@ -234,14 +234,20 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
     Route::get('/getReporteAcuseVales', 'ReportesController@getAcuseVales');
     Route::get(
-        '/getReporteSolicitudVales',
+        '/getSolicitudesPdfVales',
         'ReportesController@getSolicitudValesUnico'
     );
+    Route::post('/validarGrupo2023', 'ReportesController@validarGrupo2023');
     Route::post('/validarGrupo', 'ReportesController@validarGrupo');
     Route::get(
         '/getReporteNominaVales',
         'ReportesController@getReporteNominaVales'
     );
+    Route::get(
+        '/getReporteNominaVales2023',
+        'ReportesController@getReporteNominaVales2023'
+    );
+
     Route::get(
         '/getSumaVoluntadesWord',
         'ReportesController@getSumaVoluntadesWord'
@@ -427,6 +433,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::post('/getGrupos', 'ValesGruposController@getGrupos'); //Sin parametros
+    Route::post('/getGrupos2023', 'ValesGruposController@getGrupos2023'); //Sin parametros
     Route::post('/setGrupos', 'ValesGruposController@setGrupos'); //Sin parametros
     Route::post(
         '/getGruposArticuladores',
@@ -680,7 +687,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::get('/getRemesasPadron', 'PadronesController@getRemesas');
-    Route::post('/updateStatusRemesa', 'PadronesController@gsetStatusRemesa');
+    Route::post('/updateStatusRemesa', 'PadronesController@setStatusRemesa');
     Route::post('/getPadrones', 'PadronesController@getPadronesRemesasUpload');
     Route::post('/uploadPadron', 'PadronesController@uploadExcel');
     Route::get(

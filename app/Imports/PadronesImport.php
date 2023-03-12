@@ -255,7 +255,7 @@ class PadronesImport implements
                         : null,
                     'EstatusOrigen' => trim($row['estatus_origen'])
                         ? trim($row['estatus_origen'])
-                        : null,
+                        : 'NO',
                     'idUsuarioCreo' => $userId,
                     'FechaCreo' => date('Y-m-d h-m-s'),
                     'idArchivo' => $this->idArchivo,
@@ -267,9 +267,10 @@ class PadronesImport implements
                     'MunicipioValido' => $this->validarCadena(
                         $row['municipio']
                     ),
-                    'LocalidadValido' => $this->validarCadena(
-                        $row['localidad']
-                    ),
+                    'LocalidadValido' =>
+                        $this->validarCadena($row['num_loc']) === 1
+                            ? $this->esNumero($row['num_loc'])
+                            : 0,
                     'ColoniaValido' => $this->validarCadena($colonia),
                     'CalleValido' => $this->validarCadena($calle),
                     'CPValido' =>
@@ -280,6 +281,7 @@ class PadronesImport implements
                         $this->validarCadena($row['tel_cel'], true, 10) === 1
                             ? $this->validarTelefono($row['tel_cel'])
                             : 0,
+                    // 'CelularValido' => $this->validarTelefono($row['tel_cel']),
                     'NumExtValido' => $this->validarCadena($row['num_ext']),
                     'FechaIneValido' =>
                         $this->validarCadena(
@@ -311,16 +313,24 @@ class PadronesImport implements
     public function cleanLetter($c)
     {
         if ($c !== null) {
-            $cadena = strtoupper(trim($c));
+            if (strlen($c) > 0) {
+                $cadena = strtoupper(trim($c));
 
-            $originales =
-                'ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðòóôõöøùúûýýþÿ';
-            $modificadas =
-                'AAAAAAACEEEEIIIIDOOOOOOUUUUYBSAAAAAAACEEEEIIIIDOOOOOOUUUYYBY';
-            $cadena = utf8_decode($cadena);
-            $cadena = strtr($cadena, utf8_decode($originales), $modificadas);
-            $cadena = str_replace('.', ' ', $cadena);
-            return utf8_encode($cadena);
+                $originales =
+                    'ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðòóôõöøùúûýýþÿ';
+                $modificadas =
+                    'AAAAAAACEEEEIIIIDOOOOOOUUUUYBSAAAAAAACEEEEIIIIDOOOOOOUUUYYBY';
+                $cadena = utf8_decode($cadena);
+                $cadena = strtr(
+                    $cadena,
+                    utf8_decode($originales),
+                    $modificadas
+                );
+                $cadena = str_replace('.', ' ', $cadena);
+                return utf8_encode($cadena);
+            } else {
+                return null;
+            }
         }
         return null;
     }
@@ -341,7 +351,7 @@ class PadronesImport implements
                 return null;
             }
 
-            return trim($newC);
+            return trim(strtoupper($newC));
         }
         return null;
     }
@@ -434,6 +444,10 @@ class PadronesImport implements
 
     public function validarTelefono($cadena)
     {
+        if ($this->validarCadena($cadena, true, 10) === 0) {
+            return 0;
+        }
+
         if (!$this->esNumero($cadena)) {
             return 0;
         }
