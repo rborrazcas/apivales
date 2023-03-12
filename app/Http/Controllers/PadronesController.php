@@ -203,6 +203,8 @@ class PadronesController extends Controller
 
             DB::select('CALL padron_validacion_multiapoyo(' . $id . ')');
 
+            DB::select('CALL padron_validacion_edad(' . $id . ')');
+
             DB::select('CALL padron_con_incidencia(' . $id . ')');
 
             DB::select('CALL padron_correcto(' . $id . ')');
@@ -234,14 +236,21 @@ class PadronesController extends Controller
                         )->insertGetId($padronRemesa);
                         DB::commit();
                     } else {
-                        $total = DB::table('padron_archivos')
-                            ->SelectRaw('SUM(Registros) AS t')
-                            ->Where('Remesa', $remesa)
+                        $totalRemesa = DB::table('padron_validado as p')
+                            ->selectRaw('COUNT(id) AS total')
+                            ->where(['Remesa' => $remesa])
                             ->first();
 
+                        // DB::table('padron_remesas')
+                        //     ->Select('Registros')
+                        //     ->Where('Remesa', $remesa)
+                        //     ->first();
+
+                        $totalR = intval($totalRemesa->total);
+
                         DB::table('padron_remesas')
-                            ->where('id', $id)
-                            ->update(['Registros' => $total->t]);
+                            ->where('Remesa', $remesa)
+                            ->update(['Registros' => $totalR]);
                     }
                     $flagCorrectors = true;
                     unset($remesaRegistrada);
@@ -354,8 +363,6 @@ class PadronesController extends Controller
         $user = auth()->user();
         $res = DB::table('padron_carga_inicial AS p')
             ->select(
-                'p.Remesa',
-                'a.Codigo',
                 'p.Orden',
                 'p.OrdenMunicipio',
                 'p.Identificador',
@@ -406,6 +413,8 @@ class PadronesController extends Controller
                 'p.FechaSolicitud',
                 'p.ResponsableEntrega',
                 'p.EstatusOrigen',
+                'p.Remesa',
+                'a.Codigo',
                 DB::RAW(
                     "CONCAT_WS(' ',u.Nombre,u.Paterno,u.Materno) AS ResponsableDeValidacion"
                 ),
@@ -460,6 +469,9 @@ class PadronesController extends Controller
                 ),
                 DB::raw(
                     "IF (p.ResponsableEntregaValido = 0,'EL RESPONSABLE DE ENTREGA NO ES VALIDO','') AS ResponsableEntregaValido"
+                ),
+                DB::raw(
+                    "IF (p.MenorEdad = 1,'EL REGISTRO ES DE UN MENOR DE EDAD','') AS MenorEdad"
                 )
             )
             ->Join('users AS u', 'u.id', '=', 'p.idUsuarioCreo')
@@ -553,8 +565,6 @@ class PadronesController extends Controller
         $res = DB::table('padron_validado AS p')
             ->select(
                 DB::RAW('LPAD(HEX(p.id),6,0) AS FolioPadron'),
-                'p.Remesa',
-                'a.Codigo',
                 'p.Orden',
                 'p.OrdenMunicipio',
                 'p.Identificador',
@@ -606,6 +616,8 @@ class PadronesController extends Controller
                 'p.FechaSolicitud',
                 'p.ResponsableEntrega',
                 'p.EstatusOrigen',
+                'p.Remesa',
+                'a.Codigo',
                 DB::RAW(
                     "CONCAT_WS(' ',u.Nombre,u.Paterno,u.Materno) AS ResponsableDeValidacion"
                 ),
@@ -726,8 +738,10 @@ class PadronesController extends Controller
                     'idUsuarioCerro' => $userId,
                     'FechaCerro' => date('Y-m-d H:i:s'),
                     // ! Si los que se cargan son directamente aprobados se actualiza a aprobado comité
-                    //'idEstatus' => 2,
+                    'idEstatus' => 2,
                 ]);
+
+            DB::select('CALL padron_vales("' . $params['Remesa'] . '")');
 
             return [
                 'success' => true,

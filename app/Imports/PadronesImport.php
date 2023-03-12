@@ -281,6 +281,7 @@ class PadronesImport implements
                         $this->validarCadena($row['tel_cel'], true, 10) === 1
                             ? $this->validarTelefono($row['tel_cel'])
                             : 0,
+                    // 'CelularValido' => $this->validarTelefono($row['tel_cel']),
                     'NumExtValido' => $this->validarCadena($row['num_ext']),
                     'FechaIneValido' =>
                         $this->validarCadena(
@@ -443,6 +444,10 @@ class PadronesImport implements
 
     public function validarTelefono($cadena)
     {
+        if ($this->validarCadena($cadena, true, 10) === 0) {
+            return 0;
+        }
+
         if (!$this->esNumero($cadena)) {
             return 0;
         }

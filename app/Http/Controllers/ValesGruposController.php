@@ -254,6 +254,185 @@ class ValesGruposController extends Controller
         }
     }
 
+    function getGrupos2023(Request $request)
+    {
+        $parameters = $request->all();
+
+        try {
+            $res = DB::table('vales_grupos')
+                ->select(
+                    'vales_grupos.id',
+                    'vales_grupos.UserOwned',
+                    'vales_grupos.ResponsableEntrega',
+                    'vales_grupos.Enlace',
+                    'vales_grupos.idMunicipio',
+                    'et_cat_municipio.Nombre as Municipio',
+                    'vales_grupos.TotalAprobados',
+                    'vales_grupos.Remesa',
+                    'vales_grupos.created_at',
+                    'vales_grupos.UserCreated',
+                    'vales_grupos.updated_at'
+                )
+                ->JOIN(
+                    'et_cat_municipio',
+                    'et_cat_municipio.id',
+                    '=',
+                    'vales_grupos.idMunicipio'
+                )
+                ->where('Ejercicio', 2023);
+
+            $flag = 0;
+            if (isset($parameters['SubRegion'])) {
+                $valor_id = $parameters['SubRegion'];
+                $res->where('et_cat_municipio.SubRegion', $valor_id);
+            }
+
+            if (isset($parameters['filtered'])) {
+                for ($i = 0; $i < count($parameters['filtered']); $i++) {
+                    if ($flag == 0) {
+                        if (
+                            $parameters['filtered'][$i]['id'] &&
+                            strpos($parameters['filtered'][$i]['id'], 'id') !==
+                                false
+                        ) {
+                            if (
+                                is_array($parameters['filtered'][$i]['value'])
+                            ) {
+                                $res->whereIn(
+                                    $parameters['filtered'][$i]['id'],
+                                    $parameters['filtered'][$i]['value']
+                                );
+                            } else {
+                                $res->where(
+                                    $parameters['filtered'][$i]['id'],
+                                    '=',
+                                    $parameters['filtered'][$i]['value']
+                                );
+                            }
+                        } else {
+                            $res->where(
+                                $parameters['filtered'][$i]['id'],
+                                'LIKE',
+                                '%' . $parameters['filtered'][$i]['value'] . '%'
+                            );
+                        }
+                        $flag = 1;
+                    } else {
+                        if ($parameters['tipo'] == 'and') {
+                            if (
+                                $parameters['filtered'][$i]['id'] &&
+                                strpos(
+                                    $parameters['filtered'][$i]['id'],
+                                    'id'
+                                ) !== false
+                            ) {
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->whereIn(
+                                        $parameters['filtered'][$i]['id'],
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->where(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                            } else {
+                                $res->where(
+                                    $parameters['filtered'][$i]['id'],
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                            }
+                        } else {
+                            if (
+                                $parameters['filtered'][$i]['id'] &&
+                                strpos(
+                                    $parameters['filtered'][$i]['id'],
+                                    'id'
+                                ) !== false
+                            ) {
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->orWhereIn(
+                                        $parameters['filtered'][$i]['id'],
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->orWhere(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                            } else {
+                                $res->orWhere(
+                                    $parameters['filtered'][$i]['id'],
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            $page = $parameters['page'];
+            $pageSize = $parameters['pageSize'];
+
+            $startIndex = $page * $pageSize;
+            if (isset($parameters['sorted'])) {
+                for ($i = 0; $i < count($parameters['sorted']); $i++) {
+                    if ($parameters['sorted'][$i]['desc'] === true) {
+                        $res->orderBy($parameters['sorted'][$i]['id'], 'desc');
+                    } else {
+                        $res->orderBy($parameters['sorted'][$i]['id'], 'asc');
+                    }
+                }
+            }
+
+            $total = $res->count();
+            $res = $res
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'filtros' => $parameters['filtered'],
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'filtros' => $parameters['filtered'],
+                'errors' => $e->getMessage(),
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function setGrupos(Request $request)
     {
         $v = Validator::make($request->all(), [
