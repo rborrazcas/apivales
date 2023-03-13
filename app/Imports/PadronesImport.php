@@ -109,6 +109,13 @@ class PadronesImport implements
                     $this->cleanLetter($row['colonia'])
                 );
                 $calle = $this->removeSpaces($this->cleanLetter($row['calle']));
+                $celular = $this->validarTelefono($row['tel_cel']);
+                $telefono = $this->validarTelefono($row['tel_casa']);
+                $telRecados = $this->validarTelefono($row['tel_recados']);
+                $telefonoValido =
+                    $celular === 0 && $telefono === 0 && $telRecados === 0
+                        ? 0
+                        : 1;
                 $insert_data[] = [
                     'Orden' => trim($row['orden']),
                     'OrdenMunicipio' => trim($row['orden_x_mpio']),
@@ -277,10 +284,10 @@ class PadronesImport implements
                         $this->validarCadena($row['cp'], true, 5) === 1
                             ? $this->esNumero($row['cp'])
                             : 0,
-                    'CelularValido' =>
-                        $this->validarCadena($row['tel_cel'], true, 10) === 1
-                            ? $this->validarTelefono($row['tel_cel'])
-                            : 0,
+                    'TelefonoValido' => $telefono,
+                    'CelularValido' => $celular,
+                    'TelRecadosValido' => $telRecados,
+                    'TelefonoContactoValido' => $telefonoValido,
                     // 'CelularValido' => $this->validarTelefono($row['tel_cel']),
                     'NumExtValido' => $this->validarCadena($row['num_ext']),
                     'FechaIneValido' =>

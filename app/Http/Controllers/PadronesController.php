@@ -179,6 +179,8 @@ class PadronesController extends Controller
                 ->update(['Registros' => $totalRows->total]);
             unset($totalRows);
 
+            DB::select('CALL padron_validacion_curp_registrada(' . $id . ')');
+
             DB::select('CALL padron_validacion(' . $id . ')');
 
             DB::select('CALL padron_validacion_peb(' . $id . ')');
@@ -189,6 +191,7 @@ class PadronesController extends Controller
                     'p.idArchivo' => $id,
                     'p.CURPValido' => 1,
                     'p.CURPValidada' => 0,
+                    'p.CURPYaRegistrada' => 0,
                 ])
                 ->get();
 
@@ -459,7 +462,7 @@ class PadronesController extends Controller
                     "IF (p.CPValido = 0,'EL CP NO ES VALIDO','') AS CPValido"
                 ),
                 DB::raw(
-                    "IF (p.CelularValido = 0,'EL CELULAR NO ES VALIDO','') AS CelularValido"
+                    "IF (p.TelefonoContactoValido = 0,'DEBE AGREGAR POR LO MENOS UN TELÉFONO VÁLIDO','') AS TelefonoContactoValido"
                 ),
                 DB::raw(
                     "IF (p.FechaIneValido = 0,'LA FECHA DE LA INE NO ES VALIDA','') AS FechaIneValido"
