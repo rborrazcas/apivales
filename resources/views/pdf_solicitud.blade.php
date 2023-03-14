@@ -157,16 +157,17 @@
                 </tr>
                 <tr>
                     <td colspan="2" style="text-align:justify; line-height:25px;">
-                        solicito ser considerada(o) para recibir <span
-                            style="text-decoration:underline; font-weight:bold;word-spacing:16px;"> Apoyo de
-                            Vale </span> del Programa <span
-                            style="text-decoration:underline; font-weight:bold;word-spacing:16px;"> Vale
-                            Grandeza - Compra Local </span> y
+                        <span style="word-spacing:8px;">solicito ser
+                            considerada(o) para recibir</span><span
+                            style="text-decoration:underline; font-weight:bold;word-spacing:12px;"> Apoyo con
+                            Vales </span> <span <span style="word-spacing:9px;">del Programa</span> <span
+                            style="text-decoration:underline; font-weight:bold;word-spacing:12px;"> Vale
+                            Grandeza - Compra Local </span>
                     </td>
                 </tr>
                 <tr>
                     <td colspan="2" style="text-align:justify; line-height:20px; word-spacing:10px;">
-                        para tal efecto proporciono los siguientes datos personales:
+                        y para tal efecto proporciono los siguientes datos personales:
                     </td>
                 </tr>
             </table>
@@ -228,20 +229,20 @@
                         Nombre completo de la persona acompañante (opcional):
                     </td>
                 </tr>
-                <tr style="line-height:25px;">
+                <tr style="line-height:18px;">
                     <td style="width:35%;word-spacing:16px;">A este acto me acompaña C.</td>
                     <td
                         style="width:65%; padding-left:20px;border-bottom:1px solid;text-align:center;word-spacing:10px;font-weight:bold;vertical-align:bottom;">
                         {{ $vale['Tutor'] }}</td>
                 </tr>
-                <tr style="line-height:25px;">
+                <tr style="line-height:18px;">
                     <td style="width:35%;word-spacing:22px;">a quien reconozco como:</td>
                     <td
                         style="width:65%; padding-left:20px;border-bottom:1px solid;text-align:center;word-spacing:10px;font-weight:bold;vertical-align:bottom;">
                         {{ $vale['Parentesco'] }}</td>
                 </tr>
 
-                <tr style="line-height:25px;">
+                <tr style="line-height:18px;">
                     <td style="width:35%;word-spacing:5px;">CURP de la persona acompañante</td>
                     <td
                         style="width:65%; padding-left:20px;border-bottom:1px solid;text-align:center;letter-spacing: 8px;font-weight:bold;vertical-align:bottom;">

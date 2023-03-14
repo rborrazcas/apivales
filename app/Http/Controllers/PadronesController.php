@@ -444,6 +444,15 @@ class PadronesController extends Controller
                     "IF (p.NombreRenapoValido = 0,'EL NOMBRE ES DIFERENTE A RENAPO','') AS NombreRenapoValido"
                 ),
                 DB::raw(
+                    "IF (p.NombreRenapoValido = 0,rp.nombresLimpio,'') AS NombreRenapoCorrecto"
+                ),
+                DB::raw(
+                    "IF (p.NombreRenapoValido = 0,rp.apellido1Limpio,'') AS PaternoRenapoCorrecto"
+                ),
+                DB::raw(
+                    "IF (p.NombreRenapoValido = 0,rp.apellido2Limpio,'') AS MaternoRenapoCorrecto"
+                ),
+                DB::raw(
                     "IF (p.MunicipioValido = 0,'EL MUNICIPIO NO ES VALIDO','') AS MunicipioValido"
                 ),
                 DB::raw(
@@ -479,6 +488,7 @@ class PadronesController extends Controller
             )
             ->Join('users AS u', 'u.id', '=', 'p.idUsuarioCreo')
             ->Join('padron_archivos AS a', 'a.id', 'p.idArchivo')
+            ->LEFTJOIN('Renapo_Local AS rp', 'p.CURP', 'rp.CURP')
             ->Where('p.idArchivo', $id)
             ->orderBy('p.id', 'asc')
             ->get();
