@@ -169,13 +169,13 @@ class PadronesImport implements
                         : 'S/N',
                     'CP' => trim($row['cp']) ? trim($row['cp']) : null,
                     'Telefono' => trim($row['tel_casa'])
-                        ? trim($row['tel_casa'])
+                        ? str_replace(' ', '', trim($row['tel_casa']))
                         : null,
                     'Celular' => trim($row['tel_cel'])
-                        ? trim($row['tel_cel'])
+                        ? str_replace(' ', '', trim($row['tel_cel']))
                         : null,
                     'TelRecados' => trim($row['tel_recados'])
-                        ? trim($row['tel_recados'])
+                        ? str_replace(' ', '', trim($row['tel_recados']))
                         : null,
                     'FechaIne' => trim($row['ano_de_vigencia_de_ine'])
                         ? trim($row['ano_de_vigencia_de_ine'])
@@ -449,8 +449,14 @@ class PadronesImport implements
         return 0;
     }
 
-    public function validarTelefono($cadena)
+    public function validarTelefono($c)
     {
+        if ($c === null || strlen(trim($c)) === 0) {
+            return 0;
+        }
+
+        $cadena = str_replace(' ', '', $c);
+
         if ($this->validarCadena($cadena, true, 10) === 0) {
             return 0;
         }
