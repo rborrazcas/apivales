@@ -455,7 +455,7 @@ class ValesGruposController extends Controller
         }
         try {
             $parameters = $request->all();
-
+            dd($parameters);
             //Checar vales idIncidencia del owned
             //$parameters['UserOwned'];
             $res_in = DB::table('vales_solicitudes')

@@ -322,13 +322,21 @@ class PadronesController extends Controller
                         DB::table('Renapo_Local')->insert([
                             'CURP' => $curp->CURP,
                             'apellido1' => $curp->apellido1,
-                            'apellido2' => $curp->apellido2,
+                            'apellido2' =>
+                                $curp->apellido2 == null ||
+                                strlen($curp->apellido2) == 0
+                                    ? null
+                                    : $curp->apellido2,
                             'nombres' => $curp->nombres,
                             'sexo' => $curp->sexo,
                             'fechNac' => date('Y-m-d', $timestamp),
                             'nacionalidad' => $curp->nacionalidad,
                             'apellido1Limpio' => $curp->apellido1,
-                            'apellido2Limpio' => $curp->apellido2,
+                            'apellido2Limpio' =>
+                                $curp->apellido2 == null ||
+                                strlen($curp->apellido2) == 0
+                                    ? null
+                                    : $curp->apellido2,
                             'nombresLimpio' => str_replace(
                                 '.',
                                 '',

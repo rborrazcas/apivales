@@ -235,7 +235,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get('/getReporteAcuseVales', 'ReportesController@getAcuseVales');
     Route::get(
         '/getReporteAcuseVales2023',
-        'ReportesController@getReporteAcuseVales2023'
+        'ReportesController@getAcuseVales2023'
     );
     Route::get(
         '/getSolicitudesPdfVales',
@@ -447,7 +447,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getArticularSolicitudes',
         'UserController@getArticularSolicitudes'
     ); //Sin parametros
-
+    Route::post(
+        '/getArticularSolicitudes2023',
+        'UserController@getArticularSolicitudes2023'
+    );
     Route::post(
         '/getValesSolicitudes',
         'ValesSolicitudesController@getValesSolicitudes'
