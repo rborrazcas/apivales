@@ -7302,7 +7302,8 @@ class ReportesController extends Controller
             case '7':
                 //$Regional="SILVIA DE ANDA CAMPOS";
                 //$Regional="ELIZABETH RAMIREZ BÁRCENAS";
-                $Regional = 'ARACELI CABRERA ALCARAZ';
+                //$Regional = 'ARACELI CABRERA ALCARAZ';
+                $Regional = 'MONICA GODOY ARIAS';
                 $CARGOREGIONAL = 'DIRECTOR REGIONAL';
                 break;
         }
@@ -7355,7 +7356,7 @@ class ReportesController extends Controller
         //Agregamos la fecha
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setCellValue('N6', $resGpo->Municipio);
-        $sheet->setCellValue('N7', $resGpo->Enlace);
+        $sheet->setCellValue('N7', $resGpo->ResponsableEntrega);
         $sheet->setCellValue('N3', $resGpo->NumAcuerdo);
         $sheet->setCellValue('N4', $resGpo->FechaAcuerdo);
         $sheet->setCellValue('A2', $resGpo->Leyenda);
@@ -8254,7 +8255,7 @@ class ReportesController extends Controller
             ]);
         }
 
-        $res = DB::table('padron_vales as N')
+        $res = DB::table('vales as N')
             ->select('N.id')
             ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->JOIN(
@@ -8274,6 +8275,7 @@ class ReportesController extends Controller
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
             ->where('N.Enlace', '=', $resGpo->Enlace)
+            ->where('N.ResponsableEntrega', '=', $resGpo->ResponsableEntrega)
             ->where('N.idMunicipio', '=', $resGpo->idMunicipio)
             ->where('N.Remesa', '=', $resGpo->Remesa);
 
@@ -8876,7 +8878,13 @@ class ReportesController extends Controller
         $user = auth()->user();
 
         $resGpo = DB::table('vales_grupos as G')
-            ->select('G.id', 'G.Enlace', 'G.idMunicipio', 'G.Remesa')
+            ->select(
+                'G.id',
+                'G.ResponsableEntrega',
+                'G.Enlace',
+                'G.idMunicipio',
+                'G.Remesa'
+            )
             ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
             ->JOIN('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
             ->where('G.id', '=', $request->idGrupo)
@@ -8930,6 +8938,7 @@ class ReportesController extends Controller
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
             ->where('N.Enlace', '=', $resGpo->Enlace)
+            ->where('N.ResponsableEntrega', '=', $resGpo->ResponsableEntrega)
             ->where('N.idMunicipio', '=', $resGpo->idMunicipio)
             ->where('N.Remesa', '=', $resGpo->Remesa)
             ->where('N.Ejercicio', 2023);
@@ -9015,7 +9024,7 @@ class ReportesController extends Controller
                 'success' => true,
                 'results' => false,
                 'data' => [],
-                'message' => 'No se encontraron resultados de la solicitud.',
+                'message' => 'No se envió un id de grupo válido.',
             ]);
         }
 
