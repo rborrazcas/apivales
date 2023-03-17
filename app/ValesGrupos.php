@@ -19,5 +19,6 @@ class ValesGrupos extends Model
         'created_at',
         'UserCreated',
         'updated_at',
+        'Ejercicio',
     ];
 }

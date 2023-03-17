@@ -612,6 +612,7 @@ class ValesGruposController extends Controller
 
             $user = auth()->user();
             $parameters['UserCreated'] = $user->id;
+            $parameters['Ejercicio'] = 2023;
             $grupo_ = ValesGrupos::create($parameters);
             $grupo = ValesGrupos::find($grupo_->id);
             return ['success' => true, 'results' => true, 'data' => $grupo];
