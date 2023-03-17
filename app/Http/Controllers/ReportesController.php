@@ -29,6 +29,7 @@ use App\VNegociosFiltros;
 use App\UsersFiltro;
 use Arr;
 use Validator;
+use DateTime;
 use Illuminate\Contracts\Validation\ValidationException;
 set_time_limit(0);
 class ReportesController extends Controller
@@ -8612,12 +8613,45 @@ class ReportesController extends Controller
 
         try {
             $id = hexdec($folio);
+            if (strlen($request->folio['FechaEntrega']) !== 10) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'La fecha ingresada no es válida.',
+                ]);
+            }
+            $fechaEntrega = DateTime::createFromFormat(
+                'Y-m-d',
+                $request->folio['FechaEntrega']
+            )->format('Y-m-d');
+            $minDate = strtotime(
+                DateTime::createFromFormat('Y-m-d', '2023-03-01')->format(
+                    'Y-m-d'
+                )
+            );
+            $maxDate = strtotime(
+                DateTime::createFromFormat('Y-m-d', '2023-12-22')->format(
+                    'Y-m-d'
+                )
+            );
+            if (
+                strtotime($fechaEntrega) < $minDate ||
+                strtotime($fechaEntrega) > $maxDate
+            ) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'La fecha ingresada no es válida.',
+                ]);
+            }
         } catch (Exception $e) {
             return response()->json([
                 'success' => true,
                 'results' => false,
                 'data' => [],
-                'message' => 'El folio ingresado no es válido.',
+                'message' => 'El folio o la fecha ingresada no son válidos.',
             ]);
         }
 
@@ -8663,7 +8697,7 @@ class ReportesController extends Controller
                 ->where('id', $id)
                 ->update([
                     'isEntregado' => 1,
-                    'entrega_at' => date('Y-m-d'),
+                    'entrega_at' => $fechaEntrega,
                     'isEntregadoOwner' => $user->id,
                 ]);
 
@@ -8905,7 +8939,7 @@ class ReportesController extends Controller
                 'N.id  AS idVale',
                 'vr.NumAcuerdo AS acuerdo',
                 'M.SubRegion AS region',
-                'N.Enlace AS enlace',
+                'N.ResponsableEntrega AS enlace',
                 DB::raw(
                     "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
                 ),

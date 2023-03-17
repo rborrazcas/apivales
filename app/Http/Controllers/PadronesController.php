@@ -531,6 +531,13 @@ class PadronesController extends Controller
             ->where('id', $id)
             ->first();
 
+        $registrosConError = [
+            'idArchivo' => $id,
+            'Registros' => intval($archivo->Registros),
+        ];
+
+        DB::table('padron_registros_error')->insert($registrosConError);
+
         //Mapeamos el resultado como un array
         $res = $res
             ->map(function ($x) {

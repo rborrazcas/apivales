@@ -335,6 +335,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/getValesFecha', 'VValesController@getValesFecha');
 
     Route::post('/getValesNotIn', 'VValesController@getValesNotIn');
+    Route::post('/getValesNotIn2023', 'VValesController@getValesNotIn2023');
+
     Route::post('/getValesIn', 'VValesController@getValesIn');
     Route::post('/getValesRegion', 'VValesController@getValesRegion');
     Route::post('/setVales', 'VValesController@setVales');
@@ -439,6 +441,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/getGrupos', 'ValesGruposController@getGrupos'); //Sin parametros
     Route::post('/getGrupos2023', 'ValesGruposController@getGrupos2023'); //Sin parametros
     Route::post('/setGrupos', 'ValesGruposController@setGrupos'); //Sin parametros
+    Route::post('/setGrupos2023', 'ValesGruposController@setGrupos2023'); //Sin parametros
     Route::post(
         '/getGruposArticuladores',
         'UserController@getGruposArticuladores'
@@ -459,10 +462,15 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/setValesSolicitudes',
         'ValesSolicitudesController@setValesSolicitudes'
     );
+    Route::post(
+        '/setValesSolicitudes2023',
+        'ValesSolicitudesController@setValesSolicitudes2023'
+    );
 
     Route::get('/getValePPT', 'ReportesController@getVales');
 
     Route::post('/getSerieVale', 'ValesSeriesController@getSerieVale');
+    Route::post('/getSerieVale2023', 'ValesSeriesController@getSerieVale2023');
 
     Route::get('/copiarTablaVales', 'ValidacionesController@copiarTablaVales');
     Route::get('/setValidaciones', 'ValidacionesController@setValidaciones');

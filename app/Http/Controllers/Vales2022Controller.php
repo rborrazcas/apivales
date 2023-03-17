@@ -325,7 +325,7 @@ class Vales2022Controller extends Controller
                     'i.id',
                     'vales.idIncidencia'
                 )
-                ->WHERERAW('r.Ejercicio>2022');
+                ->WHERERAW('vales.Ejercicio = 2022');
 
             if ($viewall < 1) {
                 $region = DB::table('users_aplicativo_web')

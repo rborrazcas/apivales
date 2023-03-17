@@ -10,12 +10,14 @@ class ValesGrupos extends Model
     //
     protected $fillable = [
         'id',
-        'UserOwned', 
-        'idMunicipio', 
-        'TotalAprobados', 
-        'Remesa', 
-        'created_at', 
-        'UserCreated', 
-        'updated_at'
+        'UserOwned',
+        'ResponsableEntrega',
+        'Enlace',
+        'idMunicipio',
+        'TotalAprobados',
+        'Remesa',
+        'created_at',
+        'UserCreated',
+        'updated_at',
     ];
 }
