@@ -27,6 +27,7 @@ use App\VNegociosFiltros;
 use Carbon\Carbon as time;
 use Excel;
 use App\Imports\PadronesImport;
+use App\Exports\PadronValidadoExport;
 
 class PadronesController extends Controller
 {
@@ -186,7 +187,7 @@ class PadronesController extends Controller
             DB::select('CALL padron_validacion_peb(' . $id . ')');
 
             $padronAValidarRenapo = DB::table('padron_carga_inicial AS p')
-                ->select('p.id', 'p.CURP')
+                ->select('p.id', 'p.CURP', 'p.Remesa')
                 ->where([
                     'p.idArchivo' => $id,
                     'p.CURPValido' => 1,
@@ -357,6 +358,36 @@ class PadronesController extends Controller
                         $dataPadron['CURPRenapoDiferente'] = 1;
                     }
 
+                    $curpRegistrada = DB::table('padron_validado')
+                        ->select('id')
+                        ->where('Remesa', $solicitud->Remesa)
+                        ->WhereRaw(
+                            '(CURP = "' .
+                                $curp->CURP .
+                                '" OR CURPAnterior = "' .
+                                $curp->CURP .
+                                '" )'
+                        )
+                        ->first();
+
+                    if ($curpRegistrada !== null) {
+                        $dataPadron['NoValido'] = 1;
+                        $dataPadron['CURPYaRegistrada'] = 1;
+                        $dataPadron['NombreValido'] = 1;
+                        $dataPadron['PaternoValido'] = 1;
+                        $dataPadron['MunicipioValido'] = 1;
+                        $dataPadron['LocalidadValido'] = 1;
+                        $dataPadron['ColoniaValido'] = 1;
+                        $dataPadron['CalleValido'] = 1;
+                        $dataPadron['NumExtValido'] = 1;
+                        $dataPadron['CPValido'] = 1;
+                        $dataPadron['TelefonoContactoValido'] = 1;
+                        $dataPadron['FechaIneValido'] = 1;
+                        $dataPadron['EnlaceValido'] = 1;
+                        $dataPadron['NombreRenapoValido'] = 1;
+                        $dataPadron['ResponsableEntregaValido'] = 1;
+                        $dataPadron['MenorEdad'] = 0;
+                    }
                     DB::table('padron_carga_inicial')
                         ->where('id', $solicitud->id)
                         ->update($dataPadron);
@@ -587,146 +618,48 @@ class PadronesController extends Controller
 
     public function getReportePadronCorrecto(Request $request)
     {
+        ini_set('memory_limit', '-1');
+        set_time_limit(0);
         $params = $request->all();
         $id = $params['id'];
         $user = auth()->user();
-        $res = DB::table('padron_validado AS p')
-            ->select(
-                DB::RAW('LPAD(HEX(p.id),6,0) AS FolioPadron'),
-                'p.Orden',
-                'p.OrdenMunicipio',
-                'p.Identificador',
-                'p.Region',
-                'p.Nombre',
-                'p.Paterno',
-                'p.Materno',
-                'p.FechaNacimiento',
-                'p.Sexo',
-                'p.EstadoNacimiento',
-                'p.CURP',
-                'p.CURPAnterior',
-                'p.Validador',
-                'p.Municipio',
-                'p.NumLocalidad',
-                'p.Localidad',
-                'p.Colonia',
-                'p.CveColonia',
-                'p.CveInterventor',
-                'p.CveTipoCalle',
-                'p.Calle',
-                'p.NumExt',
-                'p.NumInt',
-                'p.CP',
-                'p.Telefono',
-                'p.Celular',
-                'p.TelRecados',
-                'p.FechaIne',
-                'p.FolioTarjetaContigoSi',
-                'p.Apoyo',
-                'p.Variante',
-                'p.EnlaceOrigen',
-                'p.LargoCURP',
-                'p.FrecuenciaCURP',
-                'p.Periodo',
-                'p.NombreMenor',
-                'p.PaternoMenor',
-                'p.MaternoMenor',
-                'p.FechaNacimientoMenor',
-                'p.SexoMenor',
-                'p.EstadoNacimientoMenor',
-                'p.CURPMenor',
-                'p.ValidadorCURPMenor',
-                'p.LargoCURPMenor',
-                'p.FrecuenciaCURPMenor',
-                'p.EnlaceIntervencion1',
-                'p.EnlaceIntervencion2',
-                'p.EnlaceIntervencion3',
-                'p.FechaSolicitud',
-                'p.ResponsableEntrega',
-                'p.EstatusOrigen',
-                'p.Remesa',
-                'a.Codigo',
-                DB::RAW(
-                    "CONCAT_WS(' ',u.Nombre,u.Paterno,u.Materno) AS ResponsableDeValidacion"
-                ),
-                'FechaCreo',
-                DB::raw(
-                    "IF (p.TieneApoyo = 1,'El BENEFICIARIO TIENE APOYO EN OTRA REMESA',NULL) AS ApoyoMultiple"
-                ),
-                DB::raw(
-                    "IF (p.CURPAnterior IS NOT NULL ,'El CURP FUE ACTUALIZADO POR RENAPO',NULL) AS CURPDiferente"
-                ),
-                'e.Estatus'
-            )
-            ->Join('users AS u', 'u.id', '=', 'p.idUsuarioCreo')
-            ->Join('padron_estatus AS e', 'e.id', '=', 'p.idEstatus')
-            ->JOIN('padron_archivos AS a', 'a.id', 'p.idArchivo')
-            ->Where('p.Remesa', $id)
-            ->get();
-        //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
 
-        if ($res->count() == 0) {
-            //return response()->json(['success'=>false,'results'=>false,'message'=>$res->toSql()]);
-            $reader = IOFactory::createReader('Xlsx');
-            $spreadsheet = $reader->load(
-                public_path() . '/archivos/PlantillaParaPadron.xlsx'
-            );
-            $writer = new Xlsx($spreadsheet);
-            $writer->save('archivos/' . $user->email . 'PlantillaPadron.xlsx');
-            $file =
-                public_path() .
-                '/archivos/' .
-                $user->email .
-                'PlantillaPadron.xlsx';
-
-            return response()->download(
-                $file,
-                'PlantillaPadron' . date('Y-m-d') . '.xlsx'
-            );
-        }
-
-        //Mapeamos el resultado como un array
-        $res = $res
-            ->map(function ($x) {
-                $x = is_object($x) ? (array) $x : $x;
-                return $x;
-            })
-            ->toArray();
-
-        $reader = IOFactory::createReader('Xlsx');
-        $spreadsheet = $reader->load(
-            public_path() . '/archivos/PlantillaParaPadron.xlsx'
+        return (new PadronValidadoExport($id))->download(
+            'Padron_Validado_Remesa-' . $id . '.xlsx'
         );
-        $sheet = $spreadsheet->getActiveSheet();
 
-        $sheet
-            ->getPageSetup()
-            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
-        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+        // $regiones = DB::SELECT('CALL getTotalRemesas("' . $id . '")');
+        // $carpeta = 'Padron_Validado_' . $user->email;
 
-        $sheet->fromArray($res, null, 'A5');
+        // $path = public_path() . '/archivos/' . $carpeta;
 
-        $sheet->setCellValue('F1', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+        // File::makeDirectory($path, $mode = 0777, true, true);
 
-        $sheet->getDefaultRowDimension()->setRowHeight(-1);
+        // //foreach ($regiones as $r) {
+        // Excel::store(
+        //     new PadronValidadoExport($id, 1),
+        //     'Padron_Remesa_' . $id . '_Region_1.xlsx',
+        //     'public'
+        // );
+        // //}
 
-        $writer = new Xlsx($spreadsheet);
-        $writer->save('archivos/' . $user->email . 'PlantillaPadron.xlsx');
-        $file =
-            public_path() .
-            '/archivos/' .
-            $user->email .
-            'PlantillaPadron.xlsx';
+        // dd('Listo');
 
-        return response()->download(
-            $file,
-            $user->email .
-                '_PlantillaPadron_' .
-                $id .
-                '_' .
-                date('Y-m-d H:i:s') .
-                '.xlsx'
-        );
+        // $file =
+        //     public_path() .
+        //     '/archivos/' .
+        //     $user->email .
+        //     'PlantillaPadron.xlsx';
+
+        // return response()->download(
+        //     $file,
+        //     $user->email .
+        //         '_PlantillaPadron_' .
+        //         $id .
+        //         '_' .
+        //         date('Y-m-d H:i:s') .
+        //         '.xlsx'
+        // );
     }
 
     public function getPlantilla()
