@@ -455,7 +455,6 @@ class ValesGruposController extends Controller
         }
         try {
             $parameters = $request->all();
-            dd($parameters);
             //Checar vales idIncidencia del owned
             //$parameters['UserOwned'];
             $res_in = DB::table('vales_solicitudes')
@@ -511,6 +510,109 @@ class ValesGruposController extends Controller
 
             $user = auth()->user();
             $parameters['UserCreated'] = $user->id;
+            $grupo_ = ValesGrupos::create($parameters);
+            $grupo = ValesGrupos::find($grupo_->id);
+            return ['success' => true, 'results' => true, 'data' => $grupo];
+        } catch (QueryException $e) {
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                //'filtros' => $parameters['filtered'],
+                'errors' => $e->getMessage(),
+                'message' => 'Hubo un error a al crear el registro',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+    function setGrupos2023(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'ResponsableEntrega' => 'required',
+            'Enlace' => 'required',
+            'idMunicipio' => 'required',
+            'TotalAprobados' => 'required',
+            'Remesa' => 'required',
+            'idIncidencia' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => $v->errors(),
+                'data' => [],
+            ];
+
+            return response()->json($response, 200);
+        }
+        try {
+            $parameters = $request->all();
+            //Checar vales idIncidencia del owned
+            //$parameters['UserOwned'];
+            $res_in = DB::table('vales_solicitudes')
+                ->select('vales_solicitudes.idSolicitud')
+                ->whereRaw('Ejercicio = 2023')
+                ->toSql();
+
+            $res_validacion = DB::table('vales')
+                ->select('vales.id')
+                ->where('vales.idStatus', '=', 5)
+                ->where('vales.Enlace', '=', $parameters['Enlace'])
+                ->where(
+                    'vales.ResponsableEntrega',
+                    '=',
+                    $parameters['ResponsableEntrega']
+                )
+                ->where('vales.idMunicipio', '=', $parameters['idMunicipio'])
+                ->where('vales.Remesa', '=', $parameters['Remesa'])
+                ->where('vales.idIncidencia', '=', $parameters['idIncidencia'])
+                ->where('vales.Ejercicio', '=', 2023)
+                ->whereRaw('vales.id NOT IN(' . $res_in . ')')
+                ->get();
+
+            if (count($res_validacion->toArray()) == 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' =>
+                        'Las solicitudes pertenecientes a este grupo no cumplieron la validacion de incidencia.',
+                ];
+                // 'message' =>'El grupo que desea registrar ya se encuentra registrado.'];
+                return response()->json($response, 200);
+            }
+
+            $grupo_recibido =
+                $parameters['ResponsableEntrega'] .
+                $parameters['Enlace'] .
+                $parameters['idMunicipio'] .
+                $parameters['Remesa'];
+            $grupo_recibido = str_replace(' ', '', $grupo_recibido);
+            $res = ValesGrupos::where(
+                DB::raw("
+                REPLACE(CONCAT(ResponsableEntrega,Enlace,idMunicipio,Remesa), ' ', '')
+                "),
+                '=',
+                $grupo_recibido
+            )->first();
+            if ($res) {
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'data' => $res,
+                ];
+                // 'message' =>'El grupo que desea registrar ya se encuentra registrado.'];
+                return response()->json($response, 200);
+            }
+
+            $user = auth()->user();
+            $parameters['UserCreated'] = $user->id;
+            $parameters['Ejercicio'] = 2023;
             $grupo_ = ValesGrupos::create($parameters);
             $grupo = ValesGrupos::find($grupo_->id);
             return ['success' => true, 'results' => true, 'data' => $grupo];

@@ -3980,6 +3980,526 @@ class VValesController extends Controller
         }
     }
 
+    function getValesNotIn2023(Request $request)
+    {
+        $parameters = $request->all();
+
+        try {
+            $res_1 = DB::table('vales_solicitudes')
+                ->select('vales_solicitudes.idSolicitud')
+                ->toSql();
+
+            $res = DB::table('vales')
+                ->select(
+                    'vales.id',
+                    DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
+                    'vales.TelRecados',
+                    'vales.FechaSolicitud',
+                    'vales.CURP',
+                    'vales.Nombre',
+                    'vales.Paterno',
+                    'vales.Materno',
+                    'vales.Sexo',
+                    'vales.FechaNacimiento',
+                    'vales.Calle',
+                    'vales.NumExt',
+                    'vales.NumInt',
+                    'vales.Colonia',
+                    'vales.CP',
+                    'vales.idMunicipio',
+                    'et_cat_municipio.Id AS IdM',
+                    'et_cat_municipio.Nombre AS Municipio',
+                    'et_cat_municipio.SubRegion AS Region',
+                    'vales.idLocalidad',
+                    'l.id AS Clave',
+                    'l.LocalidadLimpio AS Localidad',
+                    'vales.TelFijo',
+                    'vales.TelCelular',
+                    'vales.CorreoElectronico',
+                    'vales.idStatus',
+                    'vales_status.id as idES',
+                    'vales_status.Estatus',
+                    'vales_status.Clave as ClaveA',
+                    'vales.created_at',
+                    'vales.updated_at',
+                    'vales.UserCreated',
+                    //Datos Usuario created
+                    'users.id as idE',
+                    'users.email as emailE',
+                    'users.Nombre as NombreE',
+                    'users.Paterno as PaternoE',
+                    'users.Materno as MaternoE',
+                    'users.idTipoUser',
+                    'cat_usertipo.id as idEA',
+                    'cat_usertipo.TipoUser as TipoUserEA',
+                    'cat_usertipo.Clave as ClaveEA',
+                    'vales.UserUpdated',
+                    //Datos Usuario updated
+                    'usersB.id as idF',
+                    'usersB.email as emailF',
+                    'usersB.Nombre as NombreF',
+                    'usersB.Paterno as PaternoF',
+                    'usersB.Materno as MaternoF',
+                    'usersB.idTipoUser',
+                    'cat_usertipoB.id as idFA',
+                    'cat_usertipoB.TipoUser as TipoUserFA',
+                    'cat_usertipoB.Clave as ClaveFA',
+                    //Datos Usuario owned
+                    'vales.ResponsableEntrega',
+                    'vales.Enlace'
+                )
+                ->JOIN(
+                    'et_cat_municipio',
+                    'et_cat_municipio.Id',
+                    '=',
+                    'vales.idMunicipio'
+                )
+                ->JOIN(
+                    'localidades_padron_vales AS l',
+                    'l.id',
+                    '=',
+                    'vales.idLocalidad'
+                )
+                ->JOIN('vales_status', 'vales_status.id', '=', 'idStatus')
+                ->leftJoin('users', 'users.id', '=', 'vales.UserCreated')
+                ->leftJoin(
+                    'cat_usertipo',
+                    'cat_usertipo.id',
+                    '=',
+                    'users.idTipoUser'
+                )
+                ->leftJoin(
+                    'users as usersB',
+                    'usersB.id',
+                    '=',
+                    'vales.UserUpdated'
+                )
+                ->leftJoin(
+                    'cat_usertipo as cat_usertipoB',
+                    'cat_usertipoB.id',
+                    '=',
+                    'usersB.idTipoUser'
+                )
+                ->leftJoin(
+                    'users as usersCretaed',
+                    'usersCretaed.id',
+                    '=',
+                    'vales.UserCreated'
+                )
+                ->where('vales.idStatus', '=', 5)
+                //->whereNotIn('vales.id',DB::raw($res_1));
+                ->whereRaw('vales.id NOT IN(' . $res_1 . ')');
+
+            $flag = 0;
+            if (isset($parameters['filtered'])) {
+                for ($i = 0; $i < count($parameters['filtered']); $i++) {
+                    if ($flag == 0) {
+                        if (
+                            $parameters['filtered'][$i]['id'] &&
+                            strpos($parameters['filtered'][$i]['id'], 'id') !==
+                                false
+                        ) {
+                            if (
+                                is_array($parameters['filtered'][$i]['value'])
+                            ) {
+                                $res->whereIn(
+                                    $parameters['filtered'][$i]['id'],
+                                    $parameters['filtered'][$i]['value']
+                                );
+                            } else {
+                                $res->where(
+                                    $parameters['filtered'][$i]['id'],
+                                    '=',
+                                    $parameters['filtered'][$i]['value']
+                                );
+                            }
+                        } else {
+                            if (
+                                strcmp(
+                                    $parameters['filtered'][$i]['id'],
+                                    'vales.UserCreated'
+                                ) === 0 ||
+                                strcmp(
+                                    $parameters['filtered'][$i]['id'],
+                                    'vales.UserUpdated'
+                                ) === 0 ||
+                                strcmp(
+                                    $parameters['filtered'][$i]['id'],
+                                    'vales.UserOwned'
+                                ) === 0
+                            ) {
+                                $res->where(
+                                    $parameters['filtered'][$i]['id'],
+                                    '=',
+                                    $parameters['filtered'][$i]['value']
+                                );
+                            } else {
+                                $res->where(
+                                    $parameters['filtered'][$i]['id'],
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                            }
+                        }
+                        $flag = 1;
+                    } else {
+                        if ($parameters['tipo'] == 'and') {
+                            if (
+                                $parameters['filtered'][$i]['id'] &&
+                                strpos(
+                                    $parameters['filtered'][$i]['id'],
+                                    'id'
+                                ) !== false
+                            ) {
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->whereIn(
+                                        $parameters['filtered'][$i]['id'],
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->where(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                            } else {
+                                if (
+                                    strcmp(
+                                        $parameters['filtered'][$i]['id'],
+                                        'vales.UserCreated'
+                                    ) === 0 ||
+                                    strcmp(
+                                        $parameters['filtered'][$i]['id'],
+                                        'vales.UserUpdated'
+                                    ) === 0 ||
+                                    strcmp(
+                                        $parameters['filtered'][$i]['id'],
+                                        'vales.UserOwned'
+                                    ) === 0
+                                ) {
+                                    $res->where(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    if (
+                                        strcmp(
+                                            $parameters['filtered'][$i]['id'],
+                                            'vales.Remesa'
+                                        ) === 0
+                                    ) {
+                                        $res->where(
+                                            $parameters['filtered'][$i]['id'],
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->where(
+                                            $parameters['filtered'][$i]['id'],
+                                            'LIKE',
+                                            '%' .
+                                                $parameters['filtered'][$i][
+                                                    'value'
+                                                ] .
+                                                '%'
+                                        );
+                                    }
+                                }
+                            }
+                        } else {
+                            if (
+                                $parameters['filtered'][$i]['id'] &&
+                                strpos(
+                                    $parameters['filtered'][$i]['id'],
+                                    'id'
+                                ) !== false
+                            ) {
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->orWhereIn(
+                                        $parameters['filtered'][$i]['id'],
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->orWhere(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                            } else {
+                                if (
+                                    strcmp(
+                                        $parameters['filtered'][$i]['id'],
+                                        'vales.UserCreated'
+                                    ) === 0 ||
+                                    strcmp(
+                                        $parameters['filtered'][$i]['id'],
+                                        'vales.UserUpdated'
+                                    ) === 0
+                                ) {
+                                    $res->orWhere(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->orWhere(
+                                        $parameters['filtered'][$i]['id'],
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            $page = $parameters['page'];
+            $pageSize = $parameters['pageSize'];
+
+            $startIndex = $page * $pageSize;
+            if (isset($parameters['sorted'])) {
+                for ($i = 0; $i < count($parameters['sorted']); $i++) {
+                    if ($parameters['sorted'][$i]['desc'] === true) {
+                        $res->orderBy($parameters['sorted'][$i]['id'], 'desc');
+                    } else {
+                        $res->orderBy($parameters['sorted'][$i]['id'], 'asc');
+                    }
+                }
+            }
+            /* if(count($parameters['sorted']) == 0){
+                    $res->orderBy('et_cat_municipio.Nombre','asc')
+                    ->orderBy('et_cat_localidad.Nombre','asc')
+                    ->orderBy('vales.Colonia','asc')
+                    ->orderBy('vales.Nombre','asc')
+                    ->orderBy('vales.Paterno','asc');
+                
+            } */
+
+            if (isset($parameters['NombreCompleto'])) {
+                $filtro_recibido = $parameters['NombreCompleto'];
+                $filtro_recibido = str_replace(' ', '', $filtro_recibido);
+                $res->where(
+                    DB::raw("
+                    REPLACE(
+                    CONCAT(
+                        vales.Nombre,
+                        vales.Paterno,
+                        vales.Materno,
+                        vales.Paterno,
+                        vales.Nombre,
+                        vales.Materno,
+                        vales.Materno,
+                        vales.Nombre,
+                        vales.Paterno,
+                        vales.Nombre,
+                        vales.Materno,
+                        vales.Paterno,
+                        vales.Paterno,
+                        vales.Materno,
+                        vales.Nombre,
+                        vales.Materno,
+                        vales.Paterno,
+                        vales.Nombre
+                    ), ' ', '')"),
+
+                    'like',
+                    '%' . $filtro_recibido . '%'
+                );
+            }
+
+            if (isset($parameters['NombreOwner'])) {
+                $filtro_recibido = $parameters['NombreOwner'];
+                $filtro_recibido = str_replace(' ', '', $filtro_recibido);
+                $res->where(
+                    DB::raw("
+                    REPLACE(
+                    CONCAT(
+                        usersC.Nombre,
+                        usersC.Paterno,
+                        usersC.Materno,
+                        usersC.Paterno,
+                        usersC.Nombre,
+                        usersC.Materno,
+                        usersC.Materno,
+                        usersC.Nombre,
+                        usersC.Paterno,
+                        usersC.Nombre,
+                        usersC.Materno,
+                        usersC.Paterno,
+                        usersC.Paterno,
+                        usersC.Materno,
+                        usersC.Nombre,
+                        usersC.Materno,
+                        usersC.Paterno,
+                        usersC.Nombre
+                    ), ' ', '')"),
+
+                    'like',
+                    '%' . $filtro_recibido . '%'
+                );
+            }
+
+            if (isset($parameters['NombreCreated'])) {
+                $filtro_recibido = $parameters['NombreCreated'];
+                $filtro_recibido = str_replace(' ', '', $filtro_recibido);
+                $res->where(
+                    DB::raw("
+                    REPLACE(
+                    CONCAT(
+                        usersCretaed.Nombre,
+                        usersCretaed.Paterno,
+                        usersCretaed.Materno,
+                        usersCretaed.Paterno,
+                        usersCretaed.Nombre,
+                        usersCretaed.Materno,
+                        usersCretaed.Materno,
+                        usersCretaed.Nombre,
+                        usersCretaed.Paterno,
+                        usersCretaed.Nombre,
+                        usersCretaed.Materno,
+                        usersCretaed.Paterno,
+                        usersCretaed.Paterno,
+                        usersCretaed.Materno,
+                        usersCretaed.Nombre,
+                        usersCretaed.Materno,
+                        usersCretaed.Paterno,
+                        usersCretaed.Nombre
+                    ), ' ', '')"),
+
+                    'like',
+                    '%' . $filtro_recibido . '%'
+                );
+            }
+
+            $res
+                ->orderBy('et_cat_municipio.Nombre', 'asc')
+                ->orderBy('l.LocalidadLimpio', 'asc')
+                ->orderBy('vales.Colonia', 'asc')
+                ->orderBy('vales.Nombre', 'asc')
+                ->orderBy('vales.Paterno', 'asc');
+
+            //dd($res->toSql());
+
+            $total = $res->count();
+            $res = $res
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $array_res = [];
+            $temp = [];
+            foreach ($res as $data) {
+                $temp = [
+                    'id' => $data->id,
+                    'ClaveUnica' => $data->ClaveUnica,
+                    'TelRecados' => $data->TelRecados,
+                    'TelFijo' => $data->TelFijo,
+                    'FechaSolicitud' => $data->FechaSolicitud,
+                    'CURP' => $data->CURP,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'Sexo' => $data->Sexo,
+                    'FechaNacimiento' => $data->FechaNacimiento,
+                    'Calle' => $data->Calle,
+                    'NumExt' => $data->NumExt,
+                    'NumInt' => $data->NumInt,
+                    'Colonia' => $data->Colonia,
+                    'CP' => $data->CP,
+                    'idMunicipio' => [
+                        'id' => $data->IdM,
+                        'Municipio' => $data->Municipio,
+                        'Region' => $data->Region,
+                    ],
+                    'idLocalidad' => [
+                        'id' => $data->Clave,
+                        'Nombre' => $data->Localidad,
+                    ],
+                    'TelCelular' => $data->TelCelular,
+                    'CorreoElectronico' => $data->CorreoElectronico,
+                    'idStatus' => [
+                        'id' => $data->idES,
+                        'Clave' => $data->ClaveA,
+                        'Estatus' => $data->Estatus,
+                    ],
+                    'created_at' => $data->created_at,
+                    'updated_at' => $data->updated_at,
+                    'UserCreated' => [
+                        'id' => $data->idE,
+                        'email' => $data->emailE,
+                        'Nombre' => $data->NombreE,
+                        'Paterno' => $data->PaternoE,
+                        'Materno' => $data->MaternoE,
+                        'idTipoUser' => [
+                            'id' => $data->idEA,
+                            'TipoUser' => $data->TipoUserEA,
+                            'Clave' => $data->ClaveEA,
+                        ],
+                    ],
+                    'UserUpdated' => [
+                        'id' => $data->idF,
+                        'email' => $data->emailF,
+                        'Nombre' => $data->NombreF,
+                        'Paterno' => $data->PaternoF,
+                        'Materno' => $data->MaternoF,
+                        'idTipoUser' => [
+                            'id' => $data->idFA,
+                            'TipoUser' => $data->TipoUserFA,
+                            'Clave' => $data->ClaveFA,
+                        ],
+                    ],
+                    'Responsables' => [
+                        'ResponsableEntrega' => $data->ResponsableEntrega,
+                        'Enlace' => $data->Enlace,
+                    ],
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            return [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'filtros' => $parameters['filtered'],
+                'data' => $array_res,
+            ];
+        } catch (QueryException $e) {
+            dd($e->getMessage());
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'filtros' => $parameters['filtered'],
+                'errors' => $errors,
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function getValesIn(Request $request)
     {
         $parameters = $request->all();

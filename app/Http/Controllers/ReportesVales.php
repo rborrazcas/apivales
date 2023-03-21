@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -25,15 +26,17 @@ use GuzzleHttp\Client;
 use App\VNegociosFiltros;
 use Carbon\Carbon as time;
 use Excel;
-use App\Imports\ConciliacionImport;
-class Vales2022Controller extends Controller
+
+class ReportesVales extends Controller
 {
+    //
+
     function getPermisos()
     {
         $user = auth()->user();
 
         $permisos = DB::table('users_menus')
-            ->where(['idUser' => $user->id, 'idMenu' => '23'])
+            ->where(['idUser' => $user->id, 'idMenu' => '29'])
             ->get()
             ->first();
         if ($permisos !== null) {
@@ -47,12 +50,6 @@ class Vales2022Controller extends Controller
     {
         $parameters = $request->all();
         $user = auth()->user();
-        $userName = DB::table('users_aplicativo_web')
-            ->selectRaw('UserName,Region')
-            ->where('idUser', $user->id)
-            ->get()
-            ->first();
-
         $permisos = $this->getPermisos();
         if ($permisos === null) {
             $response = [
@@ -65,12 +62,10 @@ class Vales2022Controller extends Controller
             return response()->json($response, 200);
         }
 
+        $filtroPermisos = '';
         try {
             if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
-                $res_Vales = DB::table('cedulas_solicitudes')
-                    ->select('MunicipioVive as municipio')
-                    ->where('idUsuarioCreo', $user->id)
-                    ->orWhere('UsuarioAplicativo', $userName->UserName);
+                $filtroPermisos = 'idMunicipio = ' . $user->idMunicipio;
             } elseif ($permisos->ViewAll < 1) {
                 $region = '';
                 if ($userName->Region == 'I') {
@@ -101,12 +96,7 @@ class Vales2022Controller extends Controller
                 $res_Vales = DB::table('et_cat_municipio')
                     ->select('Nombre as municipio')
                     ->where('SubRegion', $region);
-            } else {
-                $res_Vales = DB::table('et_cat_municipio')->select(
-                    'Nombre as municipio'
-                );
             }
-
             $res_Vales = $res_Vales->groupBy('municipio')->OrderBy('municipio');
             $res_Vales = $res_Vales->get();
 
