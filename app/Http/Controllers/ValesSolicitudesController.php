@@ -341,8 +341,8 @@ class ValesSolicitudesController extends Controller
             'idSolicitud' => 'required|unique:vales_solicitudes',
             'CURP' => 'required',
             'Nombre' => 'required',
-            'ResponsableEntrega' => 'required',
-            'Enlace' => 'required',
+            'Articulador' => 'required',
+            // 'Enlace' => 'required',
             'idMunicipio' => 'required',
             'Municipio' => 'required',
             // 'CodigoBarrasInicial' => 'required|unique:vales_solicitudes',
@@ -464,7 +464,6 @@ class ValesSolicitudesController extends Controller
             $parameters['UserCreated'] = $user->id;
             //$parameters['Ejercicio'] = date("Y");
             $parameters['Ejercicio'] = 2023;
-
             $vale_solicitud_ = ValesSolicitudes::create($parameters);
             $vale_solicitud = ValesSolicitudes::find($vale_solicitud_->id);
             return [
