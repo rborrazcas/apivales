@@ -4012,7 +4012,7 @@ class VValesController extends Controller
                     'et_cat_municipio.SubRegion AS Region',
                     'vales.idLocalidad',
                     'l.id AS Clave',
-                    'l.LocalidadLimpio AS Localidad',
+                    'l.Nombre AS Localidad',
                     'vales.TelFijo',
                     'vales.TelCelular',
                     'vales.CorreoElectronico',
@@ -4055,7 +4055,7 @@ class VValesController extends Controller
                     'vales.idMunicipio'
                 )
                 ->JOIN(
-                    'localidades_padron_vales AS l',
+                    'et_cat_localidad_2022 AS l',
                     'l.id',
                     '=',
                     'vales.idLocalidad'
@@ -4284,119 +4284,114 @@ class VValesController extends Controller
                     }
                 }
             }
-            /* if(count($parameters['sorted']) == 0){
-                    $res->orderBy('et_cat_municipio.Nombre','asc')
-                    ->orderBy('et_cat_localidad.Nombre','asc')
-                    ->orderBy('vales.Colonia','asc')
-                    ->orderBy('vales.Nombre','asc')
-                    ->orderBy('vales.Paterno','asc');
-                
-            } */
-
-            if (isset($parameters['NombreCompleto'])) {
-                $filtro_recibido = $parameters['NombreCompleto'];
-                $filtro_recibido = str_replace(' ', '', $filtro_recibido);
-                $res->where(
-                    DB::raw("
-                    REPLACE(
-                    CONCAT(
-                        vales.Nombre,
-                        vales.Paterno,
-                        vales.Materno,
-                        vales.Paterno,
-                        vales.Nombre,
-                        vales.Materno,
-                        vales.Materno,
-                        vales.Nombre,
-                        vales.Paterno,
-                        vales.Nombre,
-                        vales.Materno,
-                        vales.Paterno,
-                        vales.Paterno,
-                        vales.Materno,
-                        vales.Nombre,
-                        vales.Materno,
-                        vales.Paterno,
-                        vales.Nombre
-                    ), ' ', '')"),
-
-                    'like',
-                    '%' . $filtro_recibido . '%'
-                );
+            if ($parameters['ambito'] == 'R') {
+                $res->where('vales.Colonia', $parameters['colonia']);
             }
 
-            if (isset($parameters['NombreOwner'])) {
-                $filtro_recibido = $parameters['NombreOwner'];
-                $filtro_recibido = str_replace(' ', '', $filtro_recibido);
-                $res->where(
-                    DB::raw("
-                    REPLACE(
-                    CONCAT(
-                        usersC.Nombre,
-                        usersC.Paterno,
-                        usersC.Materno,
-                        usersC.Paterno,
-                        usersC.Nombre,
-                        usersC.Materno,
-                        usersC.Materno,
-                        usersC.Nombre,
-                        usersC.Paterno,
-                        usersC.Nombre,
-                        usersC.Materno,
-                        usersC.Paterno,
-                        usersC.Paterno,
-                        usersC.Materno,
-                        usersC.Nombre,
-                        usersC.Materno,
-                        usersC.Paterno,
-                        usersC.Nombre
-                    ), ' ', '')"),
+            // if (isset($parameters['NombreCompleto'])) {
+            //     $filtro_recibido = $parameters['NombreCompleto'];
+            //     $filtro_recibido = str_replace(' ', '', $filtro_recibido);
+            //     $res->where(
+            //         DB::raw("
+            //         REPLACE(
+            //         CONCAT(
+            //             vales.Nombre,
+            //             vales.Paterno,
+            //             vales.Materno,
+            //             vales.Paterno,
+            //             vales.Nombre,
+            //             vales.Materno,
+            //             vales.Materno,
+            //             vales.Nombre,
+            //             vales.Paterno,
+            //             vales.Nombre,
+            //             vales.Materno,
+            //             vales.Paterno,
+            //             vales.Paterno,
+            //             vales.Materno,
+            //             vales.Nombre,
+            //             vales.Materno,
+            //             vales.Paterno,
+            //             vales.Nombre
+            //         ), ' ', '')"),
 
-                    'like',
-                    '%' . $filtro_recibido . '%'
-                );
-            }
+            //         'like',
+            //         '%' . $filtro_recibido . '%'
+            //     );
+            // }
 
-            if (isset($parameters['NombreCreated'])) {
-                $filtro_recibido = $parameters['NombreCreated'];
-                $filtro_recibido = str_replace(' ', '', $filtro_recibido);
-                $res->where(
-                    DB::raw("
-                    REPLACE(
-                    CONCAT(
-                        usersCretaed.Nombre,
-                        usersCretaed.Paterno,
-                        usersCretaed.Materno,
-                        usersCretaed.Paterno,
-                        usersCretaed.Nombre,
-                        usersCretaed.Materno,
-                        usersCretaed.Materno,
-                        usersCretaed.Nombre,
-                        usersCretaed.Paterno,
-                        usersCretaed.Nombre,
-                        usersCretaed.Materno,
-                        usersCretaed.Paterno,
-                        usersCretaed.Paterno,
-                        usersCretaed.Materno,
-                        usersCretaed.Nombre,
-                        usersCretaed.Materno,
-                        usersCretaed.Paterno,
-                        usersCretaed.Nombre
-                    ), ' ', '')"),
+            // if (isset($parameters['NombreOwner'])) {
+            //     $filtro_recibido = $parameters['NombreOwner'];
+            //     $filtro_recibido = str_replace(' ', '', $filtro_recibido);
+            //     $res->where(
+            //         DB::raw("
+            //         REPLACE(
+            //         CONCAT(
+            //             usersC.Nombre,
+            //             usersC.Paterno,
+            //             usersC.Materno,
+            //             usersC.Paterno,
+            //             usersC.Nombre,
+            //             usersC.Materno,
+            //             usersC.Materno,
+            //             usersC.Nombre,
+            //             usersC.Paterno,
+            //             usersC.Nombre,
+            //             usersC.Materno,
+            //             usersC.Paterno,
+            //             usersC.Paterno,
+            //             usersC.Materno,
+            //             usersC.Nombre,
+            //             usersC.Materno,
+            //             usersC.Paterno,
+            //             usersC.Nombre
+            //         ), ' ', '')"),
 
-                    'like',
-                    '%' . $filtro_recibido . '%'
-                );
-            }
+            //         'like',
+            //         '%' . $filtro_recibido . '%'
+            //     );
+            // }
+
+            // if (isset($parameters['NombreCreated'])) {
+            //     $filtro_recibido = $parameters['NombreCreated'];
+            //     $filtro_recibido = str_replace(' ', '', $filtro_recibido);
+            //     $res->where(
+            //         DB::raw("
+            //         REPLACE(
+            //         CONCAT(
+            //             usersCretaed.Nombre,
+            //             usersCretaed.Paterno,
+            //             usersCretaed.Materno,
+            //             usersCretaed.Paterno,
+            //             usersCretaed.Nombre,
+            //             usersCretaed.Materno,
+            //             usersCretaed.Materno,
+            //             usersCretaed.Nombre,
+            //             usersCretaed.Paterno,
+            //             usersCretaed.Nombre,
+            //             usersCretaed.Materno,
+            //             usersCretaed.Paterno,
+            //             usersCretaed.Paterno,
+            //             usersCretaed.Materno,
+            //             usersCretaed.Nombre,
+            //             usersCretaed.Materno,
+            //             usersCretaed.Paterno,
+            //             usersCretaed.Nombre
+            //         ), ' ', '')"),
+
+            //         'like',
+            //         '%' . $filtro_recibido . '%'
+            //     );
+            // }
 
             $res
                 ->orderBy('et_cat_municipio.Nombre', 'asc')
-                ->orderBy('l.LocalidadLimpio', 'asc')
+                ->orderBy('l.Nombre', 'asc')
                 ->orderBy('vales.Colonia', 'asc')
                 ->orderBy('vales.Nombre', 'asc')
                 ->orderBy('vales.Paterno', 'asc');
 
-            //dd($res->toSql());
+            // dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
 
             $total = $res->count();
             $res = $res

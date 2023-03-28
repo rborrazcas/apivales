@@ -266,18 +266,28 @@ class ValesGruposController extends Controller
                     'vales_grupos.ResponsableEntrega',
                     'vales_grupos.Enlace',
                     'vales_grupos.idMunicipio',
+                    'vales_grupos.idLocalidad',
                     'et_cat_municipio.Nombre as Municipio',
+                    'et_cat_localidad_2022.Nombre as Localidad',
+                    'vales_grupos.Colonia',
                     'vales_grupos.TotalAprobados',
                     'vales_grupos.Remesa',
                     'vales_grupos.created_at',
                     'vales_grupos.UserCreated',
-                    'vales_grupos.updated_at'
+                    'vales_grupos.updated_at',
+                    'vales_grupos.Ejercicio'
                 )
                 ->JOIN(
                     'et_cat_municipio',
                     'et_cat_municipio.id',
                     '=',
                     'vales_grupos.idMunicipio'
+                )
+                ->JOIN(
+                    'et_cat_localidad_2022',
+                    'et_cat_localidad_2022.id',
+                    '=',
+                    'vales_grupos.idLocalidad'
                 )
                 ->where('Ejercicio', 2023);
 
@@ -401,6 +411,12 @@ class ValesGruposController extends Controller
                         $res->orderBy($parameters['sorted'][$i]['id'], 'asc');
                     }
                 }
+            } else {
+                $res->orderBy('et_cat_municipio.SubRegion', 'asc');
+                $res->orderBy('et_cat_municipio.Nombre', 'asc');
+                $res->orderBy('et_cat_localidad_2022.Nombre', 'asc');
+                $res->orderBy('vales_grupos.Colonia', 'asc');
+                $res->orderBy('vales_grupos.ResponsableEntrega', 'asc');
             }
 
             $total = $res->count();
@@ -533,11 +549,13 @@ class ValesGruposController extends Controller
     {
         $v = Validator::make($request->all(), [
             'ResponsableEntrega' => 'required',
-            'Enlace' => 'required',
+            'Colonia' => 'required',
+            'idLocalidad' => 'required',
             'idMunicipio' => 'required',
             'TotalAprobados' => 'required',
             'Remesa' => 'required',
             'idIncidencia' => 'required',
+            'Ambito' => 'required',
         ]);
 
         if ($v->fails()) {
@@ -562,20 +580,24 @@ class ValesGruposController extends Controller
             $res_validacion = DB::table('vales')
                 ->select('vales.id')
                 ->where('vales.idStatus', '=', 5)
-                ->where('vales.Enlace', '=', $parameters['Enlace'])
                 ->where(
                     'vales.ResponsableEntrega',
-                    '=',
                     $parameters['ResponsableEntrega']
                 )
-                ->where('vales.idMunicipio', '=', $parameters['idMunicipio'])
-                ->where('vales.Remesa', '=', $parameters['Remesa'])
-                ->where('vales.idIncidencia', '=', $parameters['idIncidencia'])
-                ->where('vales.Ejercicio', '=', 2023)
-                ->whereRaw('vales.id NOT IN(' . $res_in . ')')
-                ->get();
+                ->where('vales.idLocalidad', $parameters['idLocalidad'])
+                ->where('vales.idMunicipio', $parameters['idMunicipio'])
+                ->where('vales.Remesa', $parameters['Remesa'])
+                ->where('vales.idIncidencia', $parameters['idIncidencia'])
+                ->where('vales.Ejercicio', 2023)
+                ->whereRaw('vales.id NOT IN(' . $res_in . ')');
 
-            if (count($res_validacion->toArray()) == 0) {
+            if ($parameters['Ambito'] === 'R') {
+                $res_validacion->where('vales.Colonia', $parameters['Colonia']);
+            }
+
+            $res = $res_validacion->get();
+
+            if (count($res->toArray()) == 0) {
                 $response = [
                     'success' => true,
                     'results' => false,
@@ -583,30 +605,32 @@ class ValesGruposController extends Controller
                     'message' =>
                         'Las solicitudes pertenecientes a este grupo no cumplieron la validacion de incidencia.',
                 ];
-                // 'message' =>'El grupo que desea registrar ya se encuentra registrado.'];
                 return response()->json($response, 200);
             }
 
             $grupo_recibido =
-                $parameters['ResponsableEntrega'] .
-                $parameters['Enlace'] .
                 $parameters['idMunicipio'] .
+                $parameters['idLocalidad'] .
+                $parameters['Colonia'] .
+                $parameters['ResponsableEntrega'] .
                 $parameters['Remesa'];
+
             $grupo_recibido = str_replace(' ', '', $grupo_recibido);
+
             $res = ValesGrupos::where(
                 DB::raw("
-                REPLACE(CONCAT(ResponsableEntrega,Enlace,idMunicipio,Remesa), ' ', '')
+                REPLACE(CONCAT(idMunicipio,idLocalidad,Colonia,ResponsableEntrega,Remesa), ' ', '')
                 "),
                 '=',
                 $grupo_recibido
             )->first();
+
             if ($res) {
                 $response = [
                     'success' => true,
                     'results' => true,
                     'data' => $res,
                 ];
-                // 'message' =>'El grupo que desea registrar ya se encuentra registrado.'];
                 return response()->json($response, 200);
             }
 

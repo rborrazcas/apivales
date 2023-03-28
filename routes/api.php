@@ -502,6 +502,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::post('/getCatGrupos', 'ReportesController@getCatGrupos');
+    Route::post('/getCatGrupos2023', 'ReportesController@getCatGrupos2023');
 
     //APIS PULSERAS GTO 30 SEPTIEMBRE
     Route::post(
