@@ -567,6 +567,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::post('/getVales2022', 'Vales2022Controller@getSolicitudes');
+    Route::post('/getVales2023', 'Vales2022Controller@getSolicitudes2023');
 
     //CEDULAS
     Route::post('/createSolicitudCedula', 'CedulasController@createSolicitud');
