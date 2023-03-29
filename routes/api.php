@@ -195,6 +195,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'Vales2022Controller@getReporteVales2022'
     );
     Route::get(
+        '/getReporteVales2023',
+        'Vales2022Controller@getReporteVales2023'
+    );
+    Route::get(
         '/getReporteSolicitudVentanillaCalentadores',
         'CalentadoresController@getReporteSolicitudVentanillaCalentadores'
     );
