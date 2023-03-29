@@ -507,6 +507,255 @@ class Vales2022Controller extends Controller
         }
     }
 
+    function getSolicitudes2023(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'page' => 'required',
+                'pageSize' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $user = auth()->user();
+            $userId = JWTAuth::parseToken()->toUser()->id;
+            $parameters_serializado = serialize($params);
+
+            $permisos = $this->getPermisos();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $seguimiento = $permisos->Seguimiento;
+            $viewall = $permisos->ViewAll;
+            $filtroCapturo = '';
+
+            $solicitudes = DB::table('vales as v')
+
+                ->selectRaw(
+                    'v.id,' .
+                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
+                        'r.RemesaSistema AS Remesa, ' .
+                        'v.FechaSolicitud, ' .
+                        'v.Nombre, ' .
+                        'v.Paterno, ' .
+                        'v.Materno, ' .
+                        'm.SubRegion AS Region,' .
+                        'm.Nombre AS Municipio,' .
+                        'v.Calle, ' .
+                        'v.Calle, ' .
+                        'v.Colonia, ' .
+                        'v.NumExt, ' .
+                        'v.NumInt, ' .
+                        'v.CP, ' .
+                        'i.Incidencia, ' .
+                        'CASE WHEN v.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
+                        'v.entrega_at AS FechaEntrega, ' .
+                        'v.CURP, ' .
+                        'v.TelCelular, ' .
+                        'v.ResponsableEntrega Responsable'
+                )
+                ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
+                ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'v.idLocalidad')
+                ->LEFTJOIN('vales_incidencias AS i', 'i.id', 'v.idIncidencia')
+                ->WHERERAW('v.Ejercicio = 2023');
+
+            if ($viewall < 1) {
+                $region = DB::table('users_aplicativo_web')
+                    ->selectRaw('idRegion')
+                    ->where('idUser', $user->id)
+                    ->get()
+                    ->first();
+
+                $solicitudes = $solicitudes->where(
+                    'm.SubRegion',
+                    $region->idRegion
+                );
+            }
+
+            $filterQuery = '';
+            $municipioRegion = [];
+            $mun = [];
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                $filtersCedulas = ['.Folio'];
+                $filtersRemesas = ['.Remesa'];
+                foreach ($params['filtered'] as $filtro) {
+                    if ($filterQuery != '') {
+                        $filterQuery .= ' AND ';
+                    }
+                    $id = $filtro['id'];
+                    $value = $filtro['value'];
+
+                    if ($id == '.id') {
+                        $value = hexdec($value);
+                    }
+
+                    if ($id == 'region') {
+                        $municipios = DB::table('et_cat_municipio')
+                            ->select('id')
+                            ->whereIN('SubRegion', $value)
+                            ->get();
+                        foreach ($municipios as $m) {
+                            $municipioRegion[] = "'" . $m->id . "'";
+                        }
+
+                        $id = '.idMunicipio';
+                        $value = $municipioRegion;
+                    }
+
+                    if (in_array($id, $filtersCedulas)) {
+                        $id = 'c' . $id;
+                    } elseif (in_array($id, $filtersRemesas)) {
+                        $id = 'r.RemesaSistema';
+                    } else {
+                        $id = 'v' . $id;
+                    }
+
+                    switch (gettype($value)) {
+                        case 'string':
+                            $filterQuery .= " $id LIKE '%$value%' ";
+                            break;
+                        case 'array':
+                            $colonDividedValue = implode(', ', $value);
+                            $filterQuery .= " $id IN ($colonDividedValue) ";
+                            break;
+                        case 'boolean':
+                            $filterQuery .= " $id <> 1 ";
+                            break;
+                        default:
+                            //dd($value);
+                            if ($value === -1) {
+                                $filterQuery .= " $id IS NOT NULL ";
+                            } else {
+                                $filterQuery .= " $id = $value ";
+                            }
+                    }
+                }
+            }
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
+
+            $startIndex = $page * $pageSize;
+
+            $total = $solicitudes->count();
+            $solicitudes = $solicitudes
+                ->OrderByRaw('r.RemesaSistema', 'DESC')
+                ->OrderBy('m.Nombre', 'ASC')
+                ->OrderBy('l.Nombre', 'ASC')
+                ->OrderByRaw('r.Remesa', 'ASC')
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
+                ->where('api', '=', 'getVales2023')
+                ->first();
+
+            if ($filtro_usuario) {
+                $filtro_usuario->parameters = $parameters_serializado;
+                $filtro_usuario->updated_at = time::now();
+                $filtro_usuario->update();
+            } else {
+                $objeto_nuevo = new VNegociosFiltros();
+                $objeto_nuevo->api = 'getVales2023';
+                $objeto_nuevo->idUser = $user->id;
+                $objeto_nuevo->parameters = $parameters_serializado;
+                $objeto_nuevo->save();
+            }
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'filtros' => $params['filtered'],
+                    'data' => $array_res,
+                ];
+            }
+
+            $temp = [];
+            foreach ($solicitudes as $data) {
+                $temp = [
+                    'id' => $data->id,
+                    'FolioSolicitud' => $data->FolioSolicitud,
+                    'Remesa' => $data->Remesa,
+                    'FechaSolicitud' => $data->FechaSolicitud,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'Region' => $data->Region,
+                    'Municipio' => $data->Municipio,
+                    'Calle' => $data->Calle,
+                    'Colonia' => $data->Colonia,
+                    'NumExt' => $data->NumExt,
+                    'NumInt' => $data->NumInt,
+                    'CP' => $data->CP,
+                    'Incidencia' => $data->Incidencia,
+                    'Entregado' => $data->Entregado,
+                    'FechaEntrega' => $data->FechaEntrega,
+                    'CURP' => $data->CURP,
+                    'TelCelular' => $data->TelCelular,
+                    'Responsable' => $data->Responsable,
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            $filtros = '';
+            if (isset($params['filtered'])) {
+                $filtros = $params['filtered'];
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'total' => $total,
+                'filtros' => $filtros,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
     function getSolicitudesVales(Request $request)
     {
         try {
