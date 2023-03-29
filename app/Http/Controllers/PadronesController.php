@@ -704,6 +704,12 @@ class PadronesController extends Controller
 
             DB::select('CALL padron_vales("' . $params['Remesa'] . '")');
 
+            DB::select('CALL padron_vales_grupos("' . $params['Remesa'] . '")');
+
+            DB::select(
+                'CALL padron_vales_grupos_totales("' . $params['Remesa'] . '")'
+            );
+
             return [
                 'success' => true,
                 'results' => true,

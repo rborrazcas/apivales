@@ -8451,37 +8451,94 @@ class ReportesController extends Controller
             ]);
         }
 
-        $res = DB::table('vales_aprobados_2022 as N')
-            ->select(
-                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
-                'c.Folio AS folio',
-                'vr.NumAcuerdo AS acuerdo',
-                'M.SubRegion AS region',
-                DB::raw(
-                    "concat_ws(' ',UOC.Nombre, UOC.Paterno, UOC.Materno) as enlace"
-                ),
-                DB::raw(
-                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
-                ),
-                'N.curp',
-                DB::raw(
-                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
-                ),
-                'M.Nombre AS municipio',
-                'L.Nombre AS localidad',
-                'N.Colonia AS colonia',
-                'N.CP AS cp',
-                'VS.SerieInicial AS folioinicial',
-                'VS.SerieFinal AS foliofinal'
-            )
-            ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
-            ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
-            ->leftJoin('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
-            ->leftJoin('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
-            ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
-            ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
-            ->leftJoin('cedulas_solicitudes AS c', 'c.idVale', '=', 'N.id')
-            ->where('N.id', $parameters['folio']);
+        if ($parameters['ejercicio'] == 2022) {
+            $res = DB::table('vales as N')
+                ->select(
+                    DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                    'c.Folio AS folio',
+                    'vr.NumAcuerdo AS acuerdo',
+                    'M.SubRegion AS region',
+                    DB::raw(
+                        "concat_ws(' ',UOC.Nombre, UOC.Paterno, UOC.Materno) as enlace"
+                    ),
+                    DB::raw(
+                        "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                    ),
+                    'N.curp',
+                    DB::raw(
+                        "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                    ),
+                    'M.Nombre AS municipio',
+                    'L.Nombre AS localidad',
+                    'N.Colonia AS colonia',
+                    'N.CP AS cp',
+                    'VS.SerieInicial AS folioinicial',
+                    'VS.SerieFinal AS foliofinal'
+                )
+                ->leftJoin(
+                    'et_cat_municipio as M',
+                    'N.idMunicipio',
+                    '=',
+                    'M.Id'
+                )
+                ->leftJoin(
+                    'et_cat_localidad as L',
+                    'N.idLocalidad',
+                    '=',
+                    'L.Id'
+                )
+                ->leftJoin(
+                    'vales_solicitudes as VS',
+                    'VS.idSolicitud',
+                    '=',
+                    'N.id'
+                )
+                ->leftJoin('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+                ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
+                ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+                ->leftJoin('cedulas_solicitudes AS c', 'c.idVale', '=', 'N.id')
+                ->where('N.id', $parameters['folio']);
+        } else {
+            $res = DB::table('vales as N')
+                ->select(
+                    DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                    'N.id  AS idVale',
+                    'vr.NumAcuerdo AS acuerdo',
+                    'M.SubRegion AS region',
+                    'N.ResponsableEntrega AS enlace',
+                    DB::raw(
+                        "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                    ),
+                    'N.curp',
+                    DB::raw(
+                        "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                    ),
+                    'M.Nombre AS municipio',
+                    'L.Nombre AS localidad',
+                    'N.Colonia AS colonia',
+                    'N.CP AS cp',
+                    'VS.SerieInicial AS folioinicial',
+                    'VS.SerieFinal AS foliofinal'
+                )
+                ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+                ->JOIN(
+                    'et_cat_localidad_2022 as L',
+                    'N.idLocalidad',
+                    '=',
+                    'L.id'
+                )
+                ->LEFTJOIN(
+                    DB::RAW(
+                        '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
+                    ),
+                    'VS.idSolicitud',
+                    '=',
+                    'N.id'
+                )
+                ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+                ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+                ->where('N.id', $parameters['folio']);
+        }
         $data = $res
             ->orderBy('M.Nombre', 'asc')
             ->orderBy('L.Nombre', 'asc')
@@ -8492,6 +8549,7 @@ class ReportesController extends Controller
         $d = $data
             ->map(function ($x) {
                 $x = is_object($x) ? (array) $x : $x;
+                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
                 return $x;
             })
             ->toArray();
@@ -8500,7 +8558,11 @@ class ReportesController extends Controller
         $vales = $d;
         $nombreArchivo = 'acuses_vales' . date('Y-m-d H:i:s');
 
-        $pdf = \PDF::loadView('pdf_2022', compact('vales'));
+        if ($parameters['ejercicio'] == 2022) {
+            $pdf = \PDF::loadView('pdf_2022', compact('vales'));
+        } else {
+            $pdf = \PDF::loadView('pdf', compact('vales'));
+        }
 
         return $pdf->download($nombreArchivo . '.pdf');
     }
@@ -8660,7 +8722,7 @@ class ReportesController extends Controller
             ]);
         }
 
-        $res = DB::table('vales_aprobados_2022 as N')
+        $res = DB::table('vales as N')
             ->select(
                 'N.id',
                 DB::raw('LPAD(HEX(N.id),6,0) AS Folio'),
@@ -8683,7 +8745,8 @@ class ReportesController extends Controller
                 'N.Colonia AS colonia',
                 'N.CP AS cp',
                 'VS.SerieInicial AS folioinicial',
-                'VS.SerieFinal AS foliofinal'
+                'VS.SerieFinal AS foliofinal',
+                'N.Ejercicio'
             )
             ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
