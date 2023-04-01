@@ -262,14 +262,12 @@ class ValesGruposController extends Controller
             $res = DB::table('vales_grupos')
                 ->select(
                     'vales_grupos.id',
-                    'vales_grupos.UserOwned',
-                    'vales_grupos.ResponsableEntrega',
-                    'vales_grupos.Enlace',
                     'vales_grupos.idMunicipio',
+                    'vales_grupos.CveInterventor',
                     'vales_grupos.idLocalidad',
+                    'vales_grupos.ResponsableEntrega',
                     'et_cat_municipio.Nombre as Municipio',
                     'et_cat_localidad_2022.Nombre as Localidad',
-                    'vales_grupos.Colonia',
                     'vales_grupos.TotalAprobados',
                     'vales_grupos.Remesa',
                     'vales_grupos.created_at',
@@ -414,8 +412,8 @@ class ValesGruposController extends Controller
             } else {
                 $res->orderBy('et_cat_municipio.SubRegion', 'asc');
                 $res->orderBy('et_cat_municipio.Nombre', 'asc');
-                $res->orderBy('et_cat_localidad_2022.Nombre', 'asc');
-                $res->orderBy('vales_grupos.Colonia', 'asc');
+                $res->orderBy('vales_grupos.CveInterventor', 'asc');
+                $res->orderBy('et_cat_localidad_2022.id', 'asc');
                 $res->orderBy('vales_grupos.ResponsableEntrega', 'asc');
             }
 
@@ -548,14 +546,12 @@ class ValesGruposController extends Controller
     function setGrupos2023(Request $request)
     {
         $v = Validator::make($request->all(), [
-            'ResponsableEntrega' => 'required',
-            'Colonia' => 'required',
-            'idLocalidad' => 'required',
             'idMunicipio' => 'required',
+            'CveInterventor' => 'required',
+            'idLocalidad' => 'required',
+            'ResponsableEntrega' => 'required',
             'TotalAprobados' => 'required',
             'Remesa' => 'required',
-            'idIncidencia' => 'required',
-            'Ambito' => 'required',
         ]);
 
         if ($v->fails()) {
@@ -570,48 +566,10 @@ class ValesGruposController extends Controller
         }
         try {
             $parameters = $request->all();
-            //Checar vales idIncidencia del owned
-            //$parameters['UserOwned'];
-            $res_in = DB::table('vales_solicitudes')
-                ->select('vales_solicitudes.idSolicitud')
-                ->whereRaw('Ejercicio = 2023')
-                ->toSql();
-
-            $res_validacion = DB::table('vales')
-                ->select('vales.id')
-                ->where('vales.idStatus', '=', 5)
-                ->where(
-                    'vales.ResponsableEntrega',
-                    $parameters['ResponsableEntrega']
-                )
-                ->where('vales.idLocalidad', $parameters['idLocalidad'])
-                ->where('vales.idMunicipio', $parameters['idMunicipio'])
-                ->where('vales.Remesa', $parameters['Remesa'])
-                ->where('vales.idIncidencia', $parameters['idIncidencia'])
-                ->where('vales.Ejercicio', 2023)
-                ->whereRaw('vales.id NOT IN(' . $res_in . ')');
-
-            if ($parameters['Ambito'] === 'R') {
-                $res_validacion->where('vales.Colonia', $parameters['Colonia']);
-            }
-
-            $res = $res_validacion->get();
-
-            if (count($res->toArray()) == 0) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'data' => [],
-                    'message' =>
-                        'Las solicitudes pertenecientes a este grupo no cumplieron la validacion de incidencia.',
-                ];
-                return response()->json($response, 200);
-            }
-
             $grupo_recibido =
                 $parameters['idMunicipio'] .
+                $parameters['CveInterventor'] .
                 $parameters['idLocalidad'] .
-                $parameters['Colonia'] .
                 $parameters['ResponsableEntrega'] .
                 $parameters['Remesa'];
 
@@ -619,9 +577,8 @@ class ValesGruposController extends Controller
 
             $res = ValesGrupos::where(
                 DB::raw("
-                REPLACE(CONCAT(idMunicipio,idLocalidad,Colonia,ResponsableEntrega,Remesa), ' ', '')
+                REPLACE(CONCAT(idMunicipio,CveInterventor,idLocalidad,ResponsableEntrega,Remesa), ' ', '')
                 "),
-                '=',
                 $grupo_recibido
             )->first();
 
@@ -633,13 +590,7 @@ class ValesGruposController extends Controller
                 ];
                 return response()->json($response, 200);
             }
-
-            $user = auth()->user();
-            $parameters['UserCreated'] = $user->id;
-            $parameters['Ejercicio'] = 2023;
-            $grupo_ = ValesGrupos::create($parameters);
-            $grupo = ValesGrupos::find($grupo_->id);
-            return ['success' => true, 'results' => true, 'data' => $grupo];
+            return ['success' => true, 'results' => false, 'data' => $grupo];
         } catch (QueryException $e) {
             $errors = [
                 'Clave' => '01',
@@ -648,7 +599,6 @@ class ValesGruposController extends Controller
                 'success' => true,
                 'results' => false,
                 'total' => 0,
-                //'filtros' => $parameters['filtered'],
                 'errors' => $e->getMessage(),
                 'message' => 'Hubo un error a al crear el registro',
             ];

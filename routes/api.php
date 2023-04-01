@@ -905,6 +905,22 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         );
     });
 
+    Route::group(['prefix' => 'vales'], function ($route) {
+        Route::get(
+            '/getClasificacionArchivos',
+            'Vales2023Controller@getClasificacionArchivos'
+        );
+
+        Route::get('/getMunicipiosVales', 'Vales2023Controller@getMunicipios');
+        Route::get('/getFilesById/{id}', 'Vales2023Controller@getFilesById');
+        Route::post('/getVales2023', 'Vales2023Controller@getSolicitudes2023');
+
+        Route::post(
+            '/updateArchivosSolicitud',
+            'Vales2023Controller@updateArchivosSolicitud'
+        );
+    });
+
     Route::group(['prefix' => 'trabajemos'], function ($route) {
         //Informativos
         Route::post(
