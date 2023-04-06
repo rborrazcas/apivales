@@ -7504,6 +7504,207 @@ class ReportesController extends Controller
         );
     }
 
+    public function getReporteEntregaVales2023(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+
+        if (!isset($request->idGrupo)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados del Grupo.',
+            ]);
+        }
+
+        $resGpo = DB::table('vales_grupos as G')
+            ->select(
+                'G.id',
+                'R.NumAcuerdo',
+                'R.Leyenda',
+                'R.FechaAcuerdo',
+                'G.TotalAprobados',
+                'G.ResponsableEntrega',
+                'M.Nombre AS Municipio',
+                'L.Nombre AS Localidad',
+                'G.Remesa',
+                'G.idMunicipio'
+            )
+            ->JOIN('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
+            ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'G.idLocalidad', '=', 'L.id')
+            ->where('G.id', '=', $request->idGrupo)
+            ->first();
+
+        if (!$resGpo) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados del Grupo.',
+            ]);
+        }
+
+        $res = DB::table('vales as N')
+            ->select(
+                'M.SubRegion AS Region',
+                DB::raw('LPAD(HEX(N.id),6,0) AS ClaveUnica'),
+                'N.CURP',
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as NombreCompleto"
+                ),
+                'N.Sexo',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS Direccion"
+                ),
+                'N.Colonia',
+                'N.CP',
+                'M.Nombre AS Municipio',
+                'L.Nombre AS Localidad',
+                'VS.SerieInicial',
+                'VS.SerieFinal',
+                DB::raw(
+                    'CASE WHEN N.isEntregado =1 THEN "SI" ELSE "NO" END AS Entregado'
+                ),
+                'N.entrega_at AS FechaEntrega',
+                DB::raw(
+                    'CASE WHEN d.idSolicitud IS NULL THEN NULL ELSE "DEVUELTO" END AS Devuelto'
+                )
+            )
+            ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->LEFTJOIN('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->LEFTJOIN('vales_devueltos as d', 'd.idSolicitud', 'N.id')
+            ->WHERE('N.idGrupo', $request->idGrupo);
+
+        $data = $res
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'asc')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        //dd(str_replace_array('?', $data->getBindings(), $data->toSql()));
+
+        if (count($data) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv5.xlsx';
+
+            return response()->download(
+                $file,
+                'NominaValesGrandeza' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        $res = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+
+        $reader = IOFactory::createReader('Xlsx');
+        $spreadsheet = $reader->load(
+            public_path() . '/archivos/formatoReporteNominaValesv5.xlsx'
+        );
+        $sheet = $spreadsheet->getActiveSheet();
+        $largo = count($res);
+        $impresion = $largo + 10;
+
+        $sheet->getPageSetup()->setPrintArea('A1:O' . ($impresion + 15));
+        $sheet
+            ->getPageSetup()
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+
+        $largo = count($res);
+
+        $sheet->fromArray($res, null, 'B11');
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('K6', $resGpo->Municipio);
+        $sheet->setCellValue('K7', $resGpo->Localidad);
+        $sheet->setCellValue('K9', $resGpo->ResponsableEntrega);
+        $sheet->setCellValue('K4', $resGpo->NumAcuerdo);
+        $sheet->setCellValue('K5', $resGpo->FechaAcuerdo);
+        $sheet->setCellValue('A2', $resGpo->Leyenda);
+        $sheet->setCellValue(
+            'A3',
+            'Aprobados mediante ' .
+                $resGpo->NumAcuerdo .
+                ' de fecha ' .
+                $resGpo->FechaAcuerdo
+        );
+
+        //dd($largo);
+
+        $veces = 0;
+
+        if ($largo > 25) {
+            //dd('Se agrega lineBreak');
+            for ($lb = 20; $lb < $largo; $lb += 20) {
+                $veces++;
+                //dd($largo);
+                $spreadsheet
+                    ->getActiveSheet()
+                    ->setBreak(
+                        'A' . ($lb + 10),
+                        \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
+                    );
+            }
+        }
+
+        //Agregar el indice autonumerico
+
+        for ($i = 1; $i <= $largo; $i++) {
+            $inicio = 10 + $i;
+            $sheet->setCellValue('A' . $inicio, $i);
+        }
+
+        //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+        $writer = new Xlsx($spreadsheet);
+
+        $strRem = str_replace('/', '_', $resGpo->Remesa);
+        // dd($strRem);
+
+        //dd('archivos/'.$strRem.'_'.$resGpo->idMunicipio.'_'.$resGpo->UserOwned.'_formatoNominaVales.xlsx');
+        $writer->save(
+            'archivos/' .
+                $strRem .
+                '_' .
+                $resGpo->idMunicipio .
+                '_' .
+                $resGpo->ResponsableEntrega .
+                '_formatoEntregaVales.xlsx'
+        );
+        $file =
+            public_path() .
+            '/archivos/' .
+            $strRem .
+            '_' .
+            $resGpo->idMunicipio .
+            '_' .
+            $resGpo->ResponsableEntrega .
+            '_formatoEntregaVales.xlsx';
+
+        //dd('Se crearon los archivos');
+
+        return response()->download(
+            $file,
+            $strRem .
+                '_' .
+                $resGpo->idMunicipio .
+                '_' .
+                $resGpo->ResponsableEntrega .
+                '_formatoEntregaVales' .
+                date('Y-m-d H:i:s') .
+                '.xlsx'
+        );
+    }
+
     public function validarGrupo(Request $request)
     {
         $params = $request->all();

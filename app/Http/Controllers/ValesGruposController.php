@@ -257,7 +257,7 @@ class ValesGruposController extends Controller
     function getGrupos2023(Request $request)
     {
         $parameters = $request->all();
-
+        $user = auth()->user();
         try {
             $res = DB::table('vales_grupos')
                 ->select(
@@ -290,8 +290,50 @@ class ValesGruposController extends Controller
                 ->where('Ejercicio', 2023);
 
             $flag = 0;
-            if (isset($parameters['SubRegion'])) {
-                $valor_id = $parameters['SubRegion'];
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '28'])
+                ->get()
+                ->first();
+
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            if ($viewall < 1) {
+                if ($permisos->Exportar === 0) {
+                    $response = [
+                        'success' => true,
+                        'results' => true,
+                        'total' => '0',
+                        'filtros' => '',
+                        'data' => [],
+                    ];
+                    return response()->json($response, 200);
+                }
+
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where('idUser', $user->id)
+                    ->first();
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' => 'No tiene region asignada',
+                        'message' => 'No tiene region asignada',
+                    ];
+                    return response()->json($response, 200);
+                }
+                $valor_id = $region->Region;
                 $res->where('et_cat_municipio.SubRegion', $valor_id);
             }
 

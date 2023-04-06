@@ -255,6 +255,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getReporteNominaVales2023',
         'ReportesController@getReporteNominaVales2023'
     );
+    Route::get(
+        '/getReporteEntregaVales2023',
+        'ReportesController@getReporteEntregaVales2023'
+    );
 
     Route::get(
         '/getSumaVoluntadesWord',
@@ -919,6 +923,15 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             '/updateArchivosSolicitud',
             'Vales2023Controller@updateArchivosSolicitud'
         );
+
+        Route::post(
+            '/validateCveInterventor',
+            'Vales2023Controller@validateCveInterventor'
+        );
+
+        Route::post('/recepcionVales', 'Vales2023Controller@recepcionVales');
+
+        Route::post('/getGroupList', 'Vales2023Controller@getGroupList');
     });
 
     Route::group(['prefix' => 'trabajemos'], function ($route) {

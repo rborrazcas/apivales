@@ -530,13 +530,17 @@ class Vales2022Controller extends Controller
                 ];
                 return response()->json($response, 200);
             }
-
+            dd('Aqui');
             $params = $request->all();
             $user = auth()->user();
             $userId = JWTAuth::parseToken()->toUser()->id;
             $parameters_serializado = serialize($params);
 
-            $permisos = $this->getPermisos();
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '29'])
+                ->get()
+                ->first();
+
             if ($permisos === null) {
                 $response = [
                     'success' => true,
@@ -548,10 +552,8 @@ class Vales2022Controller extends Controller
                 return response()->json($response, 200);
             }
 
-            $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
-            $filtroCapturo = '';
-
+            dd($viewall);
             $solicitudes = DB::table('vales as v')
 
                 ->selectRaw(
@@ -584,17 +586,29 @@ class Vales2022Controller extends Controller
                 ->WHERERAW('v.Ejercicio = 2023');
 
             if ($viewall < 1) {
-                $region = DB::table('users_aplicativo_web')
-                    ->selectRaw('idRegion')
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
                     ->where('idUser', $user->id)
-                    ->get()
                     ->first();
 
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene region asignada',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
                 $solicitudes = $solicitudes->where(
-                    'm.SubRegion',
+                    'm.Region',
                     $region->idRegion
                 );
             }
+
+            dd('Aqui');
 
             $filterQuery = '';
             $municipioRegion = [];

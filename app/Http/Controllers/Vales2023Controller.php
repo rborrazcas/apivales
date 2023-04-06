@@ -17,6 +17,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PDF;
+use DateTime;
 use JWTAuth;
 use Imagick;
 use Validator;
@@ -180,9 +181,7 @@ class Vales2023Controller extends Controller
                 return response()->json($response, 200);
             }
 
-            $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
-            $filtroCapturo = '';
 
             $solicitudes = DB::table('vales as v')
 
@@ -216,16 +215,23 @@ class Vales2023Controller extends Controller
                 ->WHERERAW('v.Ejercicio = 2023');
 
             if ($viewall < 1) {
-                $region = DB::table('vales_regiones')
-                    ->selectRaw('idRegion')
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
                     ->where('idUser', $user->id)
-                    ->get()
                     ->first();
 
-                $solicitudes = $solicitudes->where(
-                    'm.SubRegion',
-                    $region->idRegion
-                );
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene region asignada',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('m.Region', $region->Region);
             }
 
             $filterQuery = '';
@@ -624,5 +630,264 @@ class Vales2023Controller extends Controller
             return 'pdf';
         }
         return 'other';
+    }
+
+    function validateCveInterventor(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'CveInterventor' => 'required',
+                'Fecha' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'CveInterventor no enviado',
+                ];
+                return response()->json($response, 200);
+            }
+            $params = $request->all();
+            $r = substr($params['CveInterventor'], 0, 7);
+            $cve = str_replace($r . '_', '', $params['CveInterventor']);
+            $user = auth()->user();
+            $fechaEntrega = DateTime::createFromFormat(
+                'Y-m-d',
+                $params['Fecha']
+            )->format('Y-m-d');
+            $minDate = strtotime(
+                DateTime::createFromFormat('Y-m-d', '2023-04-01')->format(
+                    'Y-m-d'
+                )
+            );
+            $maxDate = strtotime(
+                DateTime::createFromFormat('Y-m-d', '2023-12-30')->format(
+                    'Y-m-d'
+                )
+            );
+
+            if (
+                strtotime($fechaEntrega) < $minDate ||
+                strtotime($fechaEntrega) > $maxDate
+            ) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La fecha ingresada no es válida.',
+                    'errors' => 'Fecha no válida',
+                ]);
+            }
+
+            $vales = DB::table('vales AS v')
+                ->select(
+                    'm.Nombre AS Municipio',
+                    'v.idMunicipio',
+                    'm.SubRegion AS Region',
+                    DB::RAW("CONCAT(v.Remesa,'_',v.CveInterventor) AS Cve")
+                )
+                ->join('et_cat_municipio as m', 'v.idMunicipio', 'm.id')
+                ->LEFTjoin('vales_solicitudes AS s', 'v.id', 's.idSolicitud')
+                ->where(['v.Remesa' => $r, 'v.CveInterventor' => $cve])
+                ->first();
+
+            if ($vales) {
+                $registrado = DB::table('vales AS v')
+                    ->select('v.isEntregado')
+                    ->join('et_cat_municipio as m', 'v.idMunicipio', 'm.id')
+                    ->LEFTjoin(
+                        'vales_solicitudes AS s',
+                        'v.id',
+                        's.idSolicitud'
+                    )
+                    ->where([
+                        'v.Remesa' => $r,
+                        'v.CveInterventor' => $cve,
+                        'isEntregado' => 1,
+                    ])
+                    ->first();
+                if ($registrado) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'message' =>
+                            'Los grupos con esta clave ya fueron recepcionados',
+                    ];
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => true,
+                        'data' => $vales,
+                    ];
+                }
+            } else {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'No se encontró ningún registro con esta clave, intente nuevamente',
+                ];
+            }
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function recepcionVales(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'Cve' => 'required',
+                'Fecha' => 'required',
+                'Folios' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Información incompleta',
+                ];
+                return response()->json($response, 200);
+            }
+            $params = $request->all();
+            $r = substr($params['Cve'], 0, 7);
+            $cve = str_replace($r . '_', '', $params['Cve']);
+            $user = auth()->user();
+            $fechaEntrega = DateTime::createFromFormat(
+                'Y-m-d',
+                $params['Fecha']
+            )->format('Y-m-d');
+            $foliosValidos = [];
+            $foliosNoValidos = '';
+            $flagNoValidos = false;
+            $foliosDevueltos = [];
+
+            foreach ($params['Folios'] as $folio) {
+                $vale = DB::table('vales AS v')
+                    ->select('v.id')
+                    ->join('vales_solicitudes as s', 's.idSolicitud', 'v.id')
+                    ->where(['v.Remesa' => $r, 'v.CveInterventor' => $cve])
+                    ->where('s.SerieInicial', '<=', $folio['Folio'])
+                    ->where('s.SerieFinal', '>=', $folio['Folio'])
+                    ->first();
+
+                if ($vale) {
+                    $foliosValidos[] = [
+                        'idSolicitud' => $vale->id,
+                        'idIncidencia' => 7,
+                        'FechaCreo' => $folio['FechaHora'],
+                        'UsuarioCreo' => $user->id,
+                    ];
+                    $foliosDevueltos[] = $vale->id;
+                } else {
+                    if ($flagNoValidos) {
+                        $foliosNoValidos =
+                            $foliosNoValidos . ', ' . $folio['Folio'];
+                    } else {
+                        $flagNoValidos = true;
+                        $foliosNoValidos = $folio['Folio'];
+                    }
+                }
+            }
+
+            if (strlen($foliosNoValidos) > 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'Los siguientes folios no son validos ' .
+                        $foliosNoValidos .
+                        ' debe revisarlos e intentar nuevamente',
+                ];
+                return response()->json($response, 200);
+            }
+
+            DB::table('vales_devueltos')->insert($foliosValidos);
+            DB::table('vales')
+                ->where([
+                    'Remesa' => $r,
+                    'CveInterventor' => $cve,
+                ])
+                ->whereNotIn('id', $foliosDevueltos)
+                ->update(['isEntregado' => 1, 'entrega_at' => $fechaEntrega]);
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Folios recepcionados con éxito',
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function getGroupList(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'Cve' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Falta la clave',
+                ];
+                return response()->json($response, 200);
+            }
+            $params = $request->all();
+            $r = substr($params['Cve'], 0, 7);
+            $cve = str_replace($r . '_', '', $params['Cve']);
+            $user = auth()->user();
+
+            $grupos = DB::table('vales_grupos AS g')
+                ->select(
+                    'g.id',
+                    'g.ResponsableEntrega AS Responsable',
+                    DB::RAW('CONCAT_WS("-",m.Nombre,g.CveInterventor) AS label')
+                )
+                ->Join('et_cat_municipio as m', 'm.id', 'g.idMunicipio')
+                ->where(['g.Remesa' => $r, 'g.CveInterventor' => $cve])
+                ->get();
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $grupos,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
     }
 }
