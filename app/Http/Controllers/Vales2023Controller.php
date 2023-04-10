@@ -742,6 +742,88 @@ class Vales2023Controller extends Controller
         }
     }
 
+    function validateFolio(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'Folio' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Folio no enviado',
+                ];
+                return response()->json($response, 200);
+            }
+            $params = $request->all();
+            $folio = $params['Folio'];
+            $user = auth()->user();
+            try {
+                if (!ctype_xdigit($folio)) {
+                    return response()->json([
+                        'success' => true,
+                        'results' => false,
+                        'data' => [],
+                        'message' => 'El folio ingresado no es válido.',
+                    ]);
+                }
+                $id = hexdec($folio);
+            } catch (Exception $e) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'El folio ingresado no es válido.',
+                ]);
+            }
+
+            $vales = DB::table('vales AS v')
+                ->select(
+                    DB::RAW('LPAD(HEX(v.id),6,0) AS Folio'),
+                    's.SerieInicial'
+                )
+                ->LeftJoin('vales_solicitudes as s', 'v.id', 's.idSolicitud')
+                ->where(['v.id' => $id])
+                ->first();
+
+            if ($vales) {
+                if ($vales->SerieInicial) {
+                    $response = [
+                        'success' => true,
+                        'results' => true,
+                        'data' => $vales,
+                    ];
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'message' => 'Este registro no tiene valera asignada',
+                    ];
+                }
+            } else {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'No se encontró ningún registro con esta clave, intente nuevamente',
+                ];
+            }
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function recepcionVales(Request $request)
     {
         try {
@@ -772,45 +854,15 @@ class Vales2023Controller extends Controller
             $foliosDevueltos = [];
 
             foreach ($params['Folios'] as $folio) {
-                $vale = DB::table('vales AS v')
-                    ->select('v.id')
-                    ->join('vales_solicitudes as s', 's.idSolicitud', 'v.id')
-                    ->where(['v.Remesa' => $r, 'v.CveInterventor' => $cve])
-                    ->where('s.SerieInicial', '<=', $folio['Folio'])
-                    ->where('s.SerieFinal', '>=', $folio['Folio'])
-                    ->first();
-
-                if ($vale) {
-                    $foliosValidos[] = [
-                        'idSolicitud' => $vale->id,
-                        'idIncidencia' => 7,
-                        'FechaCreo' => $folio['FechaHora'],
-                        'UsuarioCreo' => $user->id,
-                    ];
-                    $foliosDevueltos[] = $vale->id;
-                } else {
-                    if ($flagNoValidos) {
-                        $foliosNoValidos =
-                            $foliosNoValidos . ', ' . $folio['Folio'];
-                    } else {
-                        $flagNoValidos = true;
-                        $foliosNoValidos = $folio['Folio'];
-                    }
-                }
-            }
-
-            if (strlen($foliosNoValidos) > 0) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'message' =>
-                        'Los siguientes folios no son validos ' .
-                        $foliosNoValidos .
-                        ' debe revisarlos e intentar nuevamente',
+                $id = hexdec($folio['Folio']);
+                $foliosValidos[] = [
+                    'idSolicitud' => $id,
+                    'idIncidencia' => 7,
+                    'FechaCreo' => $folio['FechaHora'],
+                    'UsuarioCreo' => $user->id,
                 ];
-                return response()->json($response, 200);
+                $foliosDevueltos[] = $id;
             }
-
             DB::table('vales_devueltos')->insert($foliosValidos);
             DB::table('vales')
                 ->where([

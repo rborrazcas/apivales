@@ -929,6 +929,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'Vales2023Controller@validateCveInterventor'
         );
 
+        Route::post('/validateFolio', 'Vales2023Controller@validateFolio');
+
         Route::post('/recepcionVales', 'Vales2023Controller@recepcionVales');
 
         Route::post('/getGroupList', 'Vales2023Controller@getGroupList');
