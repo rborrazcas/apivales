@@ -182,7 +182,12 @@
                             <td colspan="3"class="encabezado">CP:</td>
                         </tr>
                         <tr>
-                            <td colspan="3" class="informacion">{{ $vale['municipio'] }}</td>
+
+                            @if ($vale['municipio'] == 'DOLORES HIDALGO CUNA DE LA INDEPENDENCIA NAL.')
+                                <td colspan="3" class="informacion">DOLORES HIDALGO C. I. N.</td>
+                            @else
+                                <td colspan="3" class="informacion">{{ $vale['municipio'] }}</td>
+                            @endif
                             <td colspan="3" class="informacion">{{ $vale['localidad'] }}</td>
                             <td colspan="3" class="informacion">{{ $vale['colonia'] }}</td>
                             <td colspan="3" class="informacion">{{ $vale['cp'] }}</td>

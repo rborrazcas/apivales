@@ -1388,7 +1388,7 @@ class UserController extends Controller
             }
 
             $page = $parameters['page'];
-            $pageSize = $parameters['pageSize'];
+            $pageSize = 10;
 
             $startIndex = $page * $pageSize;
 
@@ -1409,7 +1409,7 @@ class UserController extends Controller
                 );
             }
 
-            $total = $res->count();
+            $total = (clone $res)->get()->count();
             $res = $res
                 ->offset($startIndex)
                 ->take($pageSize)

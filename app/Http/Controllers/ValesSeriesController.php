@@ -98,15 +98,47 @@ class ValesSeriesController extends Controller
             return response()->json($response, 200);
         }
 
+        // if (strlen($request->CodigoBarra) < 22) {
+        //     $resultall = DB::table('folios_vales_2023')
+        //         ->where('Serie', '=', $request->CodigoBarra)
+        //         ->first();
+        // } else {
+        //     $resultall = DB::table('folios_vales_2023')
+        //         ->where('CodigoBarra', '=', $request->CodigoBarra)
+        //         ->first();
+        // }
+
         if (strlen($request->CodigoBarra) < 22) {
             $resultall = DB::table('folios_vales_2023')
+                ->where('Ejercicio', '=', date('Y'))
                 ->where('Serie', '=', $request->CodigoBarra)
                 ->first();
         } else {
             $resultall = DB::table('folios_vales_2023')
-                ->where('CodigoBarra', '=', $request->CodigoBarra)
+                ->where('Ejercicio', '=', date('Y'))
+                ->where('CodigoBarras', '=', $request->CodigoBarra)
                 ->first();
         }
+        if ($resultall) {
+            $nueva_serie = $resultall->Serie + 9;
+            $result2 = DB::table('folios_vales_2023')
+                ->where('Ejercicio', '=', date('Y'))
+                ->where('Serie', '=', $nueva_serie)
+                ->first();
+
+            $response = [
+                'FolioInicial' => $resultall->Serie,
+                'FolioFinal' => $result2->Serie,
+                'CodigoBarraInicial' => $resultall->CodigoBarras,
+                'CodigoBarraFinal' => $result2->CodigoBarras,
+            ];
+            return response()->json([
+                'success' => true,
+                'results' => true,
+                'data' => $response,
+            ]);
+        }
+
         if ($resultall) {
             $nueva_serie = $resultall->Serie + 9;
             $result2 = DB::table('folios_vales_2023')
