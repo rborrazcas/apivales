@@ -337,18 +337,12 @@ class ValesSolicitudesController extends Controller
     function setValesSolicitudes2023(Request $request)
     {
         $v = Validator::make($request->all(), [
-            //'CURP' => 'required|unique:vales_solicitudes',
             'idSolicitud' => 'required|unique:vales_solicitudes',
             'CURP' => 'required',
             'Nombre' => 'required',
             'Articulador' => 'required',
-            // 'Enlace' => 'required',
             'idMunicipio' => 'required',
             'Municipio' => 'required',
-            // 'CodigoBarrasInicial' => 'required|unique:vales_solicitudes',
-            // 'CodigoBarrasFinal' => 'required|unique:vales_solicitudes',
-            // 'SerieInicial' => 'required|unique:vales_solicitudes',
-            // 'SerieFinal' => 'required|unique:vales_solicitudes',
             'Remesa' => 'required',
         ]);
 
@@ -373,15 +367,10 @@ class ValesSolicitudesController extends Controller
                 $SerieFinal = $request['SerieFinal'];
 
                 $res_pendiente = DB::table('vales_solicitudes')
-                    ->select('*')
+                    ->select('idSolicitud')
                     ->where('Ejercicio', '=', 2023)
-                    //->where('Ejercicio', '=', date('Y'))
                     ->where('SerieInicial', '>=', $SerieInicial)
                     ->where('SerieFinal', '<=', $SerieInicial)
-                    // ->orWhere('SerieInicial','<=',$SerieInicial)
-                    // ->where('SerieFinal', '>=',$SerieInicial )
-                    // ->orWhere('SerieInicial','<=',$SerieFinal)
-                    // ->where('SerieFinal', '>=',$SerieFinal )
                     ->first();
 
                 //dd($res_pendiente);
@@ -404,15 +393,10 @@ class ValesSolicitudesController extends Controller
                 }
 
                 $res_pendiente2 = DB::table('vales_solicitudes')
-                    ->select('*')
+                    ->select('idSolicitud')
                     ->where('Ejercicio', '=', 2023)
-                    //->where('Ejercicio', '=', date('Y'))
                     ->where('SerieInicial', '>=', $SerieFinal)
                     ->where('SerieFinal', '<=', $SerieFinal)
-                    // ->orWhere('SerieInicial','<=',$SerieInicial)
-                    // ->where('SerieFinal', '>=',$SerieInicial )
-                    // ->orWhere('SerieInicial','<=',$SerieFinal)
-                    // ->where('SerieFinal', '>=',$SerieFinal )
                     ->first();
 
                 if ($res_pendiente2 !== null) {
@@ -433,13 +417,10 @@ class ValesSolicitudesController extends Controller
                 }
 
                 $res_pendiente3 = DB::table('vales_solicitudes')
-                    ->select('*')
+                    ->select('idSolicitud')
                     ->where('Ejercicio', '=', 2023)
-                    //->where('Ejercicio', '=', date('Y'))
                     ->where('SerieInicial', '<=', $SerieInicial)
                     ->where('SerieFinal', '>=', $SerieInicial)
-                    // ->orWhere('SerieInicial','<=',$SerieFinal)
-                    // ->where('SerieFinal', '>=',$SerieFinal )
                     ->first();
 
                 if ($res_pendiente3 !== null) {
@@ -462,7 +443,6 @@ class ValesSolicitudesController extends Controller
             $parameters = $request->all();
             $user = auth()->user();
             $parameters['UserCreated'] = $user->id;
-            //$parameters['Ejercicio'] = date("Y");
             $parameters['Ejercicio'] = 2023;
             $vale_solicitud_ = ValesSolicitudes::create($parameters);
             $vale_solicitud = ValesSolicitudes::find($vale_solicitud_->id);

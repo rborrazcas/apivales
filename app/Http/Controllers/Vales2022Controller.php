@@ -280,52 +280,60 @@ class Vales2022Controller extends Controller
             $viewall = $permisos->ViewAll;
             $filtroCapturo = '';
 
-            $solicitudes = DB::table('vales')
+            $solicitudes = DB::table('vales_respaldo_2022')
 
                 ->selectRaw(
-                    'vales.id,' .
-                        'lpad(hex(vales.id),6,0) AS FolioSolicitud, ' .
+                    'vales_respaldo_2022.id,' .
+                        'lpad(hex(vales_respaldo_2022.id),6,0) AS FolioSolicitud, ' .
                         'c.Folio, ' .
                         'r.RemesaSistema AS Remesa, ' .
-                        'vales.FechaSolicitud, ' .
-                        'vales.Nombre, ' .
-                        'vales.Paterno, ' .
-                        'vales.Materno, ' .
+                        'vales_respaldo_2022.FechaSolicitud, ' .
+                        'vales_respaldo_2022.Nombre, ' .
+                        'vales_respaldo_2022.Paterno, ' .
+                        'vales_respaldo_2022.Materno, ' .
                         'm.SubRegion AS Region,' .
                         'm.Nombre AS Municipio,' .
-                        'vales.Calle, ' .
-                        'vales.Calle, ' .
-                        'vales.Colonia, ' .
-                        'vales.NumExt, ' .
-                        'vales.NumInt, ' .
-                        'vales.CP, ' .
+                        'vales_respaldo_2022.Calle, ' .
+                        'vales_respaldo_2022.Calle, ' .
+                        'vales_respaldo_2022.Colonia, ' .
+                        'vales_respaldo_2022.NumExt, ' .
+                        'vales_respaldo_2022.NumInt, ' .
+                        'vales_respaldo_2022.CP, ' .
                         'i.Incidencia, ' .
-                        'CASE WHEN vales.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
-                        'vales.entrega_at AS FechaEntrega, ' .
-                        'vales.CURP, ' .
-                        'vales.TelCelular, ' .
+                        'CASE WHEN vales_respaldo_2022.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
+                        'vales_respaldo_2022.entrega_at AS FechaEntrega, ' .
+                        'vales_respaldo_2022.CURP, ' .
+                        'vales_respaldo_2022.TelCelular, ' .
                         "CONCAT_WS( ' ', responsable.Nombre, responsable.Paterno, responsable.Materno ) AS Responsable"
                 )
-                ->JOIN('vales_remesas AS r', 'vales.Remesa', 'r.Remesa')
+                ->JOIN(
+                    'vales_remesas AS r',
+                    'vales_respaldo_2022.Remesa',
+                    'r.Remesa'
+                )
                 ->JOIN(
                     DB::raw(
                         '(SELECT * FROM cedulas_solicitudes WHERE FechaElimino IS NULL AND idVale IS NOT NULL) AS c'
                     ),
                     'c.idVale',
-                    'vales.id'
+                    'vales_respaldo_2022.id'
                 )
-                ->JOIN('et_cat_municipio AS m', 'm.id', 'vales.idMunicipio')
+                ->JOIN(
+                    'et_cat_municipio AS m',
+                    'm.id',
+                    'vales_respaldo_2022.idMunicipio'
+                )
                 ->JOIN(
                     'users AS responsable',
                     'responsable.id',
-                    'vales.UserOwned'
+                    'vales_respaldo_2022.UserOwned'
                 )
                 ->LEFTJOIN(
                     'vales_incidencias AS i',
                     'i.id',
-                    'vales.idIncidencia'
+                    'vales_respaldo_2022.idIncidencia'
                 )
-                ->WHERERAW('vales.Ejercicio = 2022');
+                ->WHERERAW('vales_respaldo_2022.Ejercicio = 2022');
 
             if ($viewall < 1) {
                 $region = DB::table('users_aplicativo_web')
@@ -376,7 +384,7 @@ class Vales2022Controller extends Controller
                     } elseif (in_array($id, $filtersRemesas)) {
                         $id = 'r.RemesaSistema';
                     } else {
-                        $id = 'vales' . $id;
+                        $id = 'vales_respaldo_2022' . $id;
                     }
 
                     switch (gettype($value)) {
@@ -522,13 +530,17 @@ class Vales2022Controller extends Controller
                 ];
                 return response()->json($response, 200);
             }
-
+            dd('Aqui');
             $params = $request->all();
             $user = auth()->user();
             $userId = JWTAuth::parseToken()->toUser()->id;
             $parameters_serializado = serialize($params);
 
-            $permisos = $this->getPermisos();
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '29'])
+                ->get()
+                ->first();
+
             if ($permisos === null) {
                 $response = [
                     'success' => true,
@@ -540,10 +552,8 @@ class Vales2022Controller extends Controller
                 return response()->json($response, 200);
             }
 
-            $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
-            $filtroCapturo = '';
-
+            dd($viewall);
             $solicitudes = DB::table('vales as v')
 
                 ->selectRaw(
@@ -576,17 +586,29 @@ class Vales2022Controller extends Controller
                 ->WHERERAW('v.Ejercicio = 2023');
 
             if ($viewall < 1) {
-                $region = DB::table('users_aplicativo_web')
-                    ->selectRaw('idRegion')
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
                     ->where('idUser', $user->id)
-                    ->get()
                     ->first();
 
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene region asignada',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
                 $solicitudes = $solicitudes->where(
-                    'm.SubRegion',
+                    'm.Region',
                     $region->idRegion
                 );
             }
+
+            dd('Aqui');
 
             $filterQuery = '';
             $municipioRegion = [];

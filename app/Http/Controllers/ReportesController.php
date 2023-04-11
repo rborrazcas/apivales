@@ -398,27 +398,12 @@ class ReportesController extends Controller
                 ->pluck('Localidad')
                 ->toArray();
 
-            $catColonia = DB::table('vales_grupos_totales')
-                ->select('Colonia')
-                ->JOIN(
-                    'vales_remesas AS r',
-                    'r.Remesa',
-                    'vales_grupos_totales.Remesa'
-                )
-                ->WhereRaw('vales_grupos_totales.Ejercicio = 2023')
-                ->groupBy('Colonia')
-                ->orderBy('Colonia', 'ASC')
-                ->get()
-                ->pluck('Colonia')
-                ->toArray();
-
             $data = [
                 'Remesas' => $catRemesas,
                 'Municipios' => $catMunicipio,
                 'Responsables' => $catResponsable,
                 'ResponsablesEntrega' => $catResponsableEntrega,
                 'Localidades' => $catLocalidad,
-                'Colonias' => $catColonia,
             ];
 
             return response()->json([
@@ -508,19 +493,19 @@ class ReportesController extends Controller
                 ->pluck('Localidad')
                 ->toArray();
 
-            $catColonia = DB::table('vales_grupos_totales')
-                ->select('Colonia')
+            $catInterventores = DB::table('vales_grupos_totales')
+                ->select('CveInterventor')
                 ->JOIN(
                     'vales_remesas AS r',
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->whereRaw('Colonia IS NOT NULL')
+                ->whereRaw('CveInterventor IS NOT NULL')
                 ->WhereRaw('r.Ejercicio = 2023')
-                ->groupBy('Colonia')
-                ->orderBy('Colonia', 'ASC')
+                ->groupBy('CveInterventor')
+                ->orderBy('CveInterventor', 'ASC')
                 ->get()
-                ->pluck('Colonia')
+                ->pluck('CveInterventor')
                 ->toArray();
 
             $data = [
@@ -529,7 +514,7 @@ class ReportesController extends Controller
                 'Responsables' => $catResponsable,
                 'ResponsablesEntrega' => $catResponsableEntrega,
                 'Localidades' => $catLocalidad,
-                'Colonias' => $catColonia,
+                'CvesInterventor' => $catInterventores,
             ];
 
             return response()->json([
@@ -7317,14 +7302,12 @@ class ReportesController extends Controller
                 'R.NumAcuerdo',
                 'R.Leyenda',
                 'R.FechaAcuerdo',
-                'G.idMunicipio',
-                'G.idLocalidad',
-                'G.Colonia',
-                'G.Remesa',
+                'G.TotalAprobados',
                 'G.ResponsableEntrega',
                 'M.Nombre AS Municipio',
                 'L.Nombre AS Localidad',
-                'L.Ambito'
+                'G.Remesa',
+                'G.idMunicipio'
             )
             ->JOIN('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
             ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
@@ -7363,23 +7346,12 @@ class ReportesController extends Controller
             ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
             ->leftJoin('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
-            ->where('N.idMunicipio', '=', $resGpo->idMunicipio)
-            ->where('N.idLocalidad', '=', $resGpo->idLocalidad)
-            ->where('N.ResponsableEntrega', '=', $resGpo->ResponsableEntrega)
-            ->where('N.Remesa', '=', $resGpo->Remesa)
-            ->where('N.Ejercicio', 2023);
-
-        if ($resGpo->Ambito == 'R') {
-            $res->where('N.Colonia', '=', $resGpo->Colonia);
-        }
-
-        $res->orderBy('M.Nombre', 'asc')->orderBy('L.Nombre', 'asc');
-
-        if ($resGpo->Ambito == 'R') {
-            $res->orderBy('N.Colonia', 'asc');
-        }
+            ->WHERE('N.idGrupo', $request->idGrupo);
 
         $data = $res
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'asc')
+            ->orderBy('L.Nombre', 'asc')
             ->orderBy('N.ResponsableEntrega', 'asc')
             ->orderBy('N.Nombre', 'asc')
             ->orderBy('N.Paterno', 'asc')
@@ -7404,43 +7376,6 @@ class ReportesController extends Controller
                 return $x;
             })
             ->toArray();
-
-        $Regional = '';
-
-        // switch ($res[0]['Region']) {
-        //     case '1':
-        //         $Regional = 'ROBERTO CARLOS TERAN RAMOS';
-        //         $CARGOREGIONAL = 'DIRECTOR REGIONAL';
-        //         break;
-        //     case '2':
-        //         $Regional = 'MIGUEL ANGEL FLORES SOLIS';
-        //         $CARGOREGIONAL = 'DIRECTOR REGIONAL';
-        //         break;
-        //     case '3':
-        //         $Regional = 'RODOLFO AUGUSTO OCTAVIO AGUIRRE RUTEAGA';
-        //         $CARGOREGIONAL = 'DIRECTOR REGIONAL';
-        //         break;
-        //     case '4':
-        //         //$Regional="OMAR GREGORIO MENDOZA FLORES";
-        //         $Regional = 'JOSE LUIS OROZCO NAVA';
-        //         $CARGOREGIONAL = 'DIRECTOR REGIONAL';
-        //         break;
-        //     case '5':
-        //         $Regional = 'ARTURO DONACIANO SALAZAR SOTO';
-        //         $CARGOREGIONAL = 'DIRECTOR REGIONAL';
-        //         break;
-        //     case '6':
-        //         $Regional = 'JULIO MARTINEZ FRANCO';
-        //         $CARGOREGIONAL = 'DIRECTOR REGIONAL';
-        //         break;
-        //     case '7':
-        //         //$Regional="SILVIA DE ANDA CAMPOS";
-        //         //$Regional="ELIZABETH RAMIREZ BÁRCENAS";
-        //         //$Regional = 'ARACELI CABRERA ALCARAZ';
-        //         $Regional = 'MONICA GODOY ARIAS';
-        //         $CARGOREGIONAL = 'DIRECTOR REGIONAL';
-        //         break;
-        // }
 
         //------------------------------------------------- Para generar el archivo excel ----------------------------------------------------------------
         // $spreadsheet = new Spreadsheet();
@@ -7469,19 +7404,19 @@ class ReportesController extends Controller
 
         $largo = count($res);
         //colocar los bordes
-        self::crearBordes($largo, 'A', $sheet);
-        self::crearBordes($largo, 'B', $sheet);
-        self::crearBordes($largo, 'C', $sheet);
-        self::crearBordes($largo, 'D', $sheet);
-        self::crearBordes($largo, 'E', $sheet);
-        self::crearBordes($largo, 'F', $sheet);
-        self::crearBordes($largo, 'G', $sheet);
-        self::crearBordes($largo, 'H', $sheet);
-        self::crearBordes($largo, 'I', $sheet);
-        self::crearBordes($largo, 'J', $sheet);
-        self::crearBordes($largo, 'K', $sheet);
-        self::crearBordes($largo, 'L', $sheet);
-        self::crearBordes($largo, 'M', $sheet);
+        // self::crearBordes($largo, 'A', $sheet);
+        // self::crearBordes($largo, 'B', $sheet);
+        // self::crearBordes($largo, 'C', $sheet);
+        // self::crearBordes($largo, 'D', $sheet);
+        // self::crearBordes($largo, 'E', $sheet);
+        // self::crearBordes($largo, 'F', $sheet);
+        // self::crearBordes($largo, 'G', $sheet);
+        // self::crearBordes($largo, 'H', $sheet);
+        // self::crearBordes($largo, 'I', $sheet);
+        // self::crearBordes($largo, 'J', $sheet);
+        // self::crearBordes($largo, 'K', $sheet);
+        // self::crearBordes($largo, 'L', $sheet);
+        // self::crearBordes($largo, 'M', $sheet);
         // self::crearBordes($largo, 'N', $sheet);
         // self::crearBordes($largo, 'O', $sheet);
 
@@ -7491,9 +7426,6 @@ class ReportesController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setCellValue('K6', $resGpo->Municipio);
         $sheet->setCellValue('K7', $resGpo->Localidad);
-        if ($resGpo->Ambito == 'R') {
-            $sheet->setCellValue('K8', $resGpo->Colonia);
-        }
         $sheet->setCellValue('K9', $resGpo->ResponsableEntrega);
         $sheet->setCellValue('K4', $resGpo->NumAcuerdo);
         $sheet->setCellValue('K5', $resGpo->FechaAcuerdo);
@@ -7531,666 +7463,6 @@ class ReportesController extends Controller
             $sheet->setCellValue('A' . $inicio, $i);
         }
 
-        //dd(public_path('/img/firmasVales.png'));
-
-        //dd($impresion+1);
-
-        //INICIA FORMATO DE FIRMAS
-        // $spreadsheet
-        //     ->getActiveSheet()
-        //     ->setBreak(
-        //         'A' . $impresion,
-        //         \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
-        //     );
-
-        // $ln = $impresion + 2;
-        // $sheet->mergeCells('C' . $ln . ':H' . $ln);
-        // $sheet->setCellValue('C' . $ln, 'ENTREGA');
-
-        // $sheet->mergeCells('I' . $ln . ':O' . $ln);
-        // $sheet->setCellValue('I' . $ln, 'RECIBE');
-
-        // $sheet
-        //     ->getStyle('C' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('C' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('C' . $ln)
-        //     ->getBorders()
-        //     ->getLeft()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('H' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('O' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-
-        // $ln++;
-        // $sheet->mergeCells('A' . $ln . ':B' . $ln);
-        // $sheet->setCellValue('A' . $ln, 'FECHA');
-
-        // $sheet->mergeCells('A' . ($ln + 1) . ':B' . ($ln + 1));
-        // $sheet->setCellValue('A' . ($ln + 1), date('Y-m-d'));
-
-        // $sheet->mergeCells('C' . $ln . ':E' . $ln);
-        // $sheet->setCellValue('C' . $ln, 'NOMBRE');
-        // $sheet->mergeCells('C' . ($ln + 1) . ':E' . ($ln + 1));
-        // $sheet->setCellValue('C' . ($ln + 1), 'DANIEL RODOLFO TORRES CHONA');
-
-        // $sheet->mergeCells('F' . $ln . ':G' . $ln);
-        // $sheet->setCellValue('F' . $ln, 'CARGO');
-        // $sheet->mergeCells('F' . ($ln + 1) . ':G' . ($ln + 1));
-        // $sheet->setCellValue(
-        //     'F' . ($ln + 1),
-        //     'JEFE DE ARTICULACIÓN TRANSVERSAL Y SECTORIAL'
-        // );
-
-        // $sheet->setCellValue('H' . $ln, 'FIRMA');
-
-        // $sheet->mergeCells('I' . $ln . ':K' . $ln);
-        // $sheet->setCellValue('I' . $ln, 'NOMBRE');
-
-        // $sheet->mergeCells('L' . $ln . ':N' . $ln);
-        // $sheet->setCellValue('L' . $ln, 'CARGO');
-
-        // $sheet->mergeCells('I' . ($ln + 1) . ':K' . ($ln + 1));
-        // //$sheet->setCellValue('I' . ($ln + 1), $Regional);
-        // $sheet->setCellValue('I' . ($ln + 1), '');
-
-        // $sheet->mergeCells('L' . ($ln + 1) . ':N' . ($ln + 1));
-        // //$sheet->setCellValue('L' . ($ln + 1), $CARGOREGIONAL);
-        // $sheet->setCellValue('L' . ($ln + 1), '');
-
-        // $sheet->setCellValue('O' . $ln, 'FIRMA');
-
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln)
-        //     ->getBorders()
-        //     ->getLeft()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('E' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('G' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('H' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('K' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('N' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('O' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-
-        // $sheet->getRowDimension($ln)->setRowHeight(70);
-        // $ln++;
-
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln)
-        //     ->getBorders()
-        //     ->getLeft()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('E' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('G' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('H' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('K' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('N' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('O' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet->getRowDimension($ln)->setRowHeight(90);
-
-        // $ln++;
-
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln)
-        //     ->getBorders()
-        //     ->getLeft()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('E' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('G' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('H' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('K' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('N' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('O' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet->getRowDimension($ln)->setRowHeight(90);
-        // $ln++;
-
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln)
-        //     ->getBorders()
-        //     ->getLeft()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('E' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('G' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('H' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('K' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('N' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('O' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet->getRowDimension($ln)->setRowHeight(90);
-        // $ln++;
-
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln)
-        //     ->getBorders()
-        //     ->getLeft()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('E' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('G' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('H' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('K' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('N' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('O' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet->getRowDimension($ln)->setRowHeight(90);
-        // $ln++;
-
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln)
-        //     ->getBorders()
-        //     ->getLeft()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('B' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('E' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('G' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('H' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('K' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('N' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('O' . $ln)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet->getRowDimension($ln)->setRowHeight(90);
-
-        // $ln += 2;
-        // $lnf = $ln + 5;
-
-        // $sheet->mergeCells('A' . $ln . ':O' . $ln);
-        // $sheet->setCellValue('A' . $ln, 'OBSERVACIONES  Y/O  INCIDENCIAS');
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-
-        // $sheet
-        //     ->getStyle('A' . $ln . ':O' . $ln)
-        //     ->getBorders()
-        //     ->getTop()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $lnf . ':O' . $lnf)
-        //     ->getBorders()
-        //     ->getBottom()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('A' . $ln . ':A' . $lnf)
-        //     ->getBorders()
-        //     ->getLeft()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-        // $sheet
-        //     ->getStyle('O' . $ln . ':O' . $lnf)
-        //     ->getBorders()
-        //     ->getRight()
-        //     ->setBorderStyle(
-        //         \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-        //     );
-
-        // //dd('si paso el rpoceso');
-
         //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
         $writer = new Xlsx($spreadsheet);
 
@@ -8227,6 +7499,207 @@ class ReportesController extends Controller
                 '_' .
                 $resGpo->ResponsableEntrega .
                 '_formatoNominaVales' .
+                date('Y-m-d H:i:s') .
+                '.xlsx'
+        );
+    }
+
+    public function getReporteEntregaVales2023(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+
+        if (!isset($request->idGrupo)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados del Grupo.',
+            ]);
+        }
+
+        $resGpo = DB::table('vales_grupos as G')
+            ->select(
+                'G.id',
+                'R.NumAcuerdo',
+                'R.Leyenda',
+                'R.FechaAcuerdo',
+                'G.TotalAprobados',
+                'G.ResponsableEntrega',
+                'M.Nombre AS Municipio',
+                'L.Nombre AS Localidad',
+                'G.Remesa',
+                'G.idMunicipio'
+            )
+            ->JOIN('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
+            ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'G.idLocalidad', '=', 'L.id')
+            ->where('G.id', '=', $request->idGrupo)
+            ->first();
+
+        if (!$resGpo) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados del Grupo.',
+            ]);
+        }
+
+        $res = DB::table('vales as N')
+            ->select(
+                'M.SubRegion AS Region',
+                DB::raw('LPAD(HEX(N.id),6,0) AS ClaveUnica'),
+                'N.CURP',
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as NombreCompleto"
+                ),
+                'N.Sexo',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS Direccion"
+                ),
+                'N.Colonia',
+                'N.CP',
+                'M.Nombre AS Municipio',
+                'L.Nombre AS Localidad',
+                'VS.SerieInicial',
+                'VS.SerieFinal',
+                DB::raw(
+                    'CASE WHEN N.isEntregado =1 THEN "SI" ELSE "NO" END AS Entregado'
+                ),
+                'N.entrega_at AS FechaEntrega',
+                DB::raw(
+                    'CASE WHEN d.idSolicitud IS NULL THEN NULL ELSE "DEVUELTO" END AS Devuelto'
+                )
+            )
+            ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->LEFTJOIN('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->LEFTJOIN('vales_devueltos as d', 'd.idSolicitud', 'N.id')
+            ->WHERE('N.idGrupo', $request->idGrupo);
+
+        $data = $res
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'asc')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        //dd(str_replace_array('?', $data->getBindings(), $data->toSql()));
+
+        if (count($data) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv5.xlsx';
+
+            return response()->download(
+                $file,
+                'NominaValesGrandeza' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        $res = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+
+        $reader = IOFactory::createReader('Xlsx');
+        $spreadsheet = $reader->load(
+            public_path() . '/archivos/formatoReporteNominaValesv5.xlsx'
+        );
+        $sheet = $spreadsheet->getActiveSheet();
+        $largo = count($res);
+        $impresion = $largo + 10;
+
+        $sheet->getPageSetup()->setPrintArea('A1:O' . ($impresion + 15));
+        $sheet
+            ->getPageSetup()
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+
+        $largo = count($res);
+
+        $sheet->fromArray($res, null, 'B11');
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('K6', $resGpo->Municipio);
+        $sheet->setCellValue('K7', $resGpo->Localidad);
+        $sheet->setCellValue('K9', $resGpo->ResponsableEntrega);
+        $sheet->setCellValue('K4', $resGpo->NumAcuerdo);
+        $sheet->setCellValue('K5', $resGpo->FechaAcuerdo);
+        $sheet->setCellValue('A2', $resGpo->Leyenda);
+        $sheet->setCellValue(
+            'A3',
+            'Aprobados mediante ' .
+                $resGpo->NumAcuerdo .
+                ' de fecha ' .
+                $resGpo->FechaAcuerdo
+        );
+
+        //dd($largo);
+
+        $veces = 0;
+
+        if ($largo > 25) {
+            //dd('Se agrega lineBreak');
+            for ($lb = 20; $lb < $largo; $lb += 20) {
+                $veces++;
+                //dd($largo);
+                $spreadsheet
+                    ->getActiveSheet()
+                    ->setBreak(
+                        'A' . ($lb + 10),
+                        \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
+                    );
+            }
+        }
+
+        //Agregar el indice autonumerico
+
+        for ($i = 1; $i <= $largo; $i++) {
+            $inicio = 10 + $i;
+            $sheet->setCellValue('A' . $inicio, $i);
+        }
+
+        //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+        $writer = new Xlsx($spreadsheet);
+
+        $strRem = str_replace('/', '_', $resGpo->Remesa);
+        // dd($strRem);
+
+        //dd('archivos/'.$strRem.'_'.$resGpo->idMunicipio.'_'.$resGpo->UserOwned.'_formatoNominaVales.xlsx');
+        $writer->save(
+            'archivos/' .
+                $strRem .
+                '_' .
+                $resGpo->idMunicipio .
+                '_' .
+                $resGpo->ResponsableEntrega .
+                '_formatoEntregaVales.xlsx'
+        );
+        $file =
+            public_path() .
+            '/archivos/' .
+            $strRem .
+            '_' .
+            $resGpo->idMunicipio .
+            '_' .
+            $resGpo->ResponsableEntrega .
+            '_formatoEntregaVales.xlsx';
+
+        //dd('Se crearon los archivos');
+
+        return response()->download(
+            $file,
+            $strRem .
+                '_' .
+                $resGpo->idMunicipio .
+                '_' .
+                $resGpo->ResponsableEntrega .
+                '_formatoEntregaVales' .
                 date('Y-m-d H:i:s') .
                 '.xlsx'
         );
@@ -8377,9 +7850,8 @@ class ReportesController extends Controller
                 'G.idMunicipio',
                 'G.idLocalidad',
                 'G.ResponsableEntrega',
-                'G.Colonia',
                 'G.Remesa',
-                'L.Ambito'
+                'G.TotalAprobados'
             )
             ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
             ->JOIN('et_cat_localidad as L', 'G.idLocalidad', '=', 'L.id')
@@ -8410,15 +7882,9 @@ class ReportesController extends Controller
             )
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
-            ->where('N.Remesa', '=', $resGpo->Remesa)
-            ->where('N.idMunicipio', '=', $resGpo->idMunicipio)
-            ->where('N.idLocalidad', '=', $resGpo->idLocalidad)
-            ->where('N.ResponsableEntrega', '=', $resGpo->ResponsableEntrega);
+            ->where('N.idGrupo', '=', $resGpo->id);
 
-        if ($resGpo->Ambito === 'R') {
-            $res->where('N.Colonia', '=', $resGpo->Colonia);
-        }
-
+        $total = $res->count();
         $data = $res->first();
 
         if ($data === null) {
@@ -8429,11 +7895,20 @@ class ReportesController extends Controller
                 'message' => 'Aún no se asignan los vales de este grupo.',
             ]);
         } else {
-            return response()->json([
-                'success' => true,
-                'results' => true,
-                'data' => [],
-            ]);
+            if ($total == $resGpo->TotalAprobados) {
+                return response()->json([
+                    'success' => true,
+                    'results' => true,
+                    'data' => [],
+                ]);
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'Faltan vales por asignar.',
+                ]);
+            }
         }
     }
 
@@ -9112,19 +8587,16 @@ class ReportesController extends Controller
 
         $parameters = $request->all();
         $user = auth()->user();
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
         $resGpo = DB::table('vales_grupos as G')
             ->select(
                 'G.id',
                 'G.idMunicipio',
-                'G.idLocalidad',
-                'G.Colonia',
-                'G.ResponsableEntrega',
                 'G.Remesa',
-                'L.Ambito'
+                'G.TotalAprobados',
+                'G.ResponsableEntrega'
             )
-            ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
-            ->JOIN('et_cat_localidad_2022 as L', 'G.idLocalidad', '=', 'L.id')
-            ->JOIN('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
             ->where('G.id', '=', $request->idGrupo)
             ->first();
 
@@ -9170,32 +8642,19 @@ class ReportesController extends Controller
             )
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
-            ->where('N.idMunicipio', '=', $resGpo->idMunicipio)
-            ->where('N.idLocalidad', '=', $resGpo->idLocalidad)
-            ->where('N.ResponsableEntrega', '=', $resGpo->ResponsableEntrega)
-            ->where('N.Remesa', '=', $resGpo->Remesa)
-            ->where('N.Ejercicio', 2023);
-
-        if ($resGpo->Ambito === 'R') {
-            $res->where('N.Colonia', '=', $resGpo->Colonia);
-        }
-
-        $res->orderBy('M.Nombre', 'asc')->orderBy('L.Nombre', 'asc');
-
-        if ($resGpo->Ambito === 'R') {
-            $res->orderBy('N.Colonia', 'asc');
-        }
-
-        $data = $res
+            ->where('N.idGrupo', '=', $resGpo->id)
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
             ->orderBy('N.Nombre', 'asc')
             ->orderBy('N.Paterno', 'asc')
             ->get();
 
-        $d = $data
+        $d = $res
             ->map(function ($x) {
                 $x = is_object($x) ? (array) $x : $x;
                 $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
-                //dd($x);
                 return $x;
             })
             ->toArray();
@@ -9236,6 +8695,7 @@ class ReportesController extends Controller
             $pdf = \PDF::loadView('pdf', compact('vales'))->save(
                 $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
             );
+            unset($pdf);
         }
 
         $this->createZipEvidencia($carpeta);
@@ -9259,7 +8719,8 @@ class ReportesController extends Controller
     {
         $parameters = $request->all();
         $user = auth()->user();
-
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
         if (!isset($request->idGrupo)) {
             return response()->json([
                 'success' => true,
@@ -9274,14 +8735,8 @@ class ReportesController extends Controller
                 'G.id',
                 'G.ResponsableEntrega',
                 'G.idMunicipio',
-                'G.idLocalidad',
-                'G.Colonia',
-                'G.Remesa',
-                'L.Ambito'
+                'G.Remesa'
             )
-            ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
-            ->JOIN('et_cat_localidad_2022 as L', 'G.idLocalidad', '=', 'L.id')
-            ->JOIN('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
             ->where('G.id', '=', $request->idGrupo)
             ->first();
 
@@ -9298,7 +8753,10 @@ class ReportesController extends Controller
         $res = DB::table('vales as N')
             ->select(
                 DB::raw('LPAD(HEX(N.id),6,0) AS id'),
-                'N.FechaSolicitud',
+                DB::RAw(
+                    'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+                    ELSE "          " END AS FechaSolicitud'
+                ),
                 DB::raw(
                     'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
                 ),
@@ -9320,28 +8778,16 @@ class ReportesController extends Controller
             )
             ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
-            ->where('N.idMunicipio', '=', $resGpo->idMunicipio)
-            ->where('N.idLocalidad', '=', $resGpo->idLocalidad)
-            ->where('N.ResponsableEntrega', '=', $resGpo->ResponsableEntrega)
-            ->where('N.Remesa', '=', $resGpo->Remesa);
-
-        if ($resGpo->Ambito == 'R') {
-            $res->where('N.Colonia', '=', $resGpo->Colonia);
-        }
-
-        $res->orderBy('m.Nombre', 'asc')->orderBy('L.Nombre', 'asc');
-
-        if ($resGpo->Ambito == 'R') {
-            $res->orderBy('N.Colonia', 'asc');
-        }
-
-        $data = $res
+            ->where('N.idGrupo', '=', $resGpo->id)
+            ->orderBy('m.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'ASC')
+            ->orderBy('L.Nombre', 'asc')
             ->orderBy('N.ResponsableEntrega', 'asc')
             ->orderBy('N.Nombre', 'asc')
             ->orderBy('N.Paterno', 'asc')
             ->get();
 
-        $d = $data
+        $d = $res
             ->map(function ($x) {
                 $x = is_object($x) ? (array) $x : $x;
                 return $x;
@@ -9384,6 +8830,7 @@ class ReportesController extends Controller
             $pdf = \PDF::loadView('pdf_solicitud', compact('vales'))->save(
                 $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
             );
+            unset($pdf);
         }
 
         $this->createZipEvidencia($carpeta);
@@ -9391,39 +8838,215 @@ class ReportesController extends Controller
         return response()->download(
             public_path('subidos/' . $carpeta . '.zip')
         );
-
-        // $d = [
-        //     [
-        //         'id' => '',
-        //         'FechaSolicitud' => '',
-        //         'Nombre' => '',
-        //         'CURP' => '',
-        //         'Sexo' => '',
-        //         'Calle' => '',
-        //         'NoExt' => '',
-        //         'NoInt' => '',
-        //         'CP' => '',
-        //         'Colonia' => '',
-        //         'Localidad' => '',
-        //         'Municipio' => '',
-        //         'Tutor' => '',
-        //         'Parentesco' => '',
-        //         'CURPTutor' => '',
-        //         'Telefono' => '',
-        //         'Celular' => '',
-        //         'Parentesco' => '',
-        //         'Correo' => '',
-        //     ],
-        // ];
-
-        // //dd($d);
-
         // $vales = $d;
         // $nombreArchivo = 'solicitud_vales' . date('Y-m-d H:i:s');
-
         // $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
-
         // return $pdf->download($nombreArchivo . '.pdf');
+    }
+
+    public function getSolicitudesValeEstatico(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        // if (!isset($request->idGrupo)) {
+        //     return response()->json([
+        //         'success' => true,
+        //         'results' => false,
+        //         'data' => [],
+        //         'message' => 'No se envió un id de grupo válido.',
+        //     ]);
+        // }
+
+        // $resGpo = DB::table('vales_grupos as G')
+        //     ->select(
+        //         'G.id',
+        //         'G.ResponsableEntrega',
+        //         'G.idMunicipio',
+        //         'G.Remesa'
+        //     )
+        //     ->where('G.id', '=', $request->idGrupo)
+        //     ->first();
+
+        // $carpeta =
+        //     $resGpo->id . $resGpo->idMunicipio . $resGpo->Remesa . '_Solicitud';
+
+        // $path = public_path() . '/subidos/' . $carpeta;
+        // $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
+
+        // if (file_exists($fileExists)) {
+        //     return response()->download($fileExists);
+        // }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                DB::RAw(
+                    'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+                    ELSE "          " END AS FechaSolicitud'
+                ),
+                DB::raw(
+                    'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                ),
+                'N.CURP',
+                'N.Sexo',
+                'N.Calle',
+                'N.NumExt',
+                'N.NumInt',
+                'N.CP',
+                'N.Colonia',
+                'L.Nombre AS Localidad',
+                'm.Nombre AS Municipio',
+                DB::raw('NULL AS Tutor'),
+                DB::raw('NULL AS Parentesco'),
+                DB::raw('NULL AS CURPTutor'),
+                'N.TelFijo AS Telefono',
+                'N.TelCelular AS Celular',
+                'N.CorreoElectronico AS Correo'
+            )
+            ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
+            ->WHEREIN('s.SerieInicial', [2126731, 2127541])
+            ->orderBy('m.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'ASC')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->ResponsableEntrega .
+                    '_NominaValesGrandeza' .
+                    date('Y-m-d') .
+                    '.xlsx'
+            );
+        }
+
+        $nombreArchivo = 'solicitudes';
+
+        // File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+            return $pdf->download($nombreArchivo . '.pdf');
+        }
+
+        // $this->createZipEvidencia($carpeta);
+
+        // return response()->download(
+        //     public_path('subidos/' . $carpeta . '.zip')
+        // );
+        // $vales = $d;
+        // $nombreArchivo = 'solicitud_vales' . date('Y-m-d H:i:s');
+        // $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+        // return $pdf->download($nombreArchivo . '.pdf');
+    }
+
+    public function getSolicitudesValeUnico(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        if (!isset($parameters['folio'])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados de la solicitud.',
+            ]);
+        }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                DB::RAw(
+                    'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+                    ELSE "          " END AS FechaSolicitud'
+                ),
+                DB::raw(
+                    'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                ),
+                'N.CURP',
+                'N.Sexo',
+                'N.Calle',
+                'N.NumExt',
+                'N.NumInt',
+                'N.CP',
+                'N.Colonia',
+                'L.Nombre AS Localidad',
+                'm.Nombre AS Municipio',
+                DB::raw('NULL AS Tutor'),
+                DB::raw('NULL AS Parentesco'),
+                DB::raw('NULL AS CURPTutor'),
+                'N.TelFijo AS Telefono',
+                'N.TelCelular AS Celular',
+                'N.CorreoElectronico AS Correo'
+            )
+            ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
+            ->where('N.id', $parameters['folio'])
+            ->orderBy('m.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'ASC')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->ResponsableEntrega .
+                    '_NominaValesGrandeza' .
+                    date('Y-m-d') .
+                    '.xlsx'
+            );
+        }
+
+        $nombreArchivo = 'solicitud-' . $parameters['folio'];
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+            return $pdf->download($nombreArchivo . '.pdf');
+        }
     }
 
     private function createZipEvidencia($carpeta)

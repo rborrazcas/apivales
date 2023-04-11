@@ -91,6 +91,11 @@ Route::post(
     'CalentadoresController@getExpediente'
 );
 
+Route::get(
+    '/getSolicitudesValeEstatico',
+    'ReportesController@getSolicitudesValeEstatico'
+);
+
 Route::post('/acuseUnico', 'ReportesController@getAcuseValesUnico');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
@@ -245,6 +250,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getSolicitudesPdfVales',
         'ReportesController@getSolicitudesVales'
     );
+
     Route::post('/validarGrupo2023', 'ReportesController@validarGrupo2023');
     Route::post('/validarGrupo', 'ReportesController@validarGrupo');
     Route::get(
@@ -254,6 +260,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get(
         '/getReporteNominaVales2023',
         'ReportesController@getReporteNominaVales2023'
+    );
+    Route::get(
+        '/getReporteEntregaVales2023',
+        'ReportesController@getReporteEntregaVales2023'
     );
 
     Route::get(
@@ -902,6 +912,38 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post(
             '/updateArchivosCedula',
             'DiagnosticoV2Controller@updateArchivosCedula'
+        );
+    });
+
+    Route::group(['prefix' => 'vales'], function ($route) {
+        Route::get(
+            '/getClasificacionArchivos',
+            'Vales2023Controller@getClasificacionArchivos'
+        );
+
+        Route::get('/getMunicipiosVales', 'Vales2023Controller@getMunicipios');
+        Route::get('/getFilesById/{id}', 'Vales2023Controller@getFilesById');
+        Route::post('/getVales2023', 'Vales2023Controller@getSolicitudes2023');
+
+        Route::post(
+            '/updateArchivosSolicitud',
+            'Vales2023Controller@updateArchivosSolicitud'
+        );
+
+        Route::post(
+            '/validateCveInterventor',
+            'Vales2023Controller@validateCveInterventor'
+        );
+
+        Route::post('/validateFolio', 'Vales2023Controller@validateFolio');
+
+        Route::post('/recepcionVales', 'Vales2023Controller@recepcionVales');
+
+        Route::post('/getGroupList', 'Vales2023Controller@getGroupList');
+
+        Route::get(
+            '/getSolicitudesValeUnico',
+            'ReportesController@getSolicitudesValeUnico'
         );
     });
 

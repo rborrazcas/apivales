@@ -270,7 +270,7 @@
                 <p style="text-decoration: underline; text-align:center;font-weight:bold;">
                     DECLARO BAJO PROTESTA DE DECIR VERDAD:
                 </p>
-                <p style="text-align:justify; line-height:20px;">
+                <p style="text-align:justify; line-height:15px;">
                     a) Que todo lo manifestado en la solicitud y documentación entregada o llenada son datos verídicos,
                     auténticos y fidedignos, así como la firma o huella dactilar que aparece en el presente
                     documento.<br>
@@ -285,7 +285,7 @@
                 <p style="text-decoration: underline; text-align:center;font-weight:bold;">
                     CONSENTIMIENTO PARA EL TRATAMIENTO DE DATOS PERSONALES
                 </p>
-                <p style="text-align:justify;line-height:20px;">
+                <p style="text-align:justify;line-height:15px;">
                     Manifiesto que he leído y acepto el aviso de privacidad, el cual tuve a la vista y continuará a mi
                     disposición en la página institucional en Internet
                     <span style="color: #093EAF;">https://desarrollosocial.guanajuato.gob.mx/programas/</span>, por lo
@@ -317,7 +317,7 @@
                 <p style="text-align: center; font-weight:bold;">ATENTAMENTE</p>
             </div>
 
-            <div class="body-protesta" style="margin-top: 90px;">
+            <div class="body-protesta" style="margin-top: 80px;">
                 <p style="text-align: center;font-weight:bold;">Nombre y firma o huella dactilar de la persona
                     solicitante, tutor(a) o acompañante <br>
                     <span

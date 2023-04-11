@@ -1192,17 +1192,17 @@ class UserController extends Controller
     {
         $parameters = $request->all();
         try {
-            $resU = DB::table('vales as V')
+            $res = DB::table('vales as V')
                 ->select(
                     'M.SubRegion AS Region',
                     'V.idMunicipio',
                     'M.Nombre AS Municipio',
+                    'V.CveInterventor',
                     'V.idLocalidad',
                     'L.Nombre AS Localidad',
-                    'L.Ambito',
-                    DB::raw(' "-" AS Colonia'),
                     'V.ResponsableEntrega',
                     'V.Remesa',
+                    'V.idGrupo',
                     DB::raw('count(V.id) Solicitudes')
                 )
                 ->JOIN('et_cat_municipio as M', 'V.idMunicipio', '=', 'M.Id')
@@ -1210,50 +1210,23 @@ class UserController extends Controller
                 ->where('V.idStatus', '=', 5)
                 ->where('V.idIncidencia', '=', 1)
                 ->where('V.Ejercicio', 2023)
-                ->where('L.Ambito', 'U')
                 ->whereNotIn('V.id', function ($query) {
                     $query
                         ->select('idSolicitud')
                         ->from('vales_solicitudes')
                         ->whereRaw('Ejercicio = 2023');
                 })
-                ->groupBy('M.SubRegion')
                 ->groupBy('V.idMunicipio')
+                ->groupBy('V.CveInterventor')
                 ->groupBy('V.idLocalidad')
                 ->groupBy('V.ResponsableEntrega')
-                ->groupBy('V.Remesa');
-
-            $resR = DB::table('vales as V')
-                ->select(
-                    'M.SubRegion AS Region',
-                    'V.idMunicipio',
-                    'M.Nombre AS Municipio',
-                    'V.idLocalidad',
-                    'L.Nombre AS Localidad',
-                    'L.Ambito',
-                    'V.Colonia',
-                    'V.ResponsableEntrega',
-                    'V.Remesa',
-                    DB::raw('count(V.id) Solicitudes')
-                )
-                ->JOIN('et_cat_municipio as M', 'V.idMunicipio', '=', 'M.Id')
-                ->JOIN('et_cat_localidad_2022 as L', 'L.id', 'V.idLocalidad')
-                ->where('V.idStatus', '=', 5)
-                ->where('V.idIncidencia', '=', 1)
-                ->where('V.Ejercicio', 2023)
-                ->where('L.Ambito', 'R')
-                ->whereNotIn('V.id', function ($query) {
-                    $query
-                        ->select('idSolicitud')
-                        ->from('vales_solicitudes')
-                        ->whereRaw('Ejercicio = 2023');
-                })
-                ->groupBy('M.SubRegion')
-                ->groupBy('V.idMunicipio')
-                ->groupBy('V.idLocalidad')
-                ->groupBy('V.Colonia')
-                ->groupBy('V.ResponsableEntrega')
-                ->groupBy('V.Remesa');
+                ->groupBy('V.Remesa')
+                ->groupBy('V.idGrupo')
+                ->OrderBy('M.SubRegion')
+                ->OrderBy('V.idMunicipio')
+                ->OrderBy('V.CveInterventor')
+                ->OrderBy('V.idLocalidad')
+                ->OrderBy('V.ResponsableEntrega');
 
             $flag = 0;
             if (isset($parameters['filtered'])) {
@@ -1267,21 +1240,12 @@ class UserController extends Controller
                             if (
                                 is_array($parameters['filtered'][$i]['value'])
                             ) {
-                                $resU->whereIn(
-                                    $parameters['filtered'][$i]['id'],
-                                    $parameters['filtered'][$i]['value']
-                                );
-                                $resR->whereIn(
+                                $res->whereIn(
                                     $parameters['filtered'][$i]['id'],
                                     $parameters['filtered'][$i]['value']
                                 );
                             } else {
-                                $resU->where(
-                                    $parameters['filtered'][$i]['id'],
-                                    '=',
-                                    $parameters['filtered'][$i]['value']
-                                );
-                                $resR->where(
+                                $res->where(
                                     $parameters['filtered'][$i]['id'],
                                     '=',
                                     $parameters['filtered'][$i]['value']
@@ -1298,25 +1262,13 @@ class UserController extends Controller
                                     'UserUpdated'
                                 ) === 0
                             ) {
-                                $resU->where(
-                                    $parameters['filtered'][$i]['id'],
-                                    '=',
-                                    $parameters['filtered'][$i]['value']
-                                );
-                                $resR->where(
+                                $res->where(
                                     $parameters['filtered'][$i]['id'],
                                     '=',
                                     $parameters['filtered'][$i]['value']
                                 );
                             } else {
-                                $resU->where(
-                                    $parameters['filtered'][$i]['id'],
-                                    'LIKE',
-                                    '%' .
-                                        $parameters['filtered'][$i]['value'] .
-                                        '%'
-                                );
-                                $resR->where(
+                                $res->where(
                                     $parameters['filtered'][$i]['id'],
                                     'LIKE',
                                     '%' .
@@ -1340,21 +1292,12 @@ class UserController extends Controller
                                         $parameters['filtered'][$i]['value']
                                     )
                                 ) {
-                                    $resU->whereIn(
-                                        $parameters['filtered'][$i]['id'],
-                                        $parameters['filtered'][$i]['value']
-                                    );
-                                    $resR->whereIn(
+                                    $res->whereIn(
                                         $parameters['filtered'][$i]['id'],
                                         $parameters['filtered'][$i]['value']
                                     );
                                 } else {
-                                    $resU->where(
-                                        $parameters['filtered'][$i]['id'],
-                                        '=',
-                                        $parameters['filtered'][$i]['value']
-                                    );
-                                    $resR->where(
+                                    $res->where(
                                         $parameters['filtered'][$i]['id'],
                                         '=',
                                         $parameters['filtered'][$i]['value']
@@ -1371,27 +1314,13 @@ class UserController extends Controller
                                         'UserUpdated'
                                     ) === 0
                                 ) {
-                                    $resU->where(
-                                        $parameters['filtered'][$i]['id'],
-                                        '=',
-                                        $parameters['filtered'][$i]['value']
-                                    );
-                                    $resR->where(
+                                    $res->where(
                                         $parameters['filtered'][$i]['id'],
                                         '=',
                                         $parameters['filtered'][$i]['value']
                                     );
                                 } else {
-                                    $resU->where(
-                                        $parameters['filtered'][$i]['id'],
-                                        'LIKE',
-                                        '%' .
-                                            $parameters['filtered'][$i][
-                                                'value'
-                                            ] .
-                                            '%'
-                                    );
-                                    $resR->where(
+                                    $res->where(
                                         $parameters['filtered'][$i]['id'],
                                         'LIKE',
                                         '%' .
@@ -1415,21 +1344,12 @@ class UserController extends Controller
                                         $parameters['filtered'][$i]['value']
                                     )
                                 ) {
-                                    $resU->orWhereIn(
-                                        $parameters['filtered'][$i]['id'],
-                                        $parameters['filtered'][$i]['value']
-                                    );
-                                    $resR->orWhereIn(
+                                    $res->orWhereIn(
                                         $parameters['filtered'][$i]['id'],
                                         $parameters['filtered'][$i]['value']
                                     );
                                 } else {
-                                    $resU->orWhere(
-                                        $parameters['filtered'][$i]['id'],
-                                        '=',
-                                        $parameters['filtered'][$i]['value']
-                                    );
-                                    $resR->orWhere(
+                                    $res->orWhere(
                                         $parameters['filtered'][$i]['id'],
                                         '=',
                                         $parameters['filtered'][$i]['value']
@@ -1446,27 +1366,13 @@ class UserController extends Controller
                                         'UserUpdated'
                                     ) === 0
                                 ) {
-                                    $resU->orWhere(
-                                        $parameters['filtered'][$i]['id'],
-                                        '=',
-                                        $parameters['filtered'][$i]['value']
-                                    );
-                                    $resR->orWhere(
+                                    $res->orWhere(
                                         $parameters['filtered'][$i]['id'],
                                         '=',
                                         $parameters['filtered'][$i]['value']
                                     );
                                 } else {
-                                    $resU->orWhere(
-                                        $parameters['filtered'][$i]['id'],
-                                        'LIKE',
-                                        '%' .
-                                            $parameters['filtered'][$i][
-                                                'value'
-                                            ] .
-                                            '%'
-                                    );
-                                    $resR->orWhere(
+                                    $res->orWhere(
                                         $parameters['filtered'][$i]['id'],
                                         'LIKE',
                                         '%' .
@@ -1483,37 +1389,14 @@ class UserController extends Controller
             }
 
             $page = $parameters['page'];
-            $pageSize = $parameters['pageSize'];
+            $pageSize = 10;
 
             $startIndex = $page * $pageSize;
-            if (isset($parameters['sorted'])) {
-                for ($i = 0; $i < count($parameters['sorted']); $i++) {
-                    if ($parameters['sorted'][$i]['desc'] === true) {
-                        $resU->orderBy($parameters['sorted'][$i]['id'], 'desc');
-                        $resR->orderBy($parameters['sorted'][$i]['id'], 'desc');
-                    } else {
-                        $resU->orderBy($parameters['sorted'][$i]['id'], 'asc');
-                        $resR->orderBy($parameters['sorted'][$i]['id'], 'asc');
-                    }
-                }
-            }
 
             if (isset($parameters['NombreCompleto'])) {
                 $filtro_recibido = $parameters['NombreCompleto'];
                 $filtro_recibido = str_replace(' ', '%', $filtro_recibido);
-                $resU->where(
-                    DB::raw("
-                    REPLACE(
-                    CONCAT(
-                        V.Remesa,
-                        V.ResponsableEntrega,
-                        V.Remesa
-                    ), ' ', '')"),
-
-                    'like',
-                    '%' . $filtro_recibido . '%'
-                );
-                $resR->where(
+                $res->where(
                     DB::raw("
                     REPLACE(
                     CONCAT(
@@ -1526,11 +1409,9 @@ class UserController extends Controller
                     '%' . $filtro_recibido . '%'
                 );
             }
-
-            $res = $resU->union($resR);
-            $total = $resU->count() + $resR->count();
-            $res = $resU
-                ->union($resR)
+            //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
+            $total = (clone $res)->get()->count();
+            $res = $res
                 ->offset($startIndex)
                 ->take($pageSize)
                 ->get();
