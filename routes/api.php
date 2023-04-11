@@ -85,6 +85,18 @@ Route::post(
     '/validacionMasivaCalentadores',
     'CalentadoresController@ValidarEstatusCalentadorVentanilla'
 );
+
+Route::post(
+    '/getExpedientesCalentadores',
+    'CalentadoresController@getExpediente'
+);
+
+Route::get(
+    '/getSolicitudesValeEstatico',
+    'ReportesController@getSolicitudesValeEstatico'
+);
+
+Route::post('/acuseUnico', 'ReportesController@getAcuseValesUnico');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/register', 'AuthController@register');
@@ -184,6 +196,14 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getReporteSolicitudVentanillaVales'
     );
     Route::get(
+        '/getReporteVales2022',
+        'Vales2022Controller@getReporteVales2022'
+    );
+    Route::get(
+        '/getReporteVales2023',
+        'Vales2022Controller@getReporteVales2023'
+    );
+    Route::get(
         '/getReporteSolicitudVentanillaCalentadores',
         'CalentadoresController@getReporteSolicitudVentanillaCalentadores'
     );
@@ -223,9 +243,29 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
     Route::get('/getReporteAcuseVales', 'ReportesController@getAcuseVales');
     Route::get(
+        '/getReporteAcuseVales2023',
+        'ReportesController@getAcuseVales2023'
+    );
+    Route::get(
+        '/getSolicitudesPdfVales',
+        'ReportesController@getSolicitudesVales'
+    );
+
+    Route::post('/validarGrupo2023', 'ReportesController@validarGrupo2023');
+    Route::post('/validarGrupo', 'ReportesController@validarGrupo');
+    Route::get(
         '/getReporteNominaVales',
         'ReportesController@getReporteNominaVales'
     );
+    Route::get(
+        '/getReporteNominaVales2023',
+        'ReportesController@getReporteNominaVales2023'
+    );
+    Route::get(
+        '/getReporteEntregaVales2023',
+        'ReportesController@getReporteEntregaVales2023'
+    );
+
     Route::get(
         '/getSumaVoluntadesWord',
         'ReportesController@getSumaVoluntadesWord'
@@ -309,6 +349,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/getValesFecha', 'VValesController@getValesFecha');
 
     Route::post('/getValesNotIn', 'VValesController@getValesNotIn');
+    Route::post('/getValesNotIn2023', 'VValesController@getValesNotIn2023');
+
     Route::post('/getValesIn', 'VValesController@getValesIn');
     Route::post('/getValesRegion', 'VValesController@getValesRegion');
     Route::post('/setVales', 'VValesController@setVales');
@@ -389,6 +431,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getArticuladoresVentanilla'
     );
 
+    Route::post('/getRemesasVales', 'Vales2022Controller@getRemesas');
+
     Route::post(
         '/getArticuladoresYoPuedo',
         'YoPuedoController@getArticuladoresVentanilla'
@@ -409,7 +453,9 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::post('/getGrupos', 'ValesGruposController@getGrupos'); //Sin parametros
+    Route::post('/getGrupos2023', 'ValesGruposController@getGrupos2023'); //Sin parametros
     Route::post('/setGrupos', 'ValesGruposController@setGrupos'); //Sin parametros
+    Route::post('/setGrupos2023', 'ValesGruposController@setGrupos2023'); //Sin parametros
     Route::post(
         '/getGruposArticuladores',
         'UserController@getGruposArticuladores'
@@ -418,7 +464,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getArticularSolicitudes',
         'UserController@getArticularSolicitudes'
     ); //Sin parametros
-
+    Route::post(
+        '/getArticularSolicitudes2023',
+        'UserController@getArticularSolicitudes2023'
+    );
     Route::post(
         '/getValesSolicitudes',
         'ValesSolicitudesController@getValesSolicitudes'
@@ -427,10 +476,15 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/setValesSolicitudes',
         'ValesSolicitudesController@setValesSolicitudes'
     );
+    Route::post(
+        '/setValesSolicitudes2023',
+        'ValesSolicitudesController@setValesSolicitudes2023'
+    );
 
     Route::get('/getValePPT', 'ReportesController@getVales');
 
     Route::post('/getSerieVale', 'ValesSeriesController@getSerieVale');
+    Route::post('/getSerieVale2023', 'ValesSeriesController@getSerieVale2023');
 
     Route::get('/copiarTablaVales', 'ValidacionesController@copiarTablaVales');
     Route::get('/setValidaciones', 'ValidacionesController@setValidaciones');
@@ -462,6 +516,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::post('/getCatGrupos', 'ReportesController@getCatGrupos');
+    Route::post('/getCatGrupos2023', 'ReportesController@getCatGrupos2023');
 
     //APIS PULSERAS GTO 30 SEPTIEMBRE
     Route::post(
@@ -524,6 +579,9 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getCodigoBarraAll',
         'ControllersPulseras\ReporteController@getCodigoBarras'
     );
+
+    Route::post('/getVales2022', 'Vales2022Controller@getSolicitudes');
+    Route::post('/getVales2023', 'Vales2022Controller@getSolicitudes2023');
 
     //CEDULAS
     Route::post('/createSolicitudCedula', 'CedulasController@createSolicitud');
@@ -654,12 +712,43 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'DiagnosticoV2Controller@deleteSolicitud'
     );
 
+    Route::post(
+        '/getConciliaciones',
+        'CedulasController@getConciliacionArchivos'
+    );
+
+    Route::get('/getRemesasPadron', 'PadronesController@getRemesas');
+    Route::post('/updateStatusRemesa', 'PadronesController@setStatusRemesa');
+    Route::post('/getPadrones', 'PadronesController@getPadronesRemesasUpload');
+    Route::post('/uploadPadron', 'PadronesController@uploadExcel');
+    Route::get(
+        '/getIncidenciasPadron',
+        'PadronesController@getReporteIncidencias'
+    );
+    Route::get(
+        '/getPadronRemesa',
+        'PadronesController@getReportePadronCorrecto'
+    );
+    Route::get('/getPadronPlantilla', 'PadronesController@getPlantilla');
+
+    Route::get(
+        '/getValesConciliados',
+        'CedulasController@getValesConciliacion'
+    );
+
+    Route::post('/getArchivosFechas', 'FechasEntregaController@getArchivos');
+    Route::get(
+        '/getCatalogsFechasEntrega',
+        'FechasEntregaController@getCatalogsFechasEntrega'
+    );
+
     Route::group(['prefix' => 'cedula'], function ($route) {
         Route::get(
             '/getCatalogsCedulaCompletos',
             'CedulasController@getCatalogsCedulaCompletos'
         );
         Route::post('/create', 'CedulasController@create');
+        Route::post('/uploadFile', 'CedulasController@uploadExcel');
         Route::get('/getByIdV/{id}', 'CedulasController@getByIdV');
         Route::get('/getByIdC/{id}', 'CedulasController@getByIdC');
         Route::get('/getArchivosByIdV/{id}', 'CedulasController@getFilesByIdV');
@@ -826,8 +915,191 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         );
     });
 
+    Route::group(['prefix' => 'vales'], function ($route) {
+        Route::get(
+            '/getClasificacionArchivos',
+            'Vales2023Controller@getClasificacionArchivos'
+        );
+
+        Route::get('/getMunicipiosVales', 'Vales2023Controller@getMunicipios');
+        Route::get('/getFilesById/{id}', 'Vales2023Controller@getFilesById');
+        Route::post('/getVales2023', 'Vales2023Controller@getSolicitudes2023');
+
+        Route::post(
+            '/updateArchivosSolicitud',
+            'Vales2023Controller@updateArchivosSolicitud'
+        );
+
+        Route::post(
+            '/validateCveInterventor',
+            'Vales2023Controller@validateCveInterventor'
+        );
+
+        Route::post('/validateFolio', 'Vales2023Controller@validateFolio');
+
+        Route::post('/recepcionVales', 'Vales2023Controller@recepcionVales');
+
+        Route::post('/getGroupList', 'Vales2023Controller@getGroupList');
+
+        Route::get(
+            '/getSolicitudesValeUnico',
+            'ReportesController@getSolicitudesValeUnico'
+        );
+    });
+
+    Route::group(['prefix' => 'trabajemos'], function ($route) {
+        //Informativos
+        Route::post(
+            '/getSolicitudesTrabajemos',
+            'TrabajemosJuntosController@getSolicitudes'
+        );
+        Route::post(
+            '/getEstatusGlobalTrabajemos',
+            'TrabajemosJuntosController@getEstatusGlobal'
+        );
+        Route::get('/getCatalogs', 'TrabajemosJuntosController@getCatalogs');
+        Route::get('/getById/{id}', 'TrabajemosJuntosController@getByIdV');
+        Route::get(
+            '/getLocalidadesByMunicipio/{id}',
+            'TrabajemosJuntosController@getLocalidadesByMunicipio'
+        );
+        Route::post(
+            '/getMunicipios',
+            'TrabajemosJuntosController@getMunicipios'
+        );
+        Route::post(
+            '/getArticuladores',
+            'TrabajemosJuntosController@getArticuladores'
+        );
+        Route::post('/getGrupos', 'TrabajemosJuntosController@getGrupos');
+
+        Route::post(
+            '/getGruposDisponibles',
+            'TrabajemosJuntosController@getGruposDisponibles'
+        );
+
+        //Creación, actualización y eliminado de solicitudes
+        Route::post(
+            '/createSolicitud',
+            'TrabajemosJuntosController@createSolicitud'
+        );
+        Route::post(
+            '/updateSolicitud',
+            'TrabajemosJuntosController@updateSolicitud'
+        );
+        Route::post(
+            '/deleteSolicitud',
+            'TrabajemosJuntosController@deleteSolicitud'
+        );
+
+        //Archivos
+        Route::get(
+            '/getArchivosById/{id}',
+            'TrabajemosJuntosController@getFilesById'
+        );
+        Route::get(
+            '/getClasificacionArchivos',
+            'TrabajemosJuntosController@getClasificacionArchivos'
+        );
+        Route::post(
+            '/updateArchivosSolicitud',
+            'TrabajemosJuntosController@updateArchivosSolicitud'
+        );
+
+        //Reportes
+        Route::get(
+            '/getReporteSolicitudTrabajemos',
+            'TrabajemosJuntosController@getReporteSolicitudTrabajemos'
+        );
+    });
+
+    // ! Trabajemos Grupos
+    Route::group(['prefix' => 'trabajemosGrupos'], function ($route) {
+        Route::post(
+            '/getEstatusGlobalTrabajemosGrupos',
+            'GruposTrabajemosJuntosController@getEstatusGlobal'
+        );
+
+        Route::post(
+            '/getSolicitudesTrabajemos',
+            'GruposTrabajemosJuntosController@getSolicitudes'
+        );
+
+        Route::post(
+            '/getGruposTrabajemos',
+            'GruposTrabajemosJuntosController@getGrupos'
+        );
+
+        Route::get(
+            '/getCatalogs',
+            'GruposTrabajemosJuntosController@getCatalogs'
+        );
+        Route::get(
+            '/getById/{id}',
+            'GruposTrabajemosJuntosController@getByIdV'
+        );
+        //Creación, actualización y eliminado de solicitudes
+        Route::post(
+            '/createGrupo',
+            'GruposTrabajemosJuntosController@createGrupo'
+        );
+        Route::post(
+            '/updateGrupo',
+            'GruposTrabajemosJuntosController@updateGrupo'
+        );
+        Route::post(
+            '/deleteGrupo',
+            'GruposTrabajemosJuntosController@deleteGrupo'
+        );
+
+        //Archivos
+        Route::get(
+            '/getArchivosById/{id}',
+            'GruposTrabajemosJuntosController@getFilesById'
+        );
+        Route::get(
+            '/getClasificacionArchivos',
+            'GruposTrabajemosJuntosController@getClasificacionArchivos'
+        );
+        Route::post(
+            '/updateArchivosSolicitud',
+            'GruposTrabajemosJuntosController@updateArchivosSolicitud'
+        );
+        //Reportes
+        Route::get(
+            '/getReporteSolicitudTrabajemosGrupos',
+            'GruposTrabajemosJuntosController@getReporteSolicitudTrabajemosGrupos'
+        );
+
+        Route::post(
+            '/getSolicitudesDisponibles',
+            'GruposTrabajemosJuntosController@getSolicitudesDisponibles'
+        );
+    });
+    // ! Nuevas Rutas Solicitudes
+    Route::group(['prefix' => 'solicitudes'], function ($route) {
+        Route::get(
+            '/getArchivosCatalogos/{id}',
+            'SolicitudesController@getCatalogsFiles'
+        );
+        Route::post('/getArchivosSolicitud', 'SolicitudesController@getFiles');
+
+        Route::post(
+            '/cambiarEstatusArchivo',
+            'SolicitudesController@changeStatusFiles'
+        );
+    });
+
+    Route::post('/deleteRelation', 'TrabajemosJuntosController@deleteRelation');
+
+    Route::post('/addRelation', 'TrabajemosJuntosController@addRelation');
+
     Route::post(
         '/descargarArchivosMasivo',
         'YoPuedoController@getArchivosBeneficiaroYoPuedo'
     );
+
+    Route::post('/setEntrega', 'ReportesController@setEntrega');
+    Route::post('/getAcuse', 'ReportesController@getAcuseValesIndividual');
+    Route::get('/getAcuseUnico', 'ReportesController@getAcuseUnico');
 });

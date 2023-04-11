@@ -5241,4 +5241,164 @@ class CalentadoresController extends Controller
             return response()->json($response, 200);
         }
     }
+
+    public function getExpediente(Request $request)
+    {
+        $solicitudes = DB::table('calentadores_expedientes')
+            ->select('idSolicitud')
+            ->get();
+
+        $rutaDestino = public_path() . '/subidos/calentadores';
+
+        if ($solicitudes->count() > 0) {
+            foreach ($solicitudes as $id) {
+                $cedula = DB::table('calentadores_cedulas')
+                    ->select('id')
+                    ->where('idSolicitud', $id->idSolicitud)
+                    ->first();
+
+                if ($cedula !== null) {
+                    $archivos = DB::table('calentadores_cedula_archivos')
+                        ->select(
+                            'calentadores_cedula_archivos.NombreSistema',
+                            'calentadores_cedula_archivos.idCedula',
+                            'calentadores_cedulas.CURP',
+                            'cedula_archivos_clasificacion.Clasificacion'
+                        )
+                        ->where('idCedula', $cedula->id)
+                        ->whereNull('calentadores_cedula_archivos.FechaElimino')
+                        ->join(
+                            'calentadores_cedulas',
+                            'calentadores_cedulas.id',
+                            'calentadores_cedula_archivos.idCedula'
+                        )
+                        ->join(
+                            'cedula_archivos_clasificacion',
+                            'calentadores_cedula_archivos.idClasificacion',
+                            'cedula_archivos_clasificacion.id'
+                        )
+                        ->get();
+
+                    if ($archivos->count() > 0) {
+                        foreach ($archivos as $a) {
+                            $pathCarpeta =
+                                public_path() .
+                                '/subidos/calentadores/' .
+                                $a->CURP;
+                            File::makeDirectory(
+                                $pathCarpeta,
+                                $mode = 0777,
+                                true,
+                                true
+                            );
+                            $rutaOrigen = Storage::disk('subidos')->path(
+                                $a->NombreSistema
+                            );
+
+                            $rutaDestino =
+                                $pathCarpeta .
+                                '/' .
+                                $a->CURP .
+                                '_' .
+                                $a->Clasificacion .
+                                '_' .
+                                $a->NombreSistema;
+
+                            copy($rutaOrigen, $rutaDestino);
+                        }
+                    }
+                }
+            }
+        } else {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'No hay expedientes a descargar',
+                'message' => 'No hay expedientes a descargar',
+            ];
+        }
+
+        $response = [
+            'success' => true,
+            'results' => true,
+            'errors' => 'Expedientes creados con éxito',
+            'message' => 'Expedientes creados con éxito',
+        ];
+
+        return response()->json($response, 200);
+    }
+
+    function getSolicitud(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'idSolicitud' => 'required',
+            'idPrograma' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $id = $params['idSolicitud'];
+        $idPrograma = $params['idPrograma'];
+
+        try {
+            $folio = DB::table('solicitudes_calentadores AS c')
+                ->select(DB::Raw('LPAD(HEX(c.id),6,0) AS Folio'))
+                ->where('c.id', $id)
+                ->whereNull('c.FechaElimino')
+                ->first();
+
+            $archivos2 = DB::table('solicitudes_archivos AS a')
+                ->SELECT(
+                    DB::RAW('LPAD(HEX(a.idSolicitud),6,0) AS Folio'),
+                    'a.idClasificacion',
+                    'a.idPrograma',
+                    'ea.Estatus',
+                    'a.NombreOriginal',
+                    'a.NombreSistema',
+                    'a.Extension',
+                    DB::RAW(
+                        'CONCAT_WS(u.Nombre,u.Paterno,u.Materno) AS UserAprobo'
+                    )
+                )
+                ->JOIN('cat_estatus_archivos AS ea', 'ea.id', 'a.idEstatus')
+                ->LEFTJOIN('users AS u', 'a.idUsuarioActualizo', 'u.id')
+                ->where(['a.idSolicitud' => $id, 'a.idPrograma' => $idPrograma])
+                ->whereNull('a.FechaElimino')
+                ->get();
+
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/subidos/' .
+                    $o->NombreSistema; //Storage::disk('subidos')->url($o->NombreSistema);
+                return $o;
+            }, $archivos2->toArray());
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'éxito',
+                'folio' => $folio->Folio,
+                'data' => $archivos,
+            ];
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
 }

@@ -43,10 +43,21 @@ class VValesController extends Controller
                     'VS.created_at',
                     'VS.UserCreated',
                     'VS.updated_at',
+                    'v.CveInterventor',
+                    'l.Nombre AS Localidad',
+                    'v.ResponsableEntrega',
+                    'g.TotalAprobados',
                     DB::raw(
                         "concat_ws(' ',U.Nombre, U.Paterno, U.Materno) AS Capturo"
                     )
                 )
+                ->LEFTJOIN('vales AS v', 'VS.idSolicitud', 'v.id')
+                ->LEFTJOIN(
+                    'et_cat_localidad_2022 AS l',
+                    'v.idLocalidad',
+                    'l.id'
+                )
+                ->LEFTJOIN('vales_grupos as g', 'g.id', 'v.idGrupo')
                 ->leftJoin('users as U', 'U.id', '=', 'VS.UserCreated')
                 ->where('VS.Ejercicio', '=', date('Y'));
             $flag = 0;
@@ -757,41 +768,48 @@ class VValesController extends Controller
                     where MM.Ejercicio=$anio) as M ";
 
             $tabla3 = "(
-                    select idMunicipio, count(id) as AprobadosComite
-                    from vales
-                    where Remesa is not null and YEAR(FechaSolicitud) = $anio
-                    group by idMunicipio) as AC";
-
+                        select 
+                            vales.idMunicipio, count(vales.id) as AprobadosComite
+                        from vales 
+                            JOIN (SELECT * FROM vales_remesas WHERE Ejercicio = $anio) AS vales_remesas 
+                                ON vales.Remesa = vales_remesas.Remesa 
+                        where vales.Remesa is not null 
+                        group by vales.idMunicipio) as AC";
             $tabla4 = "(
-                        select idMunicipio, count(id) as Entregados
+                        select 
+                            vales.idMunicipio, count(vales.id) as Entregados
                         from vales
-                        where Remesa is not null and YEAR(FechaSolicitud) = $anio and isEntregado=1
-                        group by idMunicipio) as ET";
-
+                            JOIN (SELECT * FROM vales_remesas WHERE Ejercicio = $anio) AS vales_remesas
+                                ON vales.Remesa = vales_remesas.Remesa
+                        where vales.Remesa is not null and vales.isEntregado=1
+                        group by vales.idMunicipio) as ET";
             $tablaIncidencias = "(
-                            select idMunicipio, count(id) as Incidencias
+                            select 
+                                vales.idMunicipio, count(vales.id) as Incidencias
                             from vales
-                            where Remesa is not null and idIncidencia !=1 and YEAR(FechaSolicitud) = $anio
-                            group by idMunicipio) as VI";
+                                JOIN (SELECT * FROM vales_remesas WHERE Ejercicio = $anio) AS vales_remesas
+                                    ON vales.Remesa = vales_remesas.Remesa
+                            where vales.Remesa is not null and vales.idIncidencia !=1
+                            group by vales.idMunicipio) as VI";
 
             if ($anio == 2022) {
                 $tabla1 = "(
                         select vales.idMunicipio, count(vales.id) as SolicitudesPorAprobar
                         from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
-                        where vales.Remesa is null and YEAR(vales.FechaSolicitud) = $anio
+                        where vales.Remesa is null and YEAR(vales.created_at) = $anio
                         group by vales.idMunicipio
                         ) as S ";
 
                 $tabla2 = "(
                     select vales.idMunicipio, count(vales.id) as ExpedientesRecibidos
                     from vales JOIN cedulas_solicitudes ON vales.id = cedulas_solicitudes.idVale
-                    where YEAR(vales.FechaSolicitud) = $anio AND cedulas_solicitudes.ExpedienteCompleto = 1
+                    where cedulas_solicitudes.ExpedienteCompleto = 1 AND cedulas_solicitudes.FechaElimino IS NULL
                     group by idMunicipio) as E";
             } else {
                 $tabla1 = "(
                     select idMunicipio, count(id) as SolicitudesPorAprobar
                     from vales
-                    where Remesa is null and YEAR(FechaSolicitud) = $anio and  isDocumentacionEntrega=0
+                    where Remesa is null and YEAR(created_at) = $anio and  isDocumentacionEntrega=0
                     group by idMunicipio
                     ) as S ";
 
@@ -2043,6 +2061,7 @@ class VValesController extends Controller
             $flag = 0;
 
             $flag_ejercicio = false;
+
             if (isset($parameters['Ejercicio'])) {
                 $flag_ejercicio = true;
                 $res->where(
@@ -2050,13 +2069,14 @@ class VValesController extends Controller
                     '=',
                     $parameters['Ejercicio']
                 );
-            } else {
-                $res->where(
-                    DB::raw('YEAR(vales.FechaSolicitud)'),
-                    '=',
-                    date('Y')
-                );
             }
+            // else {
+            //     // $res->where(
+            //     //     DB::raw('YEAR(vales.created_at)'),
+            //     //     '=',
+            //     //     date('Y')
+            //     // );
+            // }
 
             // if (!isset($parameters['Ejercicio']) && is_null($parameters['Ejercicio'])){
             //     dd('No exuste Ejercicio');
@@ -2130,13 +2150,14 @@ class VValesController extends Controller
                     '=',
                     $valor_id
                 );
-            } else {
-                $res->where(
-                    DB::raw('YEAR(vales.FechaSolicitud)'),
-                    '=',
-                    date('Y')
-                );
             }
+            // else {
+            //     $res->where(
+            //         DB::raw('YEAR(vales.FechaSolicitud)'),
+            //         '=',
+            //         date('Y')
+            //     );
+            // }
 
             if (
                 isset($parameters['idMunicipio']) &&
@@ -2459,6 +2480,7 @@ class VValesController extends Controller
                 ->get();
             //->toSql();
             //dd($res);
+            //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
 
             $parameters_serializado = serialize($parameters);
             //$array = unserialize($parameters_serializado);
@@ -3414,7 +3436,7 @@ class VValesController extends Controller
                 ->select('vales_solicitudes.idSolicitud')
                 ->toSql();
 
-            $res = DB::table('vales')
+            $res = DB::table('vales_aprobados_2022 AS vales')
                 ->select(
                     'vales.id',
                     DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
@@ -3643,15 +3665,28 @@ class VValesController extends Controller
                                         $parameters['filtered'][$i]['value']
                                     );
                                 } else {
-                                    $res->where(
-                                        $parameters['filtered'][$i]['id'],
-                                        'LIKE',
-                                        '%' .
-                                            $parameters['filtered'][$i][
-                                                'value'
-                                            ] .
-                                            '%'
-                                    );
+                                    if (
+                                        strcmp(
+                                            $parameters['filtered'][$i]['id'],
+                                            'vales.Remesa'
+                                        ) === 0
+                                    ) {
+                                        $res->where(
+                                            $parameters['filtered'][$i]['id'],
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->where(
+                                            $parameters['filtered'][$i]['id'],
+                                            'LIKE',
+                                            '%' .
+                                                $parameters['filtered'][$i][
+                                                    'value'
+                                                ] .
+                                                '%'
+                                        );
+                                    }
                                 }
                             }
                         } else {
@@ -3926,6 +3961,234 @@ class VValesController extends Controller
                             'Clave' => $data->ClaveGO,
                         ],
                     ],
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            return [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'filtros' => $parameters['filtered'],
+                'data' => $array_res,
+            ];
+        } catch (QueryException $e) {
+            dd($e->getMessage());
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'filtros' => $parameters['filtered'],
+                'errors' => $errors,
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function getValesNotIn2023(Request $request)
+    {
+        $parameters = $request->all();
+
+        try {
+            $res_1 = DB::table('vales_solicitudes')
+                ->select('idSolicitud')
+                ->toSql();
+
+            $res = DB::table('vales')
+                ->select(
+                    'vales.id',
+                    DB::raw('LPAD(HEX(vales.id),6,0) as ClaveUnica'),
+                    'vales.FechaSolicitud',
+                    'vales.CURP',
+                    'vales.Nombre',
+                    'vales.Paterno',
+                    'vales.Materno',
+                    'vales.idMunicipio',
+                    'm.Id AS IdM',
+                    'm.Nombre AS Municipio',
+                    'm.SubRegion AS Region',
+                    'vales.idLocalidad',
+                    'l.Nombre AS Localidad',
+                    'vales.idStatus',
+                    'vales_status.Estatus',
+                    'vales.ResponsableEntrega'
+                )
+                ->JOIN('et_cat_municipio AS m', 'm.Id', 'vales.idMunicipio')
+                ->JOIN(
+                    'et_cat_localidad_2022 AS l',
+                    'l.id',
+                    'vales.idLocalidad'
+                )
+                ->JOIN('vales_status', 'vales_status.id', 'idStatus')
+                ->where('vales.idStatus', '=', 5)
+                ->whereRaw('vales.id NOT IN(' . $res_1 . ')');
+
+            $flag = 0;
+            if (isset($parameters['filtered'])) {
+                for ($i = 0; $i < count($parameters['filtered']); $i++) {
+                    if ($flag == 0) {
+                        if (
+                            $parameters['filtered'][$i]['id'] &&
+                            strpos($parameters['filtered'][$i]['id'], 'id') !==
+                                false
+                        ) {
+                            if (
+                                is_array($parameters['filtered'][$i]['value'])
+                            ) {
+                                $res->whereIn(
+                                    $parameters['filtered'][$i]['id'],
+                                    $parameters['filtered'][$i]['value']
+                                );
+                            } else {
+                                $res->where(
+                                    $parameters['filtered'][$i]['id'],
+                                    '=',
+                                    $parameters['filtered'][$i]['value']
+                                );
+                            }
+                        } else {
+                            $res->where(
+                                $parameters['filtered'][$i]['id'],
+                                'LIKE',
+                                '%' . $parameters['filtered'][$i]['value'] . '%'
+                            );
+                        }
+                        $flag = 1;
+                    } else {
+                        if ($parameters['tipo'] == 'and') {
+                            if (
+                                $parameters['filtered'][$i]['id'] &&
+                                strpos(
+                                    $parameters['filtered'][$i]['id'],
+                                    'id'
+                                ) !== false
+                            ) {
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->whereIn(
+                                        $parameters['filtered'][$i]['id'],
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->where(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                            } else {
+                                if (
+                                    strcmp(
+                                        $parameters['filtered'][$i]['id'],
+                                        'vales.Remesa'
+                                    ) === 0
+                                ) {
+                                    $res->where(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->where(
+                                        $parameters['filtered'][$i]['id'],
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                }
+                            }
+                        } else {
+                            if (
+                                $parameters['filtered'][$i]['id'] &&
+                                strpos(
+                                    $parameters['filtered'][$i]['id'],
+                                    'id'
+                                ) !== false
+                            ) {
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->orWhereIn(
+                                        $parameters['filtered'][$i]['id'],
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->orWhere(
+                                        $parameters['filtered'][$i]['id'],
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                            } else {
+                                $res->orWhere(
+                                    $parameters['filtered'][$i]['id'],
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            $page = $parameters['page'];
+            $pageSize = $parameters['pageSize'];
+            $startIndex = $page * $pageSize;
+
+            $res
+                ->orderBy('vales.idMunicipio', 'asc')
+                ->orderBy('vales.CveInterventor', 'asc')
+                ->orderBy('vales.idLocalidad', 'asc')
+                ->orderBy('vales.ResponsableEntrega', 'asc')
+                ->orderBy('vales.Nombre', 'asc')
+                ->orderBy('vales.Paterno', 'asc');
+
+            //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
+            $total = $res->count();
+            $res = $res
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $array_res = [];
+            $temp = [];
+            foreach ($res as $data) {
+                $temp = [
+                    'id' => $data->id,
+                    'ClaveUnica' => $data->ClaveUnica,
+                    'FechaSolicitud' => $data->FechaSolicitud,
+                    'CURP' => $data->CURP,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'idMunicipio' => [
+                        'id' => $data->IdM,
+                        'Municipio' => $data->Municipio,
+                        'Region' => $data->Region,
+                    ],
+                    'idLocalidad' => [
+                        'Nombre' => $data->Localidad,
+                    ],
+                    'idStatus' => [
+                        'Estatus' => $data->Estatus,
+                    ],
+                    'ResponsableEntrega' => $data->ResponsableEntrega,
                 ];
 
                 array_push($array_res, $temp);

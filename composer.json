@@ -21,6 +21,7 @@
         "pear/http_request2": "^2.5",
         "phpoffice/phppresentation": "dev-master",
         "phpoffice/phpspreadsheet": "^1.11",
+        "picqer/php-barcode-generator": "^2.2",
         "tymon/jwt-auth": "^1.0"
     },
     "require-dev": {
