@@ -43,10 +43,21 @@ class VValesController extends Controller
                     'VS.created_at',
                     'VS.UserCreated',
                     'VS.updated_at',
+                    'v.CveInterventor',
+                    'l.Nombre AS Localidad',
+                    'v.ResponsableEntrega',
+                    'g.TotalAprobados',
                     DB::raw(
                         "concat_ws(' ',U.Nombre, U.Paterno, U.Materno) AS Capturo"
                     )
                 )
+                ->LEFTJOIN('vales AS v', 'VS.idSolicitud', 'v.id')
+                ->LEFTJOIN(
+                    'et_cat_localidad_2022 AS l',
+                    'v.idLocalidad',
+                    'l.id'
+                )
+                ->LEFTJOIN('vales_grupos as g', 'g.id', 'v.idGrupo')
                 ->leftJoin('users as U', 'U.id', '=', 'VS.UserCreated')
                 ->where('VS.Ejercicio', '=', date('Y'));
             $flag = 0;

@@ -1221,6 +1221,7 @@ class UserController extends Controller
                 ->groupBy('V.idLocalidad')
                 ->groupBy('V.ResponsableEntrega')
                 ->groupBy('V.Remesa')
+                ->groupBy('V.idGrupo')
                 ->OrderBy('M.SubRegion')
                 ->OrderBy('V.idMunicipio')
                 ->OrderBy('V.CveInterventor')
@@ -1408,7 +1409,7 @@ class UserController extends Controller
                     '%' . $filtro_recibido . '%'
                 );
             }
-
+            //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
             $total = (clone $res)->get()->count();
             $res = $res
                 ->offset($startIndex)

@@ -940,6 +940,11 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('/recepcionVales', 'Vales2023Controller@recepcionVales');
 
         Route::post('/getGroupList', 'Vales2023Controller@getGroupList');
+
+        Route::get(
+            '/getSolicitudesValeUnico',
+            'ReportesController@getSolicitudesValeUnico'
+        );
     });
 
     Route::group(['prefix' => 'trabajemos'], function ($route) {
