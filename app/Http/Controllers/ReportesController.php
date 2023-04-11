@@ -8833,6 +8833,127 @@ class ReportesController extends Controller
         // return $pdf->download($nombreArchivo . '.pdf');
     }
 
+    public function getSolicitudesValeEstatico(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        // if (!isset($request->idGrupo)) {
+        //     return response()->json([
+        //         'success' => true,
+        //         'results' => false,
+        //         'data' => [],
+        //         'message' => 'No se envió un id de grupo válido.',
+        //     ]);
+        // }
+
+        // $resGpo = DB::table('vales_grupos as G')
+        //     ->select(
+        //         'G.id',
+        //         'G.ResponsableEntrega',
+        //         'G.idMunicipio',
+        //         'G.Remesa'
+        //     )
+        //     ->where('G.id', '=', $request->idGrupo)
+        //     ->first();
+
+        // $carpeta =
+        //     $resGpo->id . $resGpo->idMunicipio . $resGpo->Remesa . '_Solicitud';
+
+        // $path = public_path() . '/subidos/' . $carpeta;
+        // $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
+
+        // if (file_exists($fileExists)) {
+        //     return response()->download($fileExists);
+        // }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                DB::RAw(
+                    'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+                    ELSE "          " END AS FechaSolicitud'
+                ),
+                DB::raw(
+                    'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                ),
+                'N.CURP',
+                'N.Sexo',
+                'N.Calle',
+                'N.NumExt',
+                'N.NumInt',
+                'N.CP',
+                'N.Colonia',
+                'L.Nombre AS Localidad',
+                'm.Nombre AS Municipio',
+                DB::raw('NULL AS Tutor'),
+                DB::raw('NULL AS Parentesco'),
+                DB::raw('NULL AS CURPTutor'),
+                'N.TelFijo AS Telefono',
+                'N.TelCelular AS Celular',
+                'N.CorreoElectronico AS Correo'
+            )
+            ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
+            ->WHEREIN('s.SerieInicial', [2126731, 2127541])
+            ->orderBy('m.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'ASC')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->ResponsableEntrega .
+                    '_NominaValesGrandeza' .
+                    date('Y-m-d') .
+                    '.xlsx'
+            );
+        }
+
+        $nombreArchivo = 'solicitudes';
+
+        // File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+            return $pdf->download($nombreArchivo . '.pdf');
+        }
+
+        // $this->createZipEvidencia($carpeta);
+
+        // return response()->download(
+        //     public_path('subidos/' . $carpeta . '.zip')
+        // );
+        // $vales = $d;
+        // $nombreArchivo = 'solicitud_vales' . date('Y-m-d H:i:s');
+        // $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+        // return $pdf->download($nombreArchivo . '.pdf');
+    }
+
     private function createZipEvidencia($carpeta)
     {
         try {

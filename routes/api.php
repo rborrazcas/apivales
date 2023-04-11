@@ -91,6 +91,11 @@ Route::post(
     'CalentadoresController@getExpediente'
 );
 
+Route::get(
+    '/getSolicitudesValeEstatico',
+    'ReportesController@getSolicitudesValeEstatico'
+);
+
 Route::post('/acuseUnico', 'ReportesController@getAcuseValesUnico');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
@@ -245,6 +250,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getSolicitudesPdfVales',
         'ReportesController@getSolicitudesVales'
     );
+
     Route::post('/validarGrupo2023', 'ReportesController@validarGrupo2023');
     Route::post('/validarGrupo', 'ReportesController@validarGrupo');
     Route::get(
