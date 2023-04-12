@@ -36,7 +36,8 @@ class GenerateZipFiles extends Command
         parent::__construct();
     }
 
-    private function getAcuseVales2023($groupId){
+    private function getAcuseVales2023($groupId)
+    {
         ini_set('memory_limit', '-1');
         ini_set('max_execution_time', 1000);
         $resGpo = DB::table('vales_grupos as G')
@@ -150,7 +151,6 @@ class GenerateZipFiles extends Command
 
         $this->createZipEvidencia($carpeta);
         dd(public_path('subidos/' . $carpeta . '.zip'));
-    
     }
 
     private function createZipEvidencia($carpeta)
@@ -176,16 +176,19 @@ class GenerateZipFiles extends Command
      */
     public function handle()
     {
-        $regionId = 1;
-        $groups = DB::table('vales_grupos')->whereIn('idMunicipio',function($query) use($regionId){
-            $query->select('id')->from('et_cat_municipio')->where('Region', $regionId);
-        })->get();
+        $regionId = 4;
+        $groups = DB::table('vales_grupos')
+            ->whereIn('idMunicipio', function ($query) use ($regionId) {
+                $query
+                    ->select('id')
+                    ->from('et_cat_municipio')
+                    ->whereIN('id', [1, 121, 23, 42]);
+            })
+            ->get();
 
-        $groups->each(function($row){
+        $groups->each(function ($row) {
             $groupId = $row->id;
-            dd($groupId);
+            $this->getAcuseVales2023($groupId);
         });
-        // $this->getAcuseVales2023($groupId);
-        // dd(public_path('subidos/' . $carpeta . '.zip'));
     }
 }

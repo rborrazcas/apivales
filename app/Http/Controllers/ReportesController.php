@@ -8574,6 +8574,133 @@ class ReportesController extends Controller
         );
     }
 
+    public function generateFiles(Request $request)
+    {
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        $regionId = 1;
+        $groups = DB::table('vales_grupos')
+            // ->where('CveInterventor', '1_1')
+            ->whereIn('idMunicipio', function ($query) use ($regionId) {
+                $query
+                    ->select('id')
+                    ->from('et_cat_municipio')
+                    ->whereIN('id', [1]);
+                //->whereIN('id', [1, 121, 23, 42]);
+            })
+            ->get();
+
+        $groups->each(function ($row) {
+            $groupId = $row->id;
+            $this->getAcuseVales2023Masivo($groupId);
+        });
+
+        return response()->json([
+            'success' => true,
+            'results' => true,
+            'message' => 'ArchivosCreadosCorrectamente.',
+        ]);
+    }
+
+    public function getAcuseVales2023Masivo($idGrupo)
+    {
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        $resGpo = DB::table('vales_grupos as G')
+            ->select(
+                'G.id',
+                'G.idMunicipio',
+                'G.Remesa',
+                'G.TotalAprobados',
+                'G.ResponsableEntrega'
+            )
+            ->where('G.id', '=', $idGrupo)
+            ->first();
+
+        $carpeta = $resGpo->id . $resGpo->idMunicipio . $resGpo->Remesa;
+
+        $path = public_path() . '/subidos/' . $carpeta;
+        $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
+
+        // if (file_exists($fileExists)) {
+        //     return response()->download($fileExists);
+        // }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'N.id  AS idVale',
+                'vr.NumAcuerdo AS acuerdo',
+                'M.SubRegion AS region',
+                'N.ResponsableEntrega AS enlace',
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                ),
+                'N.curp',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                ),
+                'M.Nombre AS municipio',
+                'L.Nombre AS localidad',
+                'N.Colonia AS colonia',
+                'N.CP AS cp',
+                'VS.SerieInicial AS folioinicial',
+                'VS.SerieFinal AS foliofinal'
+            )
+            ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN(
+                DB::RAW(
+                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
+                ),
+                'VS.idSolicitud',
+                '=',
+                'N.id'
+            )
+            ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+            ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+            ->where('N.idGrupo', '=', $resGpo->id)
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        $nombreArchivo =
+            'acuses_vales_' .
+            $resGpo->id .
+            '_' .
+            $resGpo->idMunicipio .
+            '_' .
+            $resGpo->Remesa;
+
+        File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $counter++;
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf', compact('vales'))->save(
+                $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
+            );
+            unset($pdf);
+        }
+
+        $this->createZipEvidencia($carpeta);
+    }
+
     public function getAcuseVales2023(Request $request)
     {
         if (!isset($request->idGrupo)) {
