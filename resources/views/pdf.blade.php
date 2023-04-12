@@ -132,7 +132,7 @@
         </header>
         <div class="container-fluid">
             <div class="subTitle" style="padding-top: 37px;">
-                <h7>Programa Vale Grandeza - Compra Local 2022</h7>
+                <h7>Programa Vale Grandeza - Compra Local 2023</h7>
             </div>
             <div class="folio">
                 <table border="1" style="font-size: 5px; margin:auto auto;" cellspacing="0">
@@ -314,7 +314,7 @@
 
                     Lo anterior, con fundamento en los artículos 14 Bis fracciones III y IV y 27 de las de las
                     Reglas de
-                    Operación del Programa Vale Grandeza - Compra Local para el <br> Ejercicio Fiscal de 2022, con
+                    Operación del Programa Vale Grandeza - Compra Local para el <br> Ejercicio Fiscal de 2023, con
                     presencia
                     del testigo de
                     nombre_______________________________________________________________________________________<br>

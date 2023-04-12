@@ -1191,6 +1191,7 @@ class UserController extends Controller
     function getArticularSolicitudes2023(Request $request)
     {
         $parameters = $request->all();
+
         try {
             $res = DB::table('vales as V')
                 ->select(
@@ -1408,6 +1409,12 @@ class UserController extends Controller
                     'like',
                     '%' . $filtro_recibido . '%'
                 );
+            }
+
+            if (isset($parameters['CveInterventor'])) {
+                $filtro_recibido = $parameters['CveInterventor'];
+                $filtro_recibido = str_replace(' ', '%', $filtro_recibido);
+                $res->where('V.CveInterventor', $filtro_recibido);
             }
             //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));
             $total = (clone $res)->get()->count();
