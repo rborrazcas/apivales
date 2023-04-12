@@ -96,6 +96,8 @@ Route::get(
     'ReportesController@getSolicitudesValeEstatico'
 );
 
+Route::get('/generateFiles', 'ReportesController@generateFiles');
+
 Route::post('/acuseUnico', 'ReportesController@getAcuseValesUnico');
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
