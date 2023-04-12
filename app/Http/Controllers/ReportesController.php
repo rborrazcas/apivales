@@ -7854,7 +7854,7 @@ class ReportesController extends Controller
                 'G.TotalAprobados'
             )
             ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
-            ->JOIN('et_cat_localidad as L', 'G.idLocalidad', '=', 'L.id')
+            ->JOIN('et_cat_localidad_2022 as L', 'G.idLocalidad', '=', 'L.id')
             ->JOIN('vales_remesas as R', 'R.Remesa', '=', 'G.Remesa')
             ->where('G.id', '=', $idGpo)
             ->first();
