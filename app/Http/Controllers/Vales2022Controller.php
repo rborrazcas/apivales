@@ -39,6 +39,13 @@ class Vales2022Controller extends Controller
         if ($permisos !== null) {
             return $permisos;
         } else {
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '29'])
+                ->get()
+                ->first();
+            if ($permisos !== null) {
+                return $permisos;
+            }
             return null;
         }
     }
