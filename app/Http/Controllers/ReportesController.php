@@ -7327,7 +7327,7 @@ class ReportesController extends Controller
         $res = DB::table('vales as N')
             ->select(
                 'M.SubRegion AS Region',
-                DB::raw('LPAD(HEX(N.id),6,0) AS ClaveUnica'),
+                DB::raw('CONCAT(LPAD(HEX(N.id),6,0)," ") AS ClaveUnica'),
                 'N.CURP',
                 DB::raw(
                     "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as NombreCompleto"
@@ -7444,7 +7444,7 @@ class ReportesController extends Controller
 
         if ($largo > 25) {
             //dd('Se agrega lineBreak');
-            for ($lb = 20; $lb < $largo; $lb += 20) {
+            for ($lb = 50; $lb < $largo; $lb += 50) {
                 $veces++;
                 //dd($largo);
                 $spreadsheet
@@ -8580,12 +8580,12 @@ class ReportesController extends Controller
         ini_set('max_execution_time', 1000);
         $regionId = 1;
         $groups = DB::table('vales_grupos')
-            // ->where('CveInterventor', '1_1')
+            ->where('CveInterventor', '42_5')
             ->whereIn('idMunicipio', function ($query) use ($regionId) {
                 $query
                     ->select('id')
                     ->from('et_cat_municipio')
-                    ->whereIN('id', [1]);
+                    ->whereIN('id', [42]);
                 //->whereIN('id', [1, 121, 23, 42]);
             })
             ->get();
