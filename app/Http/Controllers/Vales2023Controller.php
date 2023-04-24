@@ -758,6 +758,8 @@ class Vales2023Controller extends Controller
             }
             $params = $request->all();
             $folio = $params['Folio'];
+            $r = substr($params['CveInterventor'], 0, 7);
+            $cve = str_replace($r . '_', '', $params['CveInterventor']);
             $user = auth()->user();
             try {
                 if (!ctype_xdigit($folio)) {
@@ -789,11 +791,24 @@ class Vales2023Controller extends Controller
 
             if ($vales) {
                 if ($vales->SerieInicial) {
-                    $response = [
-                        'success' => true,
-                        'results' => true,
-                        'data' => $vales,
-                    ];
+                    $valesCve = DB::table('vales AS v')
+                        ->select(DB::RAW('LPAD(HEX(v.id),6,0) AS Folio'))
+                        ->where(['v.id' => $id, 'CveInterventor' => $cve])
+                        ->first();
+                    if ($valesCve) {
+                        $response = [
+                            'success' => true,
+                            'results' => true,
+                            'data' => $vales,
+                        ];
+                    } else {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Este registro no corresponde con la CveInterventor ingresada',
+                        ];
+                    }
                 } else {
                     $response = [
                         'success' => true,
