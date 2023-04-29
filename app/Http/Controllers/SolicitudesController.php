@@ -71,6 +71,49 @@ class SolicitudesController extends Controller
         }
     }
 
+    function getCatalogos(Request $request)
+    {
+        try {
+            $entidades = DB::table('cat_entidad')
+                ->select('id AS value', 'Entidad AS label', 'Clave_CURP')
+                ->where('id', '<>', 1)
+                ->orderBy('label')
+                ->get();
+
+            $municipios = DB::table('et_cat_municipio')
+                ->select('id AS value', 'Nombre AS label')
+                ->orderBy('label')
+                ->get();
+
+            $cat_parentesco_tutor = DB::table('cat_parentesco_tutor')
+                ->select('id AS value', 'Parentesco AS label')
+                ->orderBy('label')
+                ->get();
+
+            $catalogs = [
+                'entidades' => $entidades,
+                'municipios' => $municipios,
+                'cat_parentesco_tutor' => $cat_parentesco_tutor,
+            ];
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $catalogs,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
     function getFiles(Request $request)
     {
         $v = Validator::make($request->all(), [
@@ -121,9 +164,8 @@ class SolicitudesController extends Controller
                 ->get();
 
             $archivos = array_map(function ($o) {
-                $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema; //Storage::disk('subidos')->url($o->NombreSistema);
+                $o->ruta = 'http://localhost:8080/subidos/' . $o->NombreSistema;
+                //Storage::disk('subidos')->url($o->NombreSistema);
 
                 $observaciones = DB::table(
                     'solicitudes_archivos_observaciones AS o'

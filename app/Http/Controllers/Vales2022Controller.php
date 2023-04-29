@@ -1328,7 +1328,7 @@ class Vales2022Controller extends Controller
 
             ->selectRaw(
                 'vales.id,' .
-                    'lpad(hex(vales.id),6,0) AS FolioSolicitud, ' .
+                    'CONCAT(lpad(hex(vales.id),6,0)," ") AS FolioSolicitud, ' .
                     'r.RemesaSistema AS Remesa, ' .
                     'sol.SerieInicial,' .
                     'sol.SerieFinal,' .
@@ -1488,6 +1488,29 @@ class Vales2022Controller extends Controller
 
         if ($filterQuery != '') {
             $res->whereRaw($filterQuery);
+        }
+
+        $permisos = DB::table('users_menus AS um')
+            ->Select('um.idUser', 'um.Seguimiento', 'um.ViewAll')
+            ->where(['um.idUser' => $user->id, 'um.idMenu' => '29'])
+            ->first();
+
+        if ($permisos) {
+            if ($permisos->ViewAll === 0) {
+                $region = DB::table('users_region')
+                    ->where('idUser', $user->id)
+                    ->where('idPrograma', 1)
+                    ->first();
+                if ($region) {
+                    $res->WHERE('m.SubRegion', $region->Region);
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'message' => 'No tiene región asignada',
+                    ];
+                }
+            }
         }
 
         $data = $res
