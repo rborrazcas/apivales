@@ -71,19 +71,57 @@ class SolicitudesController extends Controller
         }
     }
 
-    function getCatalogos(Request $request)
+    function getCatalogos(Request $request, $id)
     {
         try {
+            $user = auth()->user();
             $entidades = DB::table('cat_entidad')
                 ->select('id AS value', 'Entidad AS label', 'Clave_CURP')
                 ->where('id', '<>', 1)
                 ->orderBy('label')
                 ->get();
 
-            $municipios = DB::table('et_cat_municipio')
-                ->select('id AS value', 'Nombre AS label')
-                ->orderBy('label')
-                ->get();
+            $municipios = DB::table('et_cat_municipio')->select(
+                'id AS value',
+                'Nombre AS label'
+            );
+
+            switch ($id) {
+                case 2:
+                    $menu = 27;
+                    break;
+                default:
+                    $menu = 27;
+                    break;
+            }
+
+            $permisos = DB::table('users_menus AS um')
+                ->Select('um.idUser', 'um.Seguimiento', 'um.ViewAll')
+                ->where(['um.idUser' => $user->id, 'um.idMenu' => $menu])
+                ->first();
+            $filtroPermisos = '';
+
+            if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
+                $filtroPermisos =
+                    'et_cat_municipio.id IN (' .
+                    'SELECT idMunicipio FROM users_municipios WHERE idPrograma = ' .
+                    $id .
+                    ' AND idUser = ' .
+                    $user->id .
+                    ')';
+            } elseif ($permisos->ViewAll < 1) {
+                $filtroPermisos =
+                    'et_cat_municipio.SubRegion IN (' .
+                    'SELECT Region FROM users_region WHERE idPrograma = ' .
+                    $id .
+                    ' AND idUser = ' .
+                    $user->id .
+                    ')';
+            }
+
+            if ($filtroPermisos !== '') {
+                $municipios->whereRaw($filtroPermisos);
+            }
 
             $cat_parentesco_tutor = DB::table('cat_parentesco_tutor')
                 ->select('id AS value', 'Parentesco AS label')
@@ -92,7 +130,7 @@ class SolicitudesController extends Controller
 
             $catalogs = [
                 'entidades' => $entidades,
-                'municipios' => $municipios,
+                'municipios' => $municipios->orderBy('label')->get(),
                 'cat_parentesco_tutor' => $cat_parentesco_tutor,
             ];
 
