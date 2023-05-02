@@ -720,6 +720,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::get('/getRemesasPadron', 'PadronesController@getRemesas');
+    Route::get('/getOrigenVales', 'PadronesController@getOrigin');
     Route::post('/updateStatusRemesa', 'PadronesController@setStatusRemesa');
     Route::post('/getPadrones', 'PadronesController@getPadronesRemesasUpload');
     Route::post('/uploadPadron', 'PadronesController@uploadExcel');
