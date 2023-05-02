@@ -1031,6 +1031,224 @@ class CalentadoresSolares extends Controller
         return 'other';
     }
 
+    public function create(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'CURP' => 'required',
+                'Nombre' => 'required',
+                'Paterno' => 'required',
+                'Sexo' => 'required',
+                'FechaINE' => 'required',
+                'idEntidadNacimiento' => 'required',
+                'idMunicipio' => 'required',
+                'idLocalidad' => 'required',
+                'CP' => 'required',
+                'Colonia' => 'required',
+                'Calle' => 'required',
+                'NumExt' => 'required',
+                'Celular' => 'required',
+                'Enlace' => 'required',
+            ]);
+
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'Uno o más campos obligatorios están vaciós o no tiene el formato correcto',
+                    'message' =>
+                        'Uno o más campos obligatorios están vaciós o no tiene el formato correcto',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $user = auth()->user();
+            $idAplicativo = '';
+            $year_start = idate('Y', strtotime('first day of January', time()));
+
+            $region = DB::table('et_cat_municipio')
+                ->where('id', $params['idMunicipio'])
+                ->first();
+            if ($region != null) {
+                $params['Region'] = $region->SubRegion;
+            }
+
+            $newClasificacion = isset($params['NewClasificacion'])
+                ? $params['NewClasificacion']
+                : [];
+            $files = isset($params['NewFiles']) ? $params['NewFiles'] : [];
+            $params['Correo'] = isset($params['Correo'])
+                ? $params['Correo']
+                : null;
+
+            unset($params['Folio']);
+            unset($params['NewClasificacion']);
+            unset($params['NewFiles']);
+
+            if (isset($params['FechaINE'])) {
+                $fechaINE = intval($params['FechaINE']);
+                if ($year_start > $fechaINE) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'La vigencia de la Identificación Oficial no cumple con los requisitos',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
+
+            $curpRegistrado = DB::table('solicitudes_calentadores')
+                ->select(DB::RAW('lpad( hex(id ), 6, 0 ) AS Folio'), 'CURP')
+                ->where('CURP', $params['CURP'])
+                ->whereNull('FechaElimino')
+                ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
+                ->first();
+
+            if ($curpRegistrado !== null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' ya se encuentra registrado para el ejercicio ' .
+                        $year_start .
+                        ' con el Folio ' .
+                        $curpRegistrado->Folio,
+                    'message' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' ya se encuentra registrado para el ejercicio ' .
+                        $year_start .
+                        ' con el Folio ' .
+                        $curpRegistrado->Folio,
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $params['idUsuarioCreo'] = $user->id;
+            $params['FechaCreo'] = date('Y-m-d H:i:s');
+            $params['idEntidadVive'] = 12;
+
+            DB::beginTransaction();
+            $id = DB::table('solicitudes_calentadores')->insertGetId($params);
+            DB::commit();
+
+            if (isset($request->NewFiles)) {
+                $this->createSolicitudFiles(
+                    $id,
+                    $request->NewFiles,
+                    $newClasificacion,
+                    $user->id
+                );
+            }
+
+            $folioSolicitud = str_pad(dechex($id), 6, '0', STR_PAD_LEFT);
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' =>
+                    'Solicitud creada con éxito, Folio: ' .
+                    strtoupper($folioSolicitud),
+                'data' => ['id' => $id, 'Folio' => $folioSolicitud],
+            ];
+
+            return response()->json($response, 200);
+        } catch (Throwable $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function update(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'id' => 'required',
+                'Nombre' => 'required',
+                'Paterno' => 'required',
+                'Sexo' => 'required',
+                'CURP' => 'required',
+                'idMunicipio' => 'required',
+                'idLocalidad' => 'required',
+                'CP' => 'required',
+                'Colonia' => 'required',
+                'Calle' => 'required',
+                'NumExt' => 'required',
+                'NumInt' => 'required',
+                'Referencias' => 'required',
+            ]);
+
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+
+            $solicitud = DB::table('solicitudes_calentadores')
+                ->select('solicitudes_calentadores.idEstatusSolicitud')
+                ->where('solicitudes_calentadores.id', $params['id'])
+                ->first();
+
+            if ($solicitud->idEstatusSolicitud === 5) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'La solicitud se encuentra validada no se puede editar',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $user = auth()->user();
+            $params['idUsuarioActualizo'] = $user->id;
+            $params['FechaActualizo'] = date('Y-m-d H:i:s');
+            $id = $params['id'];
+            unset($params['id']);
+            unset($params['Folio']);
+
+            DB::table('solicitudes_calentadores')
+                ->where('id', $id)
+                ->update($params);
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Solicitud actualizada con éxito',
+                'data' => [],
+            ];
+
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     public function delete(Request $request)
     {
         try {

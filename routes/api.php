@@ -1096,7 +1096,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'SolicitudesController@changeStatusFiles'
         );
 
-        Route::get('/getCatalogos', 'SolicitudesController@getCatalogos');
+        Route::get('/getCatalogos/{id}', 'SolicitudesController@getCatalogos');
     });
 
     // ! Calentadores Solares
@@ -1119,6 +1119,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         );
         Route::post('/changeFiles', 'CalentadoresSolares@changeFiles');
         Route::post('/saveNewFiles', 'CalentadoresSolares@saveNewFiles');
+        Route::post('/createSolicitud', 'CalentadoresSolares@create');
+        Route::post('/updateSolicitud', 'CalentadoresSolares@update');
         Route::post('/deleteSolicitud', 'CalentadoresSolares@delete');
         Route::post('/enviarIGTO', 'CalentadoresController@enviarIGTO');
         Route::post(
