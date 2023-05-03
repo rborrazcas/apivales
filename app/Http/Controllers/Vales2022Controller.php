@@ -1323,44 +1323,79 @@ class Vales2022Controller extends Controller
         $user = auth()->user();
         $parameters['UserCreated'] = $user->id;
         $tableSol = 'vales';
+        $query =
+            'vales.id,' .
+            'CONCAT(lpad(hex(vales.id),6,0)," ") AS FolioSolicitud, ' .
+            'r.RemesaSistema AS Remesa, ' .
+            'sol.SerieInicial,' .
+            'sol.SerieFinal,' .
+            'vales.FechaSolicitud, ' .
+            'vales.CURP, ' .
+            'vales.Sexo, ' .
+            'vales.Nombre, ' .
+            'vales.Paterno, ' .
+            'vales.Materno, ' .
+            'vales.FechaNacimiento, ' .
+            'entidad.Entidad, ' .
+            'm.SubRegion AS Region,' .
+            'm.id AS idMunicipio,' .
+            'm.Nombre AS Municipio,' .
+            'LPAD(l.Numero ,3,0)AS NumLocalidad,' .
+            'l.CveInegi,' .
+            'l.Nombre AS Localidad,' .
+            'vales.Colonia, ' .
+            'vales.Calle, ' .
+            'vales.NumExt, ' .
+            'vales.NumInt, ' .
+            'vales.CP, ' .
+            'vales.Latitud,' .
+            'vales.Longitud,' .
+            'vales.TelCelular, ' .
+            'vales.TelFijo, ' .
+            'i.Incidencia, ' .
+            'CASE WHEN vales.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
+            'vales.entrega_at AS FechaEntrega, ' .
+            's.Estatus,' .
+            'vales.ResponsableEntrega';
+        $queryCve =
+            'vales.id,' .
+            'CONCAT(lpad(hex(vales.id),6,0)," ") AS FolioSolicitud, ' .
+            'r.RemesaSistema AS Remesa, ' .
+            'sol.SerieInicial,' .
+            'sol.SerieFinal,' .
+            'vales.FechaSolicitud, ' .
+            'vales.CURP, ' .
+            'vales.Sexo, ' .
+            'vales.Nombre, ' .
+            'vales.Paterno, ' .
+            'vales.Materno, ' .
+            'vales.FechaNacimiento, ' .
+            'entidad.Entidad, ' .
+            'm.SubRegion AS Region,' .
+            'm.id AS idMunicipio,' .
+            'm.Nombre AS Municipio,' .
+            'LPAD(l.Numero ,3,0)AS NumLocalidad,' .
+            'l.CveInegi,' .
+            'l.Nombre AS Localidad,' .
+            'vales.Colonia, ' .
+            'vales.Calle, ' .
+            'vales.NumExt, ' .
+            'vales.NumInt, ' .
+            'vales.CP, ' .
+            'vales.Latitud,' .
+            'vales.Longitud,' .
+            'vales.TelCelular, ' .
+            'vales.TelFijo, ' .
+            'i.Incidencia, ' .
+            'CASE WHEN vales.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
+            'vales.entrega_at AS FechaEntrega, ' .
+            's.Estatus,' .
+            'vales.ResponsableEntrega,' .
+            'LPAD(HEX(vales.idGrupo),6,0) AS FolioGrupo, ' .
+            'CONCAT(vales.Remesa,"_",vales.CveInterventor)';
 
         $res = DB::table('vales')
-
-            ->selectRaw(
-                'vales.id,' .
-                    'lpad(hex(vales.id),6,0) AS FolioSolicitud, ' .
-                    'r.RemesaSistema AS Remesa, ' .
-                    'sol.SerieInicial,' .
-                    'sol.SerieFinal,' .
-                    'vales.FechaSolicitud, ' .
-                    'vales.CURP, ' .
-                    'vales.Sexo, ' .
-                    'vales.Nombre, ' .
-                    'vales.Paterno, ' .
-                    'vales.Materno, ' .
-                    'vales.FechaNacimiento, ' .
-                    'entidad.Entidad, ' .
-                    'm.SubRegion AS Region,' .
-                    'm.id AS idMunicipio,' .
-                    'm.Nombre AS Municipio,' .
-                    'LPAD(l.Numero ,3,0)AS NumLocalidad,' .
-                    'l.CveInegi,' .
-                    'l.Nombre AS Localidad,' .
-                    'vales.Colonia, ' .
-                    'vales.Calle, ' .
-                    'vales.NumExt, ' .
-                    'vales.NumInt, ' .
-                    'vales.CP, ' .
-                    'vales.Latitud,' .
-                    'vales.Longitud,' .
-                    'vales.TelCelular, ' .
-                    'vales.TelFijo, ' .
-                    'i.Incidencia, ' .
-                    'CASE WHEN vales.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
-                    'vales.entrega_at AS FechaEntrega, ' .
-                    's.Estatus,' .
-                    'vales.ResponsableEntrega'
-            )
+            ->selectRaw($user->id === 1132 ? $queryCve : $query)
             ->JOIN('vales_remesas AS r', 'vales.Remesa', 'r.Remesa')
             ->LEFTJOIN(
                 'vales_solicitudes AS sol',
@@ -1490,11 +1525,32 @@ class Vales2022Controller extends Controller
             $res->whereRaw($filterQuery);
         }
 
+        $permisos = DB::table('users_menus AS um')
+            ->Select('um.idUser', 'um.Seguimiento', 'um.ViewAll')
+            ->where(['um.idUser' => $user->id, 'um.idMenu' => '29'])
+            ->first();
+
+        if ($permisos) {
+            if ($permisos->ViewAll === 0) {
+                $region = DB::table('users_region')
+                    ->where('idUser', $user->id)
+                    ->where('idPrograma', 1)
+                    ->first();
+                if ($region) {
+                    $res->WHERE('m.SubRegion', $region->Region);
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'message' => 'No tiene región asignada',
+                    ];
+                }
+            }
+        }
+
         $data = $res
             ->orderBy('vales.Remesa', 'asc')
-            ->orderBy('m.SubRegion', 'asc')
-            ->orderBy('m.Nombre', 'asc')
-            ->orderBy('l.Nombre', 'asc')
+            ->orderBy('vales.idGrupo', 'asc')
             ->orderBy('vales.Colonia', 'asc')
             ->orderBy('vales.Paterno', 'asc')
             ->orderBy('vales.Materno', 'asc')
@@ -1520,9 +1576,16 @@ class Vales2022Controller extends Controller
             ->toArray();
 
         $reader = IOFactory::createReader('Xlsx');
-        $spreadsheet = $reader->load(
-            public_path() . '/archivos/Vales2023.xlsx'
-        );
+        if ($user->id === 1132) {
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/Vales2023_2.xlsx'
+            );
+        } else {
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/Vales2023.xlsx'
+            );
+        }
+
         $sheet = $spreadsheet->getActiveSheet();
         $largo = count($res);
         $sheet

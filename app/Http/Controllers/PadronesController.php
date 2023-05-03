@@ -58,6 +58,33 @@ class PadronesController extends Controller
         }
     }
 
+    function getOrigin()
+    {
+        try {
+            $res = DB::table('cat_origen')
+                ->select('Origen AS label', 'id AS value')
+                ->where(['idPrograma' => 1])
+                ->orderBy('Origen')
+                ->distinct()
+                ->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $e->getMessage(),
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     public function getPadronesRemesasUpload(Request $request)
     {
         $params = $request->all();
@@ -129,10 +156,12 @@ class PadronesController extends Controller
 
         try {
             $file = $params['NewFiles'][0];
+            $origen = $params['NewOrigen'][0];
             $remesa = $params['NewRemesa'][0];
             $codigo = $params['NewCodigo'][0];
             $nombreArchivo = $file->getClientOriginalName();
             $archivoPadron = [
+                'idOrigen' => $origen,
                 'Remesa' => $remesa,
                 'Nombre' => $nombreArchivo,
                 'Codigo' => $codigo,

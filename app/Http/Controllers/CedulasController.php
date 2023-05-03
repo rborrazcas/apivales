@@ -685,7 +685,11 @@ class CedulasController extends Controller
                     'm.Nombre',
                     $tableSol . '.MunicipioVive'
                 )
-                ->JOIN('vales as v', 'v.id', $tableSol . '.idVale')
+                ->JOIN(
+                    'vales_respaldo_2022 as v',
+                    'v.id',
+                    $tableSol . '.idVale'
+                )
                 ->whereNull($tableSol . '.FechaElimino');
             $filterQuery = '';
             $municipioRegion = [];
@@ -831,6 +835,7 @@ class CedulasController extends Controller
             $pageSize = $params['pageSize'];
 
             $startIndex = $page * $pageSize;
+            $total = $solicitudes->count();
             $solicitudes = $solicitudes
                 ->OrderByRaw($tableSol . '.id', 'DESC')
                 ->offset($startIndex)
@@ -953,8 +958,7 @@ class CedulasController extends Controller
                 $filtros = $params['filtered'];
             }
 
-            //$total = $solicitudes->count();
-            $total = count($array_res);
+            //$total = count($array_res);
 
             $response = [
                 'success' => true,

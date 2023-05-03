@@ -188,11 +188,14 @@ class Vales2023Controller extends Controller
                 ->selectRaw(
                     'v.id,' .
                         'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
+                        'v.FechaSolicitud, ' .
                         'r.RemesaSistema AS Remesa, ' .
                         'v.Nombre, ' .
                         'v.Paterno, ' .
                         'v.Materno, ' .
                         'v.CURP, ' .
+                        'v.Sexo, ' .
+                        'v.FechaIne, ' .
                         'm.SubRegion AS Region,' .
                         'm.Nombre AS Municipio,' .
                         'l.Nombre AS Localidad,' .
@@ -202,9 +205,11 @@ class Vales2023Controller extends Controller
                         'v.NumExt, ' .
                         'v.NumInt, ' .
                         'v.CP, ' .
+                        'v.FolioTarjetaContigoSi, ' .
                         'i.Incidencia, ' .
                         'CASE WHEN v.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
                         'v.entrega_at AS FechaEntrega, ' .
+                        'v.TelFijo, ' .
                         'v.TelCelular, ' .
                         'v.ResponsableEntrega AS Responsable'
                 )
@@ -354,11 +359,15 @@ class Vales2023Controller extends Controller
             foreach ($solicitudes as $data) {
                 $temp = [
                     'id' => $data->id,
+                    'FechaSolicitud' => $data->FechaSolicitud,
+                    'FolioTarjetaImpulso' => $data->FolioTarjetaContigoSi,
                     'FolioSolicitud' => $data->FolioSolicitud,
+                    'FechaINE' => $data->FechaIne,
                     'Remesa' => $data->Remesa,
                     'Nombre' => $data->Nombre,
                     'Paterno' => $data->Paterno,
                     'Materno' => $data->Materno,
+                    'Sexo' => $data->Sexo,
                     'CURP' => $data->CURP,
                     'Region' => $data->Region,
                     'Municipio' => $data->Municipio,
@@ -371,6 +380,7 @@ class Vales2023Controller extends Controller
                     'Incidencia' => $data->Incidencia,
                     'Entregado' => $data->Entregado,
                     'FechaEntrega' => $data->FechaEntrega,
+                    'TelFijo' => $data->TelFijo,
                     'TelCelular' => $data->TelCelular,
                     'Responsable' => $data->Responsable,
                 ];
@@ -758,6 +768,8 @@ class Vales2023Controller extends Controller
             }
             $params = $request->all();
             $folio = $params['Folio'];
+            $r = substr($params['CveInterventor'], 0, 7);
+            $cve = str_replace($r . '_', '', $params['CveInterventor']);
             $user = auth()->user();
             try {
                 if (!ctype_xdigit($folio)) {
@@ -789,11 +801,24 @@ class Vales2023Controller extends Controller
 
             if ($vales) {
                 if ($vales->SerieInicial) {
-                    $response = [
-                        'success' => true,
-                        'results' => true,
-                        'data' => $vales,
-                    ];
+                    $valesCve = DB::table('vales AS v')
+                        ->select(DB::RAW('LPAD(HEX(v.id),6,0) AS Folio'))
+                        ->where(['v.id' => $id, 'CveInterventor' => $cve])
+                        ->first();
+                    if ($valesCve) {
+                        $response = [
+                            'success' => true,
+                            'results' => true,
+                            'data' => $vales,
+                        ];
+                    } else {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Este registro no corresponde con la CveInterventor ingresada',
+                        ];
+                    }
                 } else {
                     $response = [
                         'success' => true,
@@ -926,6 +951,66 @@ class Vales2023Controller extends Controller
                 'success' => true,
                 'results' => true,
                 'data' => $grupos,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            DB::rollBack();
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+    public function updateValeSolicitud(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'id' => 'required',
+                'Nombre' => 'required',
+                'Paterno' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'Información incompleta',
+                ];
+                return response()->json($response, 200);
+            }
+            $params = $request->all();
+            $user = auth()->user();
+
+            $nombreAnterior = DB::table('vales')
+                ->select('id', 'Nombre', 'Paterno', 'Materno')
+                ->where('id', $params['id'])
+                ->first();
+
+            $nombreHistorico = [
+                'idVale' => $nombreAnterior->id,
+                'Nombre' => $nombreAnterior->Nombre,
+                'Paterno' => $nombreAnterior->Paterno,
+                'Materno' => $nombreAnterior->Materno,
+            ];
+
+            DB::table('vales_nombres_modificados')->insert($nombreHistorico);
+            DB::table('vales')
+                ->where('id', $params['id'])
+                ->update([
+                    'Nombre' => $params['Nombre'],
+                    'Paterno' => $params['Paterno'],
+                    'Materno' => $params['Materno'],
+                ]);
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Solicitud modificada correctamente',
             ];
 
             return response()->json($response, 200);
