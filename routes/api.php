@@ -720,6 +720,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     );
 
     Route::get('/getRemesasPadron', 'PadronesController@getRemesas');
+    Route::get('/getOrigenVales', 'PadronesController@getOrigin');
     Route::post('/updateStatusRemesa', 'PadronesController@setStatusRemesa');
     Route::post('/getPadrones', 'PadronesController@getPadronesRemesasUpload');
     Route::post('/uploadPadron', 'PadronesController@uploadExcel');
@@ -943,6 +944,11 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
         Route::post('/getGroupList', 'Vales2023Controller@getGroupList');
 
+        Route::post(
+            '/updateValeSolicitud',
+            'Vales2023Controller@updateValeSolicitud'
+        );
+
         Route::get(
             '/getSolicitudesValeUnico',
             'ReportesController@getSolicitudesValeUnico'
@@ -1089,6 +1095,38 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post(
             '/cambiarEstatusArchivo',
             'SolicitudesController@changeStatusFiles'
+        );
+
+        Route::get('/getCatalogos/{id}', 'SolicitudesController@getCatalogos');
+    });
+
+    // ! Calentadores Solares
+    Route::group(['prefix' => 'calentadoresSolares'], function ($route) {
+        Route::post('/getSolicitudes', 'CalentadoresSolares@getSolicitudes');
+        Route::get('/getSolicitud/{id}', 'CalentadoresSolares@getSolicitud');
+        Route::get(
+            '/getSolicitudesReporte',
+            'CalentadoresSolares@getSolicitudesReporte'
+        );
+        Route::post('/getMunicipios', 'CalentadoresSolares@getMunicipios');
+        Route::get(
+            '/getClasificacionArchivos',
+            'CalentadoresSolares@getFilesClasification'
+        );
+        Route::post('/setEstatusArchivo', 'CalentadoresSolares@setFileStatus');
+        Route::post(
+            '/setFilesComments',
+            'CalentadoresSolares@setFilesComments'
+        );
+        Route::post('/changeFiles', 'CalentadoresSolares@changeFiles');
+        Route::post('/saveNewFiles', 'CalentadoresSolares@saveNewFiles');
+        Route::post('/createSolicitud', 'CalentadoresSolares@create');
+        Route::post('/updateSolicitud', 'CalentadoresSolares@update');
+        Route::post('/deleteSolicitud', 'CalentadoresSolares@delete');
+        Route::post('/enviarIGTO', 'CalentadoresController@enviarIGTO');
+        Route::post(
+            '/getEstatusGlobalVentanillaCalentadores',
+            'CalentadoresController@getEstatusGlobal'
         );
     });
 
