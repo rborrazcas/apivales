@@ -459,10 +459,8 @@ class Vales2023Controller extends Controller
                     $id,
                     $request->OldFiles,
                     $oldClasificacion,
-                    $user->id,
                     $oldFilesIds,
-                    $oldFiles,
-                    $programa
+                    $oldFiles
                 );
             }
 
@@ -565,6 +563,7 @@ class Vales2023Controller extends Controller
         $oldFilesIds,
         $oldFiles
     ) {
+        $user = auth()->user();
         $tableArchivos = 'vales_archivos';
         foreach ($files as $key => $file) {
             $fileAux = json_decode($file);
@@ -578,7 +577,7 @@ class Vales2023Controller extends Controller
                         ->where('id', $fileAux->id)
                         ->update([
                             'idClasificacion' => $clasificationArray[$key],
-                            'idUsuarioActualizo' => $userId,
+                            'idUsuarioActualizo' => $user->id,
                             'FechaActualizo' => date('Y-m-d H:i:s'),
                         ]);
                 }
