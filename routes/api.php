@@ -1128,6 +1128,13 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             '/getEstatusGlobalVentanillaCalentadores',
             'CalentadoresController@getEstatusGlobal'
         );
+        Route::post(
+            '/getTotalSolicitudes',
+            'CalentadoresSolares@getCapturadas'
+        );
+        Route::post('/getTotalPendientes', 'CalentadoresSolares@getPendientes');
+        Route::post('/getTotalObservadas', 'CalentadoresSolares@getObservadas');
+        Route::post('/getTotalValidadas', 'CalentadoresSolares@getValidadas');
     });
 
     Route::post('/deleteRelation', 'TrabajemosJuntosController@deleteRelation');

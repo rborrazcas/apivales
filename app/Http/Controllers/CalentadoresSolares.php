@@ -40,6 +40,221 @@ class CalentadoresSolares extends Controller
         return $permisos;
     }
 
+    function getCapturadas(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $res = DB::table('solicitudes_calentadores AS c')
+                ->selectRaw('COUNT(c.id) AS Total')
+                ->JOIN('et_cat_municipio AS m', 'm.id', 'c.idMunicipio')
+                ->whereRaw('c.FechaElimino IS NULL');
+            $permisos = $this->getPermisos($user->id);
+            $seguimiento = $permisos->Seguimiento;
+            $viewall = $permisos->ViewAll;
+            $filtroPermisos = '';
+
+            if ($viewall < 1 && $seguimiento < 1) {
+                $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+            } elseif ($viewall < 1) {
+                $filtroPermisos =
+                    'm.SubRegion IN (' .
+                    'SELECT Region FROM users_region WHERE idPrograma = 2 AND idUser = ' .
+                    $user->id .
+                    ')';
+            }
+
+            if ($filtroPermisos !== '') {
+                $res->whereRaw($filtroPermisos);
+            }
+
+            $capturadas = $res->first();
+
+            if (!$capturadas) {
+                $total = 0;
+            } else {
+                $total = $capturadas->Total;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'capturadas' => $total,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getPendientes(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $res = DB::table('solicitudes_calentadores AS c')
+                ->selectRaw('COUNT(c.id) AS Total')
+                ->JOIN('et_cat_municipio AS m', 'm.id', 'c.idMunicipio')
+                ->where('c.idEstatusSolicitud', 1)
+                ->whereRaw('c.FechaElimino IS NULL');
+            $permisos = $this->getPermisos($user->id);
+            $seguimiento = $permisos->Seguimiento;
+            $viewall = $permisos->ViewAll;
+            $filtroPermisos = '';
+
+            if ($viewall < 1 && $seguimiento < 1) {
+                $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+            } elseif ($viewall < 1) {
+                $filtroPermisos =
+                    'm.SubRegion IN (' .
+                    'SELECT Region FROM users_region WHERE idPrograma = 2 AND idUser = ' .
+                    $user->id .
+                    ')';
+            }
+
+            if ($filtroPermisos !== '') {
+                $res->whereRaw($filtroPermisos);
+            }
+
+            $pendientes = $res->first();
+
+            if (!$pendientes) {
+                $total = 0;
+            } else {
+                $total = $pendientes->Total;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'pendientes' => $total,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getObservadas(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $res = DB::table('solicitudes_calentadores AS c')
+                ->selectRaw('COUNT(c.id) AS Total')
+                ->JOIN('et_cat_municipio AS m', 'm.id', 'c.idMunicipio')
+                ->where('c.idEstatusSolicitud', 11)
+                ->whereRaw('c.FechaElimino IS NULL');
+            $permisos = $this->getPermisos($user->id);
+            $seguimiento = $permisos->Seguimiento;
+            $viewall = $permisos->ViewAll;
+            $filtroPermisos = '';
+
+            if ($viewall < 1 && $seguimiento < 1) {
+                $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+            } elseif ($viewall < 1) {
+                $filtroPermisos =
+                    'm.SubRegion IN (' .
+                    'SELECT Region FROM users_region WHERE idPrograma = 2 AND idUser = ' .
+                    $user->id .
+                    ')';
+            }
+
+            if ($filtroPermisos !== '') {
+                $res->whereRaw($filtroPermisos);
+            }
+
+            $observadas = $res->first();
+
+            if (!$observadas) {
+                $total = 0;
+            } else {
+                $total = $observadas->Total;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'observadas' => $total,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getValidadas(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $res = DB::table('solicitudes_calentadores AS c')
+                ->selectRaw('COUNT(c.id) AS Total')
+                ->JOIN('et_cat_municipio AS m', 'm.id', 'c.idMunicipio')
+                ->where('c.idEstatusSolicitud', 12)
+                ->whereRaw('c.FechaElimino IS NULL');
+            $permisos = $this->getPermisos($user->id);
+            $seguimiento = $permisos->Seguimiento;
+            $viewall = $permisos->ViewAll;
+            $filtroPermisos = '';
+
+            if ($viewall < 1 && $seguimiento < 1) {
+                $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+            } elseif ($viewall < 1) {
+                $filtroPermisos =
+                    'm.SubRegion IN (' .
+                    'SELECT Region FROM users_region WHERE idPrograma = 2 AND idUser = ' .
+                    $user->id .
+                    ')';
+            }
+
+            if ($filtroPermisos !== '') {
+                $res->whereRaw($filtroPermisos);
+            }
+
+            $validadas = $res->first();
+
+            if (!$validadas) {
+                $total = 0;
+            } else {
+                $total = $validadas->Total;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'validadas' => $total,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
     function getSolicitudes(Request $request)
     {
         try {
@@ -1201,7 +1416,6 @@ class CalentadoresSolares extends Controller
             }
 
             $params = $request->all();
-
             $solicitud = DB::table('solicitudes_calentadores')
                 ->select('solicitudes_calentadores.idEstatusSolicitud')
                 ->where('solicitudes_calentadores.id', $params['id'])
@@ -1216,7 +1430,120 @@ class CalentadoresSolares extends Controller
                 ];
                 return response()->json($response, 200);
             }
+            if (
+                isset($params['idEstatusSolicitud']) &&
+                $params['idEstatusSolicitud'] == 5
+            ) {
+                $expediente = DB::table('solicitudes_calentadores AS c')
+                    ->Select(
+                        'c.id',
+                        'ine.idSolicitud AS ine',
+                        'curp.idSolicitud AS curp',
+                        'comp.idSolicitud AS comprobante',
+                        'sol.idSolicitud AS solicitud',
+                        'ev.idSolicitud AS evidencia'
+                    )
+                    ->LeftJoin(
+                        DB::RAW(
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 3 AND idSolicitud = ' .
+                                $params['id'] .
+                                ') AS ine'
+                        ),
+                        'c.id',
+                        'ine.idSolicitud'
+                    )
+                    ->LeftJoin(
+                        DB::RAW(
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 4 AND idSolicitud = ' .
+                                $params['id'] .
+                                ') AS curp'
+                        ),
+                        'c.id',
+                        'curp.idSolicitud'
+                    )
+                    ->LeftJoin(
+                        DB::RAW(
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 6 AND idSolicitud = ' .
+                                $params['id'] .
+                                ') AS comp'
+                        ),
+                        'c.id',
+                        'comp.idSolicitud'
+                    )
+                    ->LeftJoin(
+                        DB::RAW(
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 15 AND idSolicitud = ' .
+                                $params['id'] .
+                                ') AS sol'
+                        ),
+                        'c.id',
+                        'sol.idSolicitud'
+                    )
+                    ->LeftJoin(
+                        DB::RAW(
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 7 AND idSolicitud = ' .
+                                $params['id'] .
+                                ') AS ev'
+                        ),
+                        'c.id',
+                        'ev.idSolicitud'
+                    )
+                    ->Where('c.id', $params['id'])
+                    ->WhereNull('FechaElimino')
+                    ->first();
+                if ($expediente) {
+                    $message = '';
+                    if (!$expediente->ine) {
+                        $message = 'Falta cargar la INE';
+                    } elseif (!$expediente->curp) {
+                        $message = 'Falta cargar el CURP';
+                    } elseif (!$expediente->comprobante) {
+                        $message = 'Falta cargar el Comprobante de Domicilio';
+                    } elseif (!$expediente->solicitud) {
+                        $message = 'Falta cargar la Solicitud';
+                    } elseif (!$expediente->evidencia) {
+                        $message =
+                            'Falta cargar al menos una Evidencia Fotográfica';
+                    }
 
+                    if ($message !== '') {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' => $message,
+                        ];
+                        return response()->json($response, 200);
+                    }
+                } else {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'Debe cargar los archivos para validar la solicitud',
+                    ];
+                    return response()->json($response, 200);
+                }
+
+                $archivosObservados = DB::table('solicitudes_archivos AS a')
+                    ->select('a.id')
+                    ->whereNull('a.FechaElimino')
+                    ->where([
+                        'a.idSolicitud' => $params['id'],
+                        'a.idEstatus' => 2,
+                        'idPrograma' => 2,
+                    ])
+                    ->first();
+
+                if ($archivosObservados) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'errors' =>
+                            'La solicitud tiene un archivo observado, no puede ser validada',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
             $user = auth()->user();
             $params['idUsuarioActualizo'] = $user->id;
             $params['FechaActualizo'] = date('Y-m-d H:i:s');
