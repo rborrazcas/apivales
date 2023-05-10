@@ -46,6 +46,20 @@ class Vales2023Controller extends Controller
         }
     }
 
+    function getPermisosPrevalidacion()
+    {
+        $user = auth()->user();
+        $permisos = DB::table('users_menus')
+            ->where(['idUser' => $user->id, 'idMenu' => '30'])
+            ->get()
+            ->first();
+        if ($permisos !== null) {
+            return $permisos;
+        } else {
+            return null;
+        }
+    }
+
     function getClasificacionArchivos(Request $request)
     {
         try {
@@ -1023,6 +1037,852 @@ class Vales2023Controller extends Controller
                 'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
 
+            return response()->json($response, 200);
+        }
+    }
+
+    function getValesExpedientes(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'page' => 'required',
+                'pageSize' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $user = auth()->user();
+            $params = $request->all();
+            $parameters_serializado = serialize($params);
+
+            $permisos = $this->getPermisosPrevalidacion();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('view_cveinterventor_vales as v')
+                ->SELECT(
+                    'v.Region',
+                    'v.Municipio',
+                    'v.CveInterventor',
+                    'v.Remesa',
+                    'v.Beneficiarios',
+                    'v.Expedientes',
+                    'v.Validados'
+                )
+                ->Join('vales_remesas AS r', 'v.Remesa', 'r.Remesa');
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where(['idUser' => $user->id, 'idPrograma' => 1])
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' =>
+                            'No tiene region asignada, Contacte al administrador',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('v.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+            $municipioRegion = [];
+            $mun = [];
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                $filtersRemesas = ['.Remesa'];
+                foreach ($params['filtered'] as $filtro) {
+                    if ($filterQuery != '') {
+                        $filterQuery .= ' AND ';
+                    }
+                    $id = $filtro['id'];
+                    $value = $filtro['value'];
+
+                    if ($id == 'region') {
+                        $municipios = DB::table('et_cat_municipio')
+                            ->select('id')
+                            ->whereIN('SubRegion', $value)
+                            ->get();
+                        foreach ($municipios as $m) {
+                            $municipioRegion[] = "'" . $m->id . "'";
+                        }
+
+                        $id = '.idMunicipio';
+                        $value = $municipioRegion;
+                    }
+
+                    if ($id == '.Validado') {
+                        if ($value == 1) {
+                            $filterQuery .= '(v.Beneficiarios = v.Validados)';
+                        } else {
+                            $filterQuery .= '(v.Beneficiarios <> v.Validados)';
+                        }
+                    } else {
+                        if (in_array($id, $filtersRemesas)) {
+                            $id = 'r.RemesaSistema';
+                        } else {
+                            $id = 'v' . $id;
+                        }
+
+                        switch (gettype($value)) {
+                            case 'string':
+                                $filterQuery .= " $id LIKE '%$value%' ";
+                                break;
+                            case 'array':
+                                $colonDividedValue = implode(', ', $value);
+                                $filterQuery .= " $id IN ($colonDividedValue) ";
+                                break;
+                            case 'boolean':
+                                $filterQuery .= " $id <> 1 ";
+                                break;
+                            default:
+                                //dd($value);
+                                if ($value === -1) {
+                                    $filterQuery .= " $id IS NOT NULL ";
+                                } else {
+                                    $filterQuery .= " $id = $value ";
+                                }
+                        }
+                    }
+                }
+            }
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+                $total = (clone $solicitudes)->get()->count();
+            } else {
+                $total = $solicitudes->count();
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
+            $startIndex = $page * $pageSize;
+
+            $solicitudes = $solicitudes
+                ->OrderBy('v.Remesa', 'ASC')
+                ->OrderBy('v.Region', 'ASC')
+                ->OrderBy('v.Municipio', 'ASC')
+                ->OrderBy('v.CveInterventor', 'ASC')
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'filtros' => $params['filtered'],
+                    'data' => [],
+                ];
+            }
+
+            $filtros = '';
+            if (isset($params['filtered'])) {
+                $filtros = $params['filtered'];
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $solicitudes,
+                'total' => $total,
+                'filtros' => $filtros,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getTotalSolicitudes(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $params = $request->all();
+
+            $permisos = $this->getPermisosPrevalidacion();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('vales as v')
+
+                ->Select(DB::RAW('COUNT( v.id ) AS Total'))
+                ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->WhereRaw('v.Ejercicio = 2023');
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where(['idUser' => $user->id, 'idPrograma' => 1])
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' =>
+                            'No tiene region asignada, Contacte al administrador',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('m.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            $solicitudes = $solicitudes->First();
+
+            if (!$solicitudes) {
+                $total = 0;
+            } else {
+                $total = $solicitudes->Total;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'capturadas' => $total,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getTotalExpedientes(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $params = $request->all();
+
+            $permisos = $this->getPermisosPrevalidacion();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('vales as v')
+
+                ->Select(DB::RAW('COUNT( v.id ) AS Total'))
+                ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->where('v.ExpedienteCompleto', 1)
+                ->WhereRaw('v.Ejercicio = 2023');
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where(['idUser' => $user->id, 'idPrograma' => 1])
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' =>
+                            'No tiene region asignada, Contacte al administrador',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('m.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            $solicitudes = $solicitudes->First();
+
+            if (!$solicitudes) {
+                $total = 0;
+            } else {
+                $total = $solicitudes->Total;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'expedientes' => $total,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getTotalPendientes(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $params = $request->all();
+
+            $permisos = $this->getPermisosPrevalidacion();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('vales as v')
+
+                ->Select(DB::RAW('COUNT( v.id ) AS Total'))
+                ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->where('v.Validado', 0)
+                ->WhereRaw('v.Ejercicio = 2023');
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where(['idUser' => $user->id, 'idPrograma' => 1])
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' =>
+                            'No tiene region asignada, Contacte al administrador',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('m.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            $solicitudes = $solicitudes->First();
+
+            if (!$solicitudes) {
+                $total = 0;
+            } else {
+                $total = $solicitudes->Total;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'pendientes' => $total,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getTotalValidados(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $params = $request->all();
+
+            $permisos = $this->getPermisosPrevalidacion();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('vales as v')
+
+                ->Select(DB::RAW('COUNT( v.id ) AS Total'))
+                ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->where('v.Validado', 1)
+                ->WhereRaw('v.Ejercicio = 2023');
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where(['idUser' => $user->id, 'idPrograma' => 1])
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' =>
+                            'No tiene region asignada, Contacte al administrador',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('m.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            $solicitudes = $solicitudes->First();
+
+            if (!$solicitudes) {
+                $total = 0;
+            } else {
+                $total = $solicitudes->Total;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'validados' => $total,
+            ];
+
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getSolicitudesExpedientes(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'page' => 'required',
+                'pageSize' => 'required',
+                'CveInterventor' => 'required',
+                'Remesa' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $user = auth()->user();
+            $userId = JWTAuth::parseToken()->toUser()->id;
+            $parameters_serializado = serialize($params);
+
+            $permisos = $this->getPermisos();
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('vales as v')
+
+                ->selectRaw(
+                    'v.id,' .
+                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
+                        'v.FechaSolicitud, ' .
+                        'v.Remesa, ' .
+                        'v.Nombre, ' .
+                        'v.Paterno, ' .
+                        'v.Materno, ' .
+                        'v.CURP, ' .
+                        'v.Sexo, ' .
+                        'v.FechaIne, ' .
+                        'm.SubRegion AS Region,' .
+                        'm.Nombre AS Municipio,' .
+                        'l.Nombre AS Localidad,' .
+                        'v.Calle, ' .
+                        'v.Calle, ' .
+                        'v.Colonia, ' .
+                        'v.NumExt, ' .
+                        'v.NumInt, ' .
+                        'v.CP, ' .
+                        'v.FolioTarjetaContigoSi, ' .
+                        'v.TelFijo, ' .
+                        'v.TelCelular, ' .
+                        'v.ResponsableEntrega AS Responsable, ' .
+                        'v.ExpedienteCompleto, ' .
+                        'v.Validado'
+                )
+                ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
+                ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'v.idLocalidad')
+                ->Where([
+                    'v.Remesa' => $params['Remesa'],
+                    'v.CveInterventor' => $params['CveInterventor'],
+                ])
+                ->WHERERAW('v.Ejercicio = 2023');
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where(['idUser' => $user->id, 'idPrograma' => 1])
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene region asignada',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('m.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+            $municipioRegion = [];
+            $mun = [];
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                $filtersCedulas = ['.Folio'];
+                $filtersRemesas = ['.Remesa'];
+                foreach ($params['filtered'] as $filtro) {
+                    if ($filterQuery != '') {
+                        $filterQuery .= ' AND ';
+                    }
+                    $id = $filtro['id'];
+                    $value = $filtro['value'];
+
+                    if ($id == '.id') {
+                        $value = hexdec($value);
+                    }
+
+                    if ($id == 'region') {
+                        $municipios = DB::table('et_cat_municipio')
+                            ->select('id')
+                            ->whereIN('SubRegion', $value)
+                            ->get();
+                        foreach ($municipios as $m) {
+                            $municipioRegion[] = "'" . $m->id . "'";
+                        }
+
+                        $id = '.idMunicipio';
+                        $value = $municipioRegion;
+                    }
+
+                    if (in_array($id, $filtersCedulas)) {
+                        $id = 'c' . $id;
+                    } elseif (in_array($id, $filtersRemesas)) {
+                        $id = 'r.RemesaSistema';
+                    } else {
+                        $id = 'v' . $id;
+                    }
+
+                    switch (gettype($value)) {
+                        case 'string':
+                            $filterQuery .= " $id LIKE '%$value%' ";
+                            break;
+                        case 'array':
+                            $colonDividedValue = implode(', ', $value);
+                            $filterQuery .= " $id IN ($colonDividedValue) ";
+                            break;
+                        case 'boolean':
+                            $filterQuery .= " $id <> 1 ";
+                            break;
+                        default:
+                            //dd($value);
+                            if ($value === -1) {
+                                $filterQuery .= " $id IS NOT NULL ";
+                            } else {
+                                $filterQuery .= " $id = $value ";
+                            }
+                    }
+                }
+            }
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
+
+            $startIndex = $page * $pageSize;
+
+            $total = $solicitudes->count();
+            $solicitudes = $solicitudes
+                ->OrderByRaw('v.Remesa', 'DESC')
+                ->OrderBy('m.Subregion', 'ASC')
+                ->OrderBy('m.Nombre', 'ASC')
+                ->OrderBy('l.Nombre', 'ASC')
+                ->OrderBy('v.Colonia', 'ASC')
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
+                ->where('api', '=', 'getVales2023')
+                ->first();
+
+            if ($filtro_usuario) {
+                $filtro_usuario->parameters = $parameters_serializado;
+                $filtro_usuario->updated_at = time::now();
+                $filtro_usuario->update();
+            } else {
+                $objeto_nuevo = new VNegociosFiltros();
+                $objeto_nuevo->api = 'getVales2023';
+                $objeto_nuevo->idUser = $user->id;
+                $objeto_nuevo->parameters = $parameters_serializado;
+                $objeto_nuevo->save();
+            }
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'filtros' => $params['filtered'],
+                    'data' => $array_res,
+                ];
+            }
+
+            $temp = [];
+            foreach ($solicitudes as $data) {
+                $temp = [
+                    'id' => $data->id,
+                    'FechaSolicitud' => $data->FechaSolicitud,
+                    'FolioTarjetaImpulso' => $data->FolioTarjetaContigoSi,
+                    'FolioSolicitud' => $data->FolioSolicitud,
+                    'FechaINE' => $data->FechaIne,
+                    'Remesa' => $data->Remesa,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'Sexo' => $data->Sexo,
+                    'CURP' => $data->CURP,
+                    'Region' => $data->Region,
+                    'Municipio' => $data->Municipio,
+                    'Localidad' => $data->Localidad,
+                    'Calle' => $data->Calle,
+                    'Colonia' => $data->Colonia,
+                    'NumExt' => $data->NumExt,
+                    'NumInt' => $data->NumInt,
+                    'CP' => $data->CP,
+                    'TelFijo' => $data->TelFijo,
+                    'TelCelular' => $data->TelCelular,
+                    'Responsable' => $data->Responsable,
+                    'ExpedienteCompleto' => $data->ExpedienteCompleto,
+                    'Validado' => $data->Validado,
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            $filtros = '';
+            if (isset($params['filtered'])) {
+                $filtros = $params['filtered'];
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'total' => $total,
+                'filtros' => $filtros,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function validateSolicitud(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'id' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $user = auth()->user();
+            $id = $params['id'];
+            $filesValidate = [1, 2, 3, 6];
+
+            foreach ($filesValidate as $file) {
+                $validateFile = DB::table('vales_archivos')
+                    ->Select('id')
+                    ->WhereNull('FechaElimino')
+                    ->Where(['idSolicitud' => $id, 'idClasificacion' => $file])
+                    ->first();
+                if (!$validateFile) {
+                    $clasificacion = DB::table('vales_archivos_clasificacion')
+                        ->where('id', $file)
+                        ->first();
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'message' =>
+                            'Falta cargar el archivo ' .
+                            $clasificacion->Clasificacion .
+                            ' para validar la solicitud',
+                    ];
+                    //return response()->json($response, 200);
+                }
+            }
+
+            DB::table('vales')
+                ->where('id', $id)
+                ->update(['Validado' => 1]);
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
             return response()->json($response, 200);
         }
     }
