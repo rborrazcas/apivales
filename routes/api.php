@@ -953,6 +953,41 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             '/getSolicitudesValeUnico',
             'ReportesController@getSolicitudesValeUnico'
         );
+
+        Route::post(
+            '/getValesExpedientes',
+            'Vales2023Controller@getValesExpedientes'
+        );
+
+        Route::post(
+            '/getTotalSolicitudes',
+            'Vales2023Controller@getTotalSolicitudes'
+        );
+
+        Route::post(
+            '/getTotalExpedientes',
+            'Vales2023Controller@getTotalExpedientes'
+        );
+
+        Route::post(
+            '/getTotalPendientes',
+            'Vales2023Controller@getTotalPendientes'
+        );
+
+        Route::post(
+            '/getTotalValidados',
+            'Vales2023Controller@getTotalValidados'
+        );
+
+        Route::post(
+            '/getSolicitudesExpedientes',
+            'Vales2023Controller@getSolicitudesExpedientes'
+        );
+
+        Route::post(
+            '/validateSolicitud',
+            'Vales2023Controller@validateSolicitud'
+        );
     });
 
     Route::group(['prefix' => 'trabajemos'], function ($route) {
