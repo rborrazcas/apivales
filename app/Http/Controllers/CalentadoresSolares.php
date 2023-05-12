@@ -518,6 +518,7 @@ class CalentadoresSolares extends Controller
                     'c.Celular',
                     'c.Correo',
                     'c.idParentescoTutor',
+                    'c.CURPTutor',
                     'c.NombreTutor',
                     'c.PaternoTutor',
                     'c.MaternoTutor',
@@ -1175,7 +1176,7 @@ class CalentadoresSolares extends Controller
     private function createFiles($id, $files, $idClasificacion)
     {
         $user = auth()->user();
-        //$img = new Imagick();
+        $img = new Imagick();
         $width = 1920;
         $height = 1920;
         foreach ($files as $key => $file) {
@@ -1198,33 +1199,33 @@ class CalentadoresSolares extends Controller
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
 
-            // if (
-            //     in_array(mb_strtolower($extension, 'utf-8'), [
-            //         'png',
-            //         'jpg',
-            //         'jpeg',
-            //     ])
-            // ) {
-            //     //Ruta temporal para reducción de tamaño
-            //     $file->move('subidos/tmp', $uniqueName);
-            //     $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
-            //     $img->readImage($img_tmp_path);
-            //     $img->adaptiveResizeImage($width, $height);
+            if (
+                in_array(mb_strtolower($extension, 'utf-8'), [
+                    'png',
+                    'jpg',
+                    'jpeg',
+                ])
+            ) {
+                //Ruta temporal para reducción de tamaño
+                $file->move('subidos/tmp', $uniqueName);
+                $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
+                $img->readImage($img_tmp_path);
+                $img->adaptiveResizeImage($width, $height);
 
-            //     //Guardar en el nuevo storage
-            //     $url_storage = Storage::disk('subidos')->path($uniqueName);
-            //     $img->writeImage($url_storage);
+                //Guardar en el nuevo storage
+                $url_storage = Storage::disk('subidos')->path($uniqueName);
+                $img->writeImage($url_storage);
 
-            //     //Eliminar el archivo original después de guardar el archivo reducido
-            //     File::delete($img_tmp_path);
-            // } else {
-            //     Storage::disk('subidos')->put(
-            //         $uniqueName,
-            //         File::get($file->getRealPath()),
-            //         'public'
-            //     );
-            // }
-            $file->move('subidos', $uniqueName);
+                //Eliminar el archivo original después de guardar el archivo reducido
+                File::delete($img_tmp_path);
+            } else {
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    File::get($file->getRealPath()),
+                    'public'
+                );
+            }
+            // $file->move('subidos', $uniqueName);
             DB::table('solicitudes_archivos')->insert($fileObject);
         }
     }

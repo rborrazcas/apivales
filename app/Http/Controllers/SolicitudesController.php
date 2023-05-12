@@ -202,8 +202,9 @@ class SolicitudesController extends Controller
                 ->get();
 
             $archivos = array_map(function ($o) {
-                $o->ruta = 'http://localhost:8080/subidos/' . $o->NombreSistema;
-                //Storage::disk('subidos')->url($o->NombreSistema);
+                $o->ruta =
+                    //'http://localhost:8080/subidos/' . $o->NombreSistema;
+                    Storage::disk('subidos')->url($o->NombreSistema);
 
                 $observaciones = DB::table(
                     'solicitudes_archivos_observaciones AS o'
