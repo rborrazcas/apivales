@@ -835,6 +835,7 @@ class CalentadoresSolares extends Controller
             $clasificacion = DB::table('solicitudes_archivos_clasificacion')
                 ->select('id AS value', 'Clasificacion AS label')
                 ->whereIn('idPrograma', [0, 2])
+                ->OrderBy('Clasificacion', 'ASC')
                 ->get();
 
             $response = [
@@ -962,6 +963,11 @@ class CalentadoresSolares extends Controller
                 'idEstatus' => 2,
                 'idUsuarioObservo' => $user->id,
                 'FechaObservo' => date('Y-m-d H:i:s'),
+            ]);
+        DB::table('solicitudes_calentadores')
+            ->where('id', $params['idSolicitud'])
+            ->update([
+                'idEstatusSolicitud' => 13,
             ]);
         DB::table('solicitudes_archivos_observaciones')->insert($params);
 
@@ -1640,6 +1646,81 @@ class CalentadoresSolares extends Controller
                 'results' => false,
                 'total' => 0,
                 'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getPdf(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'id' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'Ocurrio un error.',
+            ];
+            return response()->json($response, 200);
+        }
+        $params = $request->all();
+        $id = $params['id'];
+        try {
+            $res = DB::table('solicitudes_calentadores as N')
+                ->select(
+                    DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                    DB::RAw(
+                        'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+            ELSE "          " END AS FechaSolicitud'
+                    ),
+                    DB::raw(
+                        'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                    ),
+                    'N.CURP',
+                    'N.Sexo',
+                    'N.Calle',
+                    'N.NumExt',
+                    'N.NumInt',
+                    'N.CP',
+                    'N.Colonia',
+                    'L.Nombre AS Localidad',
+                    'm.Nombre AS Municipio',
+                    DB::raw('NULL AS Tutor'),
+                    DB::raw('NULL AS Parentesco'),
+                    DB::raw('NULL AS CURPTutor'),
+                    'N.Telefono',
+                    'N.Celular',
+                    'N.Correo'
+                )
+                ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+                ->JOIN(
+                    'et_cat_localidad_2022 as L',
+                    'N.idLocalidad',
+                    '=',
+                    'L.id'
+                )
+                ->where('N.id', $id)
+                ->get();
+            $calentadores = $res
+                ->map(function ($x) {
+                    $x = is_object($x) ? (array) $x : $x;
+                    return $x;
+                })
+                ->toArray();
+
+            $path = public_path() . '/subidos/' . $id . '.pdf';
+            $pdf = \PDF::loadView('pdf_solicitud_c', compact('calentadores'));
+            return $pdf->stream($id . '.pdf');
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
                 'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
 
