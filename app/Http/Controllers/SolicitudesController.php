@@ -203,9 +203,9 @@ class SolicitudesController extends Controller
 
             $archivos = array_map(function ($o) {
                 $o->ruta =
-                    'https://apivales.apisedeshu.com/subidos/' .
-                    $o->NombreSistema;
-                //Storage::disk('subidos')->url($o->NombreSistema);
+                    //'https://apivales.apisedeshu.com/subidos/' .
+                    //$o->NombreSistema;
+                    Storage::disk('subidos')->url($o->NombreSistema);
 
                 $observaciones = DB::table(
                     'solicitudes_archivos_observaciones AS o'
