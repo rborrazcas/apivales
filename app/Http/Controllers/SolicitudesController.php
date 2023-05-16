@@ -311,6 +311,26 @@ class SolicitudesController extends Controller
                 ->where(['id' => $id])
                 ->update($solicitud);
 
+            if ($idEstatus == 3) {
+                $idSolicitud = DB::table('solicitudes_archivos')
+                    ->select('idSolicitud')
+                    ->whereNull('FechaElimino')
+                    ->where('id', $id)
+                    ->first();
+                $aprobadas = DB::table('solicitudes_archivos')
+                    ->where('idSolicitud', $idSolicitud->idSolicitud)
+                    ->where('idEstatus', '<>', 3)
+                    ->WhereNull('FechaElimino')
+                    ->first();
+                if (!$aprobadas) {
+                    DB::table('solicitudes_calentadores')
+                        ->where('id', $idSolicitud->idSolicitud)
+                        ->update([
+                            'idEstatusSolicitud' => 5,
+                        ]);
+                }
+            }
+
             $response = [
                 'success' => true,
                 'results' => true,

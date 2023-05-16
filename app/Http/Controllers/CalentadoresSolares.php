@@ -100,7 +100,9 @@ class CalentadoresSolares extends Controller
             $res = DB::table('solicitudes_calentadores AS c')
                 ->selectRaw('COUNT(c.id) AS Total')
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'c.idMunicipio')
-                ->where('c.idEstatusSolicitud', 1)
+                ->whereRaw(
+                    '(c.idEstatusSolicitud = 1 OR c.idEstatusSolicitud = 13)'
+                )
                 ->whereRaw('c.FechaElimino IS NULL');
             $permisos = $this->getPermisos($user->id);
             $seguimiento = $permisos->Seguimiento;
@@ -292,6 +294,7 @@ class CalentadoresSolares extends Controller
             $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
             $filtroPermisos = '';
+            $filtroSeguimiento = '';
 
             if ($viewall < 1 && $seguimiento < 1) {
                 $filtroPermisos =
@@ -300,6 +303,7 @@ class CalentadoresSolares extends Controller
                     $user->id .
                     ')' .
                     ')';
+                $filtroSeguimiento = 'c.idUsuarioCreo = ' . $user->id;
             } elseif ($viewall < 1) {
                 $filtroPermisos =
                     '(m.SubRegion IN (' .
@@ -329,7 +333,7 @@ class CalentadoresSolares extends Controller
                     'c.Celular',
                     //'c.Responsable',
                     DB::RAW(
-                        "CONCAT_WS(' ',creadores.Nombre,creadores.Paterno,creadores.Materno) AS Creador"
+                        "CONCAT_WS(' ',creadores.Nombre,creadores.Paterno,creadores.Materno) AS CreadoPor"
                     )
                 )
                 ->leftJoin(
@@ -353,14 +357,6 @@ class CalentadoresSolares extends Controller
             $filterQuery = '';
             $municipioRegion = [];
             $mun = [];
-
-            // dd(
-            //     str_replace_array(
-            //         '?',
-            //         $solicitudes->getBindings(),
-            //         $solicitudes->toSql()
-            //     )
-            // );
 
             if (isset($params['filtered']) && count($params['filtered']) > 0) {
                 foreach ($params['filtered'] as $filtro) {
@@ -418,6 +414,18 @@ class CalentadoresSolares extends Controller
             if ($filtroPermisos !== '') {
                 $solicitudes->whereRaw($filtroPermisos);
             }
+
+            if ($filtroSeguimiento !== '') {
+                $solicitudes->whereRaw($filtroSeguimiento);
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
 
             $page = $params['page'];
             $pageSize = $params['pageSize'];
@@ -967,7 +975,7 @@ class CalentadoresSolares extends Controller
         DB::table('solicitudes_calentadores')
             ->where('id', $params['idSolicitud'])
             ->update([
-                'idEstatusSolicitud' => 13,
+                'idEstatusSolicitud' => 11,
             ]);
         DB::table('solicitudes_archivos_observaciones')->insert($params);
 
@@ -1012,6 +1020,17 @@ class CalentadoresSolares extends Controller
                 ];
                 return response()->json($response, 200);
             }
+            $observadas = DB::table('solicitudes_archivos')
+                ->where(['idSolicitud' => $idSol, 'idEstatus' => 2])
+                ->WhereNull('FechaElimino')
+                ->first();
+            if (!$observadas) {
+                DB::table('solicitudes_calentadores')
+                    ->where('id', $idSol)
+                    ->update([
+                        'idEstatusSolicitud' => 13,
+                    ]);
+            }
             DB::commit();
             $response = [
                 'success' => true,
@@ -1037,7 +1056,7 @@ class CalentadoresSolares extends Controller
     private function replaceFiles($id, $files, $idSol)
     {
         $user = auth()->user();
-        //$img = new Imagick();
+        $img = new Imagick();
         $width = 1920;
         $height = 1920;
         foreach ($files as $key => $file) {
@@ -1063,34 +1082,34 @@ class CalentadoresSolares extends Controller
                 'FechaCreo' => date('Y-m-d H:i:s'),
             ];
 
-            // if (
-            //     in_array(mb_strtolower($extension, 'utf-8'), [
-            //         'png',
-            //         'jpg',
-            //         'jpeg',
-            //     ])
-            // ) {
-            //     //Ruta temporal para reducción de tamaño
-            //     $file->move('subidos/tmp', $uniqueName);
-            //     $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
-            //     $img->readImage($img_tmp_path);
-            //     $img->adaptiveResizeImage($width, $height);
+            if (
+                in_array(mb_strtolower($extension, 'utf-8'), [
+                    'png',
+                    'jpg',
+                    'jpeg',
+                ])
+            ) {
+                //Ruta temporal para reducción de tamaño
+                $file->move('subidos/tmp', $uniqueName);
+                $img_tmp_path = sprintf('subidos/tmp/%s', $uniqueName);
+                $img->readImage($img_tmp_path);
+                $img->adaptiveResizeImage($width, $height);
 
-            //     //Guardar en el nuevo storage
-            //     $url_storage = Storage::disk('subidos')->path($uniqueName);
-            //     $img->writeImage($url_storage);
+                //Guardar en el nuevo storage
+                $url_storage = Storage::disk('subidos')->path($uniqueName);
+                $img->writeImage($url_storage);
 
-            //     //Eliminar el archivo original después de guardar el archivo reducido
-            //     File::delete($img_tmp_path);
-            // } else {
-            //     Storage::disk('subidos')->put(
-            //         $uniqueName,
-            //         File::get($file->getRealPath()),
-            //         'public'
-            //     );
-            // }
+                //Eliminar el archivo original después de guardar el archivo reducido
+                File::delete($img_tmp_path);
+            } else {
+                Storage::disk('subidos')->put(
+                    $uniqueName,
+                    File::get($file->getRealPath()),
+                    'public'
+                );
+            }
 
-            $file->move('subidos', $uniqueName);
+            //$file->move('subidos', $uniqueName);
             DB::table('solicitudes_archivos')
                 ->where('id', $id)
                 ->update([
@@ -1148,6 +1167,17 @@ class CalentadoresSolares extends Controller
             DB::beginTransaction();
             if (isset($request->NewFiles)) {
                 $this->createFiles($id, $request->NewFiles, $idClasificacion);
+                $aprobadas = DB::table('solicitudes_archivos')
+                    ->where(['idSolicitud' => $id, 'idEstatus' => 3])
+                    ->WhereNull('FechaElimino')
+                    ->first();
+                if (!$aprobadas) {
+                    DB::table('solicitudes_calentadores')
+                        ->where('id', $id)
+                        ->update([
+                            'idEstatusSolicitud' => 1,
+                        ]);
+                }
             } else {
                 $response = [
                     'success' => true,
