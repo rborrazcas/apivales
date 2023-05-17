@@ -210,7 +210,7 @@ class CalentadoresSolares extends Controller
             $res = DB::table('solicitudes_calentadores AS c')
                 ->selectRaw('COUNT(c.id) AS Total')
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'c.idMunicipio')
-                ->where('c.idEstatusSolicitud', 12)
+                ->where('c.idEstatusSolicitud', 5)
                 ->whereRaw('c.FechaElimino IS NULL');
             $permisos = $this->getPermisos($user->id);
             $seguimiento = $permisos->Seguimiento;
@@ -926,6 +926,7 @@ class CalentadoresSolares extends Controller
                         'idUsuarioActualizo' => $user->id,
                         'FechaActualizo' => date('Y-m-d H:i:s'),
                     ]);
+
                 $response = [
                     'success' => true,
                     'results' => true,
@@ -1143,41 +1144,54 @@ class CalentadoresSolares extends Controller
             }
             $params = $request->all();
             $id = $params['idSolicitud'];
-            $idClasificacion = $params['newIdClasificacion'];
+            $newClasificacion = isset($params['newIdClasificacion'])
+                ? $params['newIdClasificacion']
+                : [];
+            foreach ($newClasificacion as $clasificacion) {
+                $clasificacionRepetida = DB::table('solicitudes_archivos')
+                    ->where([
+                        'idSolicitud' => $id,
+                        'idClasificacion' => $clasificacion,
+                    ])
+                    ->whereNull('FechaElimino')
+                    ->first();
 
-            $clasificacionRepetida = DB::table('solicitudes_archivos')
-                ->where([
-                    'idSolicitud' => $id,
-                    'idClasificacion' => $idClasificacion,
-                ])
-                ->whereNull('FechaElimino')
-                ->first();
-
-            if ($clasificacionRepetida) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'message' =>
-                        'La solicitud ya cuenta con un archivo en esta clasificación',
-                    'data' => [],
-                ];
-                return response()->json($response, 200);
+                if ($clasificacionRepetida) {
+                    $cls = DB::table('solicitudes_archivos_clasificacion AS s')
+                        ->select('s.Clasificacion')
+                        ->where(['id' => $clasificacion])
+                        ->first();
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'message' =>
+                            'La solicitud ya cuenta con ' .
+                            $cls->Clasificacion .
+                            ', cambie la clasificación del archivo',
+                        'data' => [],
+                    ];
+                    return response()->json($response, 200);
+                }
             }
 
-            DB::beginTransaction();
+            $aprobadas = DB::table('solicitudes_archivos')
+                ->where('idSolicitud', $id)
+                ->where('idEstatus', '<>', 3)
+                ->WhereNull('FechaElimino')
+                ->first();
+
+            if (!$aprobadas) {
+                DB::table('solicitudes_calentadores')
+                    ->where('id', $id)
+                    ->update([
+                        'idEstatusSolicitud' => 1,
+                    ]);
+            }
+
             if (isset($request->NewFiles)) {
-                $this->createFiles($id, $request->NewFiles, $idClasificacion);
-                $aprobadas = DB::table('solicitudes_archivos')
-                    ->where(['idSolicitud' => $id, 'idEstatus' => 3])
-                    ->WhereNull('FechaElimino')
-                    ->first();
-                if (!$aprobadas) {
-                    DB::table('solicitudes_calentadores')
-                        ->where('id', $id)
-                        ->update([
-                            'idEstatusSolicitud' => 1,
-                        ]);
-                }
+                DB::beginTransaction();
+                $this->createFiles($id, $request->NewFiles, $newClasificacion);
+                DB::commit();
             } else {
                 $response = [
                     'success' => true,
@@ -1187,7 +1201,6 @@ class CalentadoresSolares extends Controller
                 ];
                 return response()->json($response, 200);
             }
-            DB::commit();
             $response = [
                 'success' => true,
                 'results' => true,
@@ -1219,11 +1232,12 @@ class CalentadoresSolares extends Controller
             $originalName = $file->getClientOriginalName();
             $extension = explode('.', $originalName);
             $extension = $extension[count($extension) - 1];
+            $clasification = $idClasificacion[$key];
             $uniqueName = uniqid() . '.' . $extension;
             $size = $file->getSize();
             $fileObject = [
                 'idSolicitud' => intval($id),
-                'idClasificacion' => intval($idClasificacion),
+                'idClasificacion' => intval($clasification),
                 'idPrograma' => 2,
                 'idEstatus' => 1,
                 'NombreOriginal' => $originalName,
@@ -1719,9 +1733,11 @@ class CalentadoresSolares extends Controller
                     'N.Colonia',
                     'L.Nombre AS Localidad',
                     'm.Nombre AS Municipio',
-                    DB::raw('NULL AS Tutor'),
-                    DB::raw('NULL AS Parentesco'),
-                    DB::raw('NULL AS CURPTutor'),
+                    DB::raw(
+                        'CONCAT_WS(" ",N.NombreTutor,N.PaternoTutor,N.MaternoTutor) AS Tutor'
+                    ),
+                    'p.Parentesco',
+                    'N.CURPTutor',
                     'N.Telefono',
                     'N.Celular',
                     'N.Correo'
@@ -1732,6 +1748,11 @@ class CalentadoresSolares extends Controller
                     'N.idLocalidad',
                     '=',
                     'L.id'
+                )
+                ->LeftJoin(
+                    'cat_parentesco_tutor AS p',
+                    'p.id',
+                    'N.idParentescoTutor'
                 )
                 ->where('N.id', $id)
                 ->get();
