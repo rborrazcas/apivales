@@ -203,7 +203,8 @@ class SolicitudesController extends Controller
 
             $archivos = array_map(function ($o) {
                 $o->ruta =
-                    //'http://localhost:8080/subidos/' . $o->NombreSistema;
+                    //'https://apivales.apisedeshu.com/subidos/' .
+                    //$o->NombreSistema;
                     Storage::disk('subidos')->url($o->NombreSistema);
 
                 $observaciones = DB::table(
@@ -261,7 +262,7 @@ class SolicitudesController extends Controller
                 'success' => false,
                 'results' => false,
                 'total' => 0,
-                'errors' => $errors,
+                'errors' => $errors->getMessage(),
                 'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
 
@@ -309,6 +310,26 @@ class SolicitudesController extends Controller
             $flag = DB::table('solicitudes_archivos')
                 ->where(['id' => $id])
                 ->update($solicitud);
+
+            if ($idEstatus == 3) {
+                $idSolicitud = DB::table('solicitudes_archivos')
+                    ->select('idSolicitud')
+                    ->whereNull('FechaElimino')
+                    ->where('id', $id)
+                    ->first();
+                $aprobadas = DB::table('solicitudes_archivos')
+                    ->where('idSolicitud', $idSolicitud->idSolicitud)
+                    ->where('idEstatus', '<>', 3)
+                    ->WhereNull('FechaElimino')
+                    ->first();
+                if (!$aprobadas) {
+                    DB::table('solicitudes_calentadores')
+                        ->where('id', $idSolicitud->idSolicitud)
+                        ->update([
+                            'idEstatusSolicitud' => 5,
+                        ]);
+                }
+            }
 
             $response = [
                 'success' => true,
