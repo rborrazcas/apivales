@@ -331,7 +331,7 @@ class CalentadoresSolares extends Controller
                     'c.CP',
                     'c.Telefono',
                     'c.Celular',
-                    //'c.Responsable',
+                    'c.ExpedienteCompleto',
                     DB::RAW(
                         "CONCAT_WS(' ',creadores.Nombre,creadores.Paterno,creadores.Materno) AS CreadoPor"
                     )
@@ -1188,19 +1188,18 @@ class CalentadoresSolares extends Controller
                     ]);
             }
 
-            if (isset($request->NewFiles)) {
-                DB::beginTransaction();
-                $this->createFiles($id, $request->NewFiles, $newClasificacion);
-                DB::commit();
-            } else {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'message' => 'No se envió ningún archivo',
-                    'data' => [],
-                ];
-                return response()->json($response, 200);
+            DB::beginTransaction();
+            $this->createFiles($id, $request->NewFiles, $newClasificacion);
+            DB::commit();
+
+            if ($this->validateExpediente($id)) {
+                DB::table('solicitudes_calentadores')
+                    ->where('id', $id)
+                    ->update([
+                        'ExpedienteCompleto' => 1,
+                    ]);
             }
+
             $response = [
                 'success' => true,
                 'results' => true,
@@ -1777,5 +1776,75 @@ class CalentadoresSolares extends Controller
 
             return response()->json($response, 200);
         }
+    }
+
+    public function validateExpediente($id)
+    {
+        $expediente = DB::table('solicitudes_calentadores AS c')
+            ->Select(
+                'c.id',
+                'solicitud.idSolicitud AS solicitud',
+                'ine.idSolicitud AS ine',
+                'comp.idSolicitud AS comprobante',
+                'formato.idSolicitud AS visita',
+                'foto.idSolicitud AS foto'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 15 ) AS solicitud'
+                ),
+                'solicitud.idSolicitud',
+                'c.id'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 3 ) AS ine'
+                ),
+                'ine.idSolicitud',
+                'c.id'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 6 ) AS comp'
+                ),
+                'comp.idSolicitud',
+                'c.id'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 10 ) AS formato'
+                ),
+                'formato.idSolicitud',
+                'c.id'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 12 ) AS foto'
+                ),
+                'foto.idSolicitud',
+                'c.id'
+            )
+            ->WhereNull('c.FechaElimino')
+            ->Where('c.id', $id)
+            ->first();
+
+        $flag = true;
+        foreach ($expediente as $file) {
+            if (!$file) {
+                $flag = false;
+                break;
+            }
+        }
+        return $flag;
     }
 }
