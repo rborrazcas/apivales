@@ -1137,6 +1137,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
     // ! Calentadores Solares
     Route::group(['prefix' => 'calentadoresSolares'], function ($route) {
+        Route::get('/getPdf', 'CalentadoresSolares@getPdf');
+        Route::get('/getSolicitud/{id}', 'CalentadoresSolares@getSolicitud');
         Route::post('/getSolicitudes', 'CalentadoresSolares@getSolicitudes');
         Route::get('/getSolicitud/{id}', 'CalentadoresSolares@getSolicitud');
         Route::get(
@@ -1158,11 +1160,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('/createSolicitud', 'CalentadoresSolares@create');
         Route::post('/updateSolicitud', 'CalentadoresSolares@update');
         Route::post('/deleteSolicitud', 'CalentadoresSolares@delete');
-        Route::post('/enviarIGTO', 'CalentadoresController@enviarIGTO');
-        Route::post(
-            '/getEstatusGlobalVentanillaCalentadores',
-            'CalentadoresController@getEstatusGlobal'
-        );
         Route::post(
             '/getTotalSolicitudes',
             'CalentadoresSolares@getCapturadas'

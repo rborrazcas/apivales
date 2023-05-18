@@ -265,7 +265,7 @@ class ZisController extends Controller
 
         foreach (array_chunk($res, 500) as $chunk) {
             foreach ($chunk as $r) {
-                $password = Hash::make($r['Celular']);
+                $password = Hash::make(str_replace("\r", '', $r['Celular']));
                 if (!is_null($password)) {
                     DB::table('UsersPendientes')
                         ->where('Celular', $r['Celular'])
