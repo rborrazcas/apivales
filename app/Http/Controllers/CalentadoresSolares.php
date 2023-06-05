@@ -1845,6 +1845,29 @@ class CalentadoresSolares extends Controller
                 break;
             }
         }
+
+        $datosInformante = DB::table('solicitudes_calentadores')
+            ->select('idParentescoTutor')
+            ->whereNull('FechaElimino')
+            ->Where('id', $id)
+            ->first();
+
+        if ($datosInformante->idParentescoTutor !== null) {
+            $archivoInformante = DB::table('solicitudes_archivos')
+                ->Select('id')
+                ->Where([
+                    'idPrograma' => 2,
+                    'idSolicitud' => $id,
+                    'idClasificacion' => 11,
+                ])
+                ->WhereNull('FechaElimino')
+                ->first();
+
+            if (!$archivoInformante) {
+                $flag = false;
+            }
+        }
+
         return $flag;
     }
 }

@@ -603,37 +603,70 @@ class Vales2023Controller extends Controller
 
     public function validarExpediente($id)
     {
-        $ine = DB::table('vales_archivos')
-            ->where('idSolicitud', $id)
-            ->where('idClasificacion', '2')
-            ->whereNull('FechaElimino')
-            ->get()
+        $expediente = DB::table('vales AS v')
+            ->Select(
+                'v.id',
+                'acuse.idSolicitud AS acuse',
+                'solicitud.idSolicitud AS solicitud',
+                'ine.idSolicitud AS ine',
+                'evidencia.idSolicitud AS evidencia'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM vales_archivos WHERE FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 1 ) AS acuse'
+                ),
+                'acuse.idSolicitud',
+                'v.id'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM vales_archivos WHERE FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 2 ) AS solicitud'
+                ),
+                'solicitud.idSolicitud',
+                'v.id'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM vales_archivos WHERE FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 3 ) AS ine'
+                ),
+                'ine.idSolicitud',
+                'v.id'
+            )
+            ->LeftJoin(
+                DB::RAW(
+                    '(SELECT idSolicitud FROM vales_archivos WHERE FechaElimino IS NULL AND idSolicitud = ' .
+                        $id .
+                        ' AND idClasificacion = 5 ) AS evidencia'
+                ),
+                'evidencia.idSolicitud',
+                'v.id'
+            )
+            ->where('v.id', $id)
             ->first();
 
-        $pvg = DB::table('vales_archivos')
-            ->where('idSolicitud', $id)
-            ->where('idClasificacion', '1')
-            ->whereNull('FechaElimino')
-            ->get()
-            ->first();
+        $flag = true;
+        foreach ($expediente as $file) {
+            if (!$file) {
+                $flag = false;
+                break;
+            }
+        }
 
-        $acuse = DB::table('vales_archivos')
-            ->where('idSolicitud', $id)
-            ->where('idClasificacion', '3')
-            ->whereNull('FechaElimino')
-            ->get()
-            ->first();
-
-        if (!$ine || !$pvg || !$acuse) {
+        if ($flag) {
+            DB::table('vales')
+                ->where('id', $id)
+                ->update(['ExpedienteCompleto' => 1]);
+        } else {
             DB::table('vales')
                 ->where('id', $id)
                 ->update(['ExpedienteCompleto' => 0]);
-            return false;
         }
-
-        DB::table('vales')
-            ->where('id', $id)
-            ->update(['ExpedienteCompleto' => 1]);
 
         return true;
     }

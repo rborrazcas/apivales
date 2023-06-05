@@ -1736,7 +1736,7 @@ class CedulasController extends Controller
 
                 if ($idVale != null) {
                     if ($idVale->idVale != null) {
-                        $remesa = DB::table('vales')
+                        $remesa = DB::table('vales_respaldo_2022')
                             ->select('Remesa')
                             ->where('id', $idVale->idVale)
                             ->get()
@@ -1744,7 +1744,7 @@ class CedulasController extends Controller
 
                         if ($remesa != null && $user->id != 1) {
                             if ($remesa->Remesa != null) {
-                                $validarCurp = DB::table('vales')
+                                $validarCurp = DB::table('vales_respaldo_2022')
                                     ->where('id', $idVale->idVale)
                                     ->where([
                                         'CURP' => $curp,
@@ -1770,7 +1770,7 @@ class CedulasController extends Controller
 
                         $infoVale = $this->setValesUpdate($id);
                         DB::beginTransaction();
-                        DB::table('vales')
+                        DB::table('vales_respaldo_2022')
                             ->where('id', $idVale->idVale)
                             ->update($infoVale);
                         DB::commit();
