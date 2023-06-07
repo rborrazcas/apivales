@@ -1,7 +1,6 @@
 <?php
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Default Filesystem Disk
@@ -42,7 +41,6 @@ return [
     */
 
     'disks' => [
-
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app'),
@@ -52,14 +50,22 @@ return [
             'driver' => 'local',
             // 'root' => '/Volumes/ADATAHV620/apiVales/storageVales',
             'root' => '/media/storagevales/subidos',
-            'url' => env('APP_URL').'/subidos',
+            'url' => env('APP_URL') . '/subidos',
+            'visibility' => 'public',
+        ],
+
+        'expedientes' => [
+            'driver' => 'local',
+            'root' =>
+                '/media/storagevales/expedientes_vales/Ejercicio2023/Remesa01',
+            'url' => env('APP_URL') . '/Remesa01',
             'visibility' => 'public',
         ],
 
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'url' => env('APP_URL') . '/storage',
             'visibility' => 'public',
         ],
 
@@ -71,7 +77,5 @@ return [
             'bucket' => env('AWS_BUCKET'),
             'url' => env('AWS_URL'),
         ],
-
     ],
-
 ];

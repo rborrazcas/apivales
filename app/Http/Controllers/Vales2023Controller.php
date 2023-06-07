@@ -135,7 +135,7 @@ class Vales2023Controller extends Controller
                 // $o->ruta =
                 //     'https://apivales.apisedeshu.com/subidos/' .
                 //     $o->NombreSistema;
-                $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
+                $o->ruta = Storage::disk('expedientes')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -642,7 +642,7 @@ class Vales2023Controller extends Controller
                 DB::RAW(
                     '(SELECT idSolicitud FROM vales_archivos WHERE FechaElimino IS NULL AND idSolicitud = ' .
                         $id .
-                        ' AND idClasificacion = 5 ) AS evidencia'
+                        ' AND idClasificacion IN (5,6,7,9) LIMIT 1 ) AS evidencia'
                 ),
                 'evidencia.idSolicitud',
                 'v.id'
@@ -668,7 +668,7 @@ class Vales2023Controller extends Controller
                 ->update(['ExpedienteCompleto' => 0]);
         }
 
-        return true;
+        return $flag;
     }
 
     private function getFileType($extension)
@@ -1914,6 +1914,66 @@ class Vales2023Controller extends Controller
                 'results' => false,
                 'total' => 0,
                 'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    public function cargaMasiva()
+    {
+        try {
+            $pendientes = DB::table('carga_archivos_masivo')
+                ->whereNull('Cargado')
+                ->get();
+            if ($pendientes->count() > 0) {
+                $pendientes->each(function ($item, $key) {
+                    $curpRegistrada = DB::table('vales')
+                        ->Select('id', 'CURP')
+                        ->Where('CURP', $item->CURP)
+                        ->first();
+                    if ($curpRegistrada) {
+                        $extension = explode('.', $item->NombreArchivo);
+                        $valesArchivos = [
+                            'idSolicitud' => $curpRegistrada->id,
+                            'idClasificacion' => $item->Clasificacion,
+                            'NombreOriginal' => $item->NombreArchivo,
+                            'NombreSistema' => $item->NombreArchivo,
+                            'Tipo' => 'image',
+                            'Extension' => $extension[1],
+                            'idUsuarioCreo' => 1,
+                            'FechaCreo' => date('Y-m-d H:i:s'),
+                        ];
+
+                        DB::table('vales_archivos')->insert($valesArchivos);
+                        DB::table('carga_archivos_masivo')
+                            ->where('id', $item->ID)
+                            ->update(['Cargado' => 1]);
+                        $this->validarExpediente($curpRegistrada->id);
+                    } else {
+                        DB::table('carga_archivos_masivo')
+                            ->where('id', $item->ID)
+                            ->update(['Cargado' => 0]);
+                    }
+                });
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'message' => 'Archivos cargados con éxito',
+                ];
+                return response()->json($response, 200);
+            }
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'No hay archivos pendientes de carga',
+            ];
+            return response()->json($response, 200);
+        } catch (Exception $e) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => $e,
                 'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
             return response()->json($response, 200);
