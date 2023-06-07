@@ -21,3 +21,8 @@ Route::get('/subidos/{filename}', function ($filename) {
     $path = Storage::disk('subidos')->path($filename);
     return response()->file($path);
 });
+
+Route::get('/Remesa01/{filename}', function ($filename) {
+    $path = Storage::disk('expedientes')->path($filename);
+    return response()->file($path);
+});

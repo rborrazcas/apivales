@@ -1181,4 +1181,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::post('/setEntrega', 'ReportesController@setEntrega');
     Route::post('/getAcuse', 'ReportesController@getAcuseValesIndividual');
     Route::get('/getAcuseUnico', 'ReportesController@getAcuseUnico');
+
+    Route::post('/cargaMasivo', 'Vales2023Controller@cargaMasiva');
 });
