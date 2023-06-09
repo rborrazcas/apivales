@@ -80,6 +80,10 @@ Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
 
 //Route::get('/getReporteInvitadosMovil','ControllersPulseras\ReporteController@getReporteInvitados');
 //Route::post('/convertirImagenes', 'CedulasController@convertImage');
+// Route::get(
+//     '/getExpedientesCalentadores',
+//     'CalentadoresController@getExpedientesCalentadores'
+// );
 Route::post('/archivosYoPuedo', 'YopuedoController@getFilesFromSocioeducativo');
 Route::post(
     '/validacionMasivaCalentadores',
@@ -794,7 +798,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         );
         Route::post('/create', 'CalentadoresController@create');
         Route::get('/getById/{id}', 'CalentadoresController@getById');
-        Route::get('/getArchivosByIdC/{id}', 'CedulasController@getFilesByIdC');
+        Route::get(
+            '/getArchivosByIdC/{id}',
+            'CalentadoresController@getFilesById'
+        );
         Route::get(
             '/getClasificacionArchivos',
             'CedulasController@getClasificacionArchivos'
