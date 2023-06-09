@@ -261,8 +261,8 @@ class PadronesImport implements
                         ? trim($row['responsable_de_la_entrega'])
                         : null,
                     'EstatusOrigen' => trim($row['estatus_origen'])
-                        ? trim($row['estatus_origen'])
-                        : 'NO',
+                        ? strtoupper(trim($row['estatus_origen']))
+                        : null,
                     'idUsuarioCreo' => $userId,
                     'FechaCreo' => date('Y-m-d h-m-s'),
                     'idArchivo' => $this->idArchivo,
@@ -307,6 +307,29 @@ class PadronesImport implements
                     'ResponsableEntregaValido' => $this->validarCadena(
                         $row['responsable_de_la_entrega']
                     ),
+                    'EstatusOrigenValido' =>
+                        $this->validarCadena(
+                            $row['estatus_origen'],
+                            true,
+                            2
+                        ) === 1
+                            ? (in_array(strtoupper($row['estatus_origen']), [
+                                'SI',
+                                'NO',
+                            ])
+                                ? 1
+                                : 0)
+                            : 0,
+                    'Aprobado' =>
+                        $this->validarCadena(
+                            $row['estatus_origen'],
+                            true,
+                            2
+                        ) === 1
+                            ? (strtoupper($row['estatus_origen']) == 'SI'
+                                ? 1
+                                : 0)
+                            : 0,
                 ];
             }
         }

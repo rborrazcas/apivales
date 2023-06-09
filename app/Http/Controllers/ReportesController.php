@@ -7504,6 +7504,176 @@ class ReportesController extends Controller
         );
     }
 
+    public function getEtiquetasVales(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+
+        if (!isset($request->idGrupo)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados del Grupo.',
+            ]);
+        }
+
+        $resGpo = DB::table('vales_grupos as G')
+            ->select(
+                'G.id',
+                'G.ResponsableEntrega',
+                'M.Nombre AS Municipio',
+                'G.CveInterventor',
+                'G.Remesa'
+            )
+            ->JOIN('et_cat_municipio as M', 'G.idMunicipio', '=', 'M.Id')
+            ->where('G.id', '=', $request->idGrupo)
+            ->first();
+
+        if (!$resGpo) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados del Grupo.',
+            ]);
+        }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw(
+                    "CONCAT(concat_ws(' ',N.Nombre, N.Paterno, N.Materno),' - ',VS.SerieInicial) as Codigo"
+                )
+            )
+            ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->leftJoin('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->WHERE('N.idGrupo', $request->idGrupo);
+
+        $data = $res
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'asc')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->orderBy('N.Materno', 'asc')
+            ->get();
+
+        //dd(str_replace_array('?', $data->getBindings(), $data->toSql()));
+
+        if (count($data) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                'NominaValesGrandeza' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        //Mapeamos el resultado como un array
+        $res = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+
+        //------------------------------------------------- Para generar el archivo excel ----------------------------------------------------------------
+        // $spreadsheet = new Spreadsheet();
+        // $sheet = $spreadsheet->getActiveSheet();
+
+        //Para los titulos del excel
+        // $titulos = ['Grupo','Folio','Nombre','Paterno','Materno','Fecha de Nacimiento','Sexo','Calle','Numero','Colonia','Municipio','Localidad','CP','Terminación'];
+        // $sheet->fromArray($titulos,null,'A1');
+        // $sheet->getStyle('A1:N1')->getFont()->getColor()->applyFromArray(['rgb' => '808080']);
+
+        //dd('Correcto');
+
+        $reader = IOFactory::createReader('Xlsx');
+        $spreadsheet = $reader->load(
+            public_path() . '/archivos/formatoEtiquetasVales.xlsx'
+        );
+        $sheet = $spreadsheet->getActiveSheet();
+        $largo = count($res);
+        $paginas = ceil($largo / 36);
+        $impresion = $paginas * 18;
+        $sheet->getPageSetup()->setPrintArea('A1:C' . $impresion);
+        $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_PORTRAIT);
+        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+
+        $registros = array_chunk($res, 32);
+        $indice = 3;
+
+        //Agregamos CveInterventor
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue(
+            'A1',
+            $resGpo->Municipio . ' ' . $resGpo->CveInterventor
+        );
+        $sheet->setCellValue('A2', $resGpo->CveInterventor);
+
+        for ($i = 1; $i < $impresion + 1; $i++) {
+            $sheet->getRowDimension($i)->setRowHeight(35);
+        }
+
+        foreach ($registros as $r) {
+            //Llenar excel con el resultado del query
+            $columns = array_chunk($r, 16);
+            if (count($columns) > 1) {
+                $sheet->fromArray($columns[0], null, 'A' . $indice);
+                $sheet->fromArray($columns[1], null, 'C' . $indice);
+                $indice = $indice + 16;
+                $spreadsheet
+                    ->getActiveSheet()
+                    ->setBreak(
+                        'A' . $indice,
+                        \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::BREAK_ROW
+                    );
+            } else {
+                $sheet->fromArray($columns[0], null, 'A' . $indice);
+            }
+        }
+        // $sheet = $spreadsheet
+        //     ->getActiveSheet()
+        //     ->getDefaultRowDimension()
+        //     ->setRowHeight(75);
+
+        //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+        $writer = new Xlsx($spreadsheet);
+        $nombreArchivo =
+            'archivos/' .
+            $resGpo->id .
+            '_' .
+            $resGpo->Remesa .
+            '_Etiquetas_' .
+            $resGpo->Municipio .
+            '_' .
+            $resGpo->ResponsableEntrega .
+            '_' .
+            $resGpo->CveInterventor .
+            '.xlsx';
+
+        $writer->save($nombreArchivo);
+
+        $file = public_path() . '/' . $nombreArchivo;
+
+        return response()->download(
+            $file,
+            $resGpo->id .
+                '_' .
+                $resGpo->Remesa .
+                '_Etiquetas_' .
+                $resGpo->Municipio .
+                '_' .
+                $resGpo->ResponsableEntrega .
+                '_' .
+                $resGpo->CveInterventor .
+                '.xlsx'
+        );
+    }
+
     public function getReporteEntregaVales2023(Request $request)
     {
         $parameters = $request->all();
