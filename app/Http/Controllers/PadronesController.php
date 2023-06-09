@@ -244,7 +244,11 @@ class PadronesController extends Controller
 
             $padronValido = DB::table('padron_validado as p')
                 ->selectRaw('COUNT(id) AS total')
-                ->where(['Remesa' => $remesa, 'idArchivo' => $id])
+                ->where([
+                    'Remesa' => $remesa,
+                    'idArchivo' => $id,
+                    'EstatusOrigen' => 'SI',
+                ])
                 ->first();
             $flagCorrectors = false;
 
@@ -271,7 +275,10 @@ class PadronesController extends Controller
                     } else {
                         $totalRemesa = DB::table('padron_validado as p')
                             ->selectRaw('COUNT(id) AS total')
-                            ->where(['Remesa' => $remesa])
+                            ->where([
+                                'Remesa' => $remesa,
+                                'EstatusOrigen' => 'SI',
+                            ])
                             ->first();
 
                         // DB::table('padron_remesas')
@@ -552,6 +559,12 @@ class PadronesController extends Controller
                 ),
                 DB::raw(
                     "IF (p.MenorEdad = 1,'EL REGISTRO ES DE UN MENOR DE EDAD','') AS MenorEdad"
+                ),
+                DB::raw(
+                    "IF (p.EstatusOrigenValido = 0,'EL ESTATUS ORIGEN ES INVALIDO','') AS EnlaceOrigenValido"
+                ),
+                DB::raw(
+                    "IF (p.Aprobado = 0,'EL REGISTRO FUE RECHAZADO POR COMITÉ','') AS Aprobado"
                 )
             )
             ->Join('users AS u', 'u.id', '=', 'p.idUsuarioCreo')

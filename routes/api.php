@@ -950,6 +950,11 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         );
 
         Route::get(
+            '/getEtiquetasVales',
+            'ReportesController@getEtiquetasVales'
+        );
+
+        Route::get(
             '/getSolicitudesValeUnico',
             'ReportesController@getSolicitudesValeUnico'
         );

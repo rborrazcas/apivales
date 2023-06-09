@@ -1289,7 +1289,8 @@ class Vales2023Controller extends Controller
 
                 ->Select(DB::RAW('COUNT( v.id ) AS Total'))
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
-                ->WhereRaw('v.Ejercicio = 2023');
+                ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
+                ->WhereRaw('r.Ejercicio = 2023');
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -1369,8 +1370,9 @@ class Vales2023Controller extends Controller
 
                 ->Select(DB::RAW('COUNT( v.id ) AS Total'))
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.ExpedienteCompleto', 1)
-                ->WhereRaw('v.Ejercicio = 2023');
+                ->WhereRaw('r.Ejercicio = 2023');
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -1450,8 +1452,9 @@ class Vales2023Controller extends Controller
 
                 ->Select(DB::RAW('COUNT( v.id ) AS Total'))
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.Validado', 0)
-                ->WhereRaw('v.Ejercicio = 2023');
+                ->WhereRaw('r.Ejercicio = 2023');
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -1531,8 +1534,9 @@ class Vales2023Controller extends Controller
 
                 ->Select(DB::RAW('COUNT( v.id ) AS Total'))
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.Validado', 1)
-                ->WhereRaw('v.Ejercicio = 2023');
+                ->WhereRaw('r.Ejercicio = 2023');
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
