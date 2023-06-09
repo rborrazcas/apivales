@@ -5401,4 +5401,86 @@ class CalentadoresController extends Controller
             return response()->json($response, 200);
         }
     }
+
+    public function getExpedientesCalentadores()
+    {
+        $solicitudesSMAOT = DB::table('calentadores_expedientes_smaot')
+            ->WhereNull('Descargado')
+            ->get();
+
+        foreach ($solicitudesSMAOT as $s) {
+            $solicitudesApi = DB::table('calentadores_cedulas AS c')
+                ->Select(
+                    'c.id',
+                    'c.CURP',
+                    'a.id',
+                    'a.NombreSistema',
+                    'ac.Clasificacion'
+                )
+                ->JOIN(
+                    DB::RAW(
+                        '(SELECT * FROM calentadores_cedula_archivos WHERE FechaElimino IS NULL) AS a'
+                    ),
+                    'a.idCedula',
+                    'c.id'
+                )
+                ->JOIN(
+                    'cedula_archivos_clasificacion AS ac',
+                    'a.idClasificacion',
+                    'ac.id'
+                )
+                ->WhereNull('c.FechaElimino')
+                ->Where('c.CURP', $s->Curp)
+                ->get();
+
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    // 'https://apivales.apisedeshu.com/subidos/' .
+                    // $o->NombreSistema;
+                    Storage::disk('subidos')->path($o->NombreSistema);
+                return $o;
+            }, $solicitudesApi->toArray());
+
+            $rutaCarpeta = $this->createZipEvidenciaExpedientes(
+                $archivos,
+                $s->Curp
+            );
+        }
+        $response = [
+            'success' => true,
+            'results' => true,
+            'message' => 'Expedientes Generados con Éxito',
+        ];
+
+        return response()->json($response, 200);
+    }
+
+    private function createZipEvidenciaExpedientes($archivos, $curp)
+    {
+        $formatedFile = [];
+        try {
+            $files = [];
+            $fileName = $curp . '.zip';
+
+            foreach ($archivos as $file) {
+                $files[] = $file->ruta;
+            }
+
+            $path = public_path('subidos/temp/' . $fileName);
+
+            // Storage::disk('subidos')->path($fileName); // '/var/www/html/plataforma/apivales/public/subidos/' .$fileName,
+            // Zipper::make(public_path('subidos/' . $fileName))
+            Zipper::make($path)
+                ->add($files)
+                ->close();
+
+            $formatedFile = [
+                'carpeta' => $path,
+            ];
+
+            return $formatedFile;
+        } catch (Exception $e) {
+            return $formatedFile;
+        }
+    }
 }
