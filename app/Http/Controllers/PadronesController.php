@@ -238,6 +238,9 @@ class PadronesController extends Controller
 
             DB::select('CALL padron_validacion_edad(' . $id . ')');
 
+            //validación de estatus
+            DB::select('CALL padron_validacion_estatus_origen(' . $id . ')');
+
             DB::select('CALL padron_con_incidencia(' . $id . ')');
 
             DB::select('CALL padron_correcto(' . $id . ')');
