@@ -8097,7 +8097,7 @@ class ReportesController extends Controller
         }
 
         if ($parameters['ejercicio'] == 2022) {
-            $res = DB::table('vales as N')
+            $res = DB::table('vales_respaldo_2022 as N')
                 ->select(
                     DB::raw('LPAD(HEX(N.id),6,0) AS id'),
                     'c.Folio AS folio',
@@ -8133,7 +8133,7 @@ class ReportesController extends Controller
                     'L.Id'
                 )
                 ->leftJoin(
-                    'vales_solicitudes as VS',
+                    'vales_solicitudes_respaldo_2022 as VS',
                     'VS.idSolicitud',
                     '=',
                     'N.id'
