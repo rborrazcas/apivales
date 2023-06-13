@@ -326,10 +326,10 @@ class PadronesImport implements
                             true,
                             2
                         ) === 1
-                            ? (strtoupper($row['estatus_origen']) == 'SI'
-                                ? 1
-                                : 0)
-                            : 0,
+                            ? (strtoupper($row['estatus_origen']) == 'NO'
+                                ? 0
+                                : 1)
+                            : 1,
                 ];
             }
         }
