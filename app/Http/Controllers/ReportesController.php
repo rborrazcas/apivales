@@ -7292,7 +7292,7 @@ class ReportesController extends Controller
                 'success' => true,
                 'results' => false,
                 'data' => [],
-                'message' => 'No se encontraron resultados del Grupo.',
+                'message' => 'El id del Grupo no fue enviado.',
             ]);
         }
 
@@ -7470,35 +7470,33 @@ class ReportesController extends Controller
         // dd($strRem);
 
         //dd('archivos/'.$strRem.'_'.$resGpo->idMunicipio.'_'.$resGpo->UserOwned.'_formatoNominaVales.xlsx');
-        $writer->save(
-            'archivos/' .
-                $strRem .
-                '_' .
-                $resGpo->idMunicipio .
-                '_' .
-                $resGpo->ResponsableEntrega .
-                '_formatoNominaVales.xlsx'
-        );
-        $file =
-            public_path() .
-            '/archivos/' .
+        $path =
+            'NOMINA_VALES_' .
             $strRem .
             '_' .
-            $resGpo->idMunicipio .
+            $resGpo->Municipio .
             '_' .
-            $resGpo->ResponsableEntrega .
-            '_formatoNominaVales.xlsx';
+            $resGpo->TotalAprobados .
+            '_' .
+            str_replace(' ', '_', $resGpo->ResponsableEntrega) .
+            '.xlsx';
+
+        $writer->save('archivos/' . $path);
+        $file = public_path() . '/archivos/' . $path;
 
         //dd('Se crearon los archivos');
 
         return response()->download(
             $file,
-            $strRem .
+            'NOMINA_VALES_' .
+                $strRem .
                 '_' .
-                $resGpo->idMunicipio .
+                $resGpo->Municipio .
                 '_' .
-                $resGpo->ResponsableEntrega .
-                '_formatoNominaVales' .
+                $resGpo->TotalAprobados .
+                '_' .
+                str_replace(' ', '_', $resGpo->ResponsableEntrega) .
+                '_' .
                 date('Y-m-d H:i:s') .
                 '.xlsx'
         );
@@ -7642,36 +7640,23 @@ class ReportesController extends Controller
 
         //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
         $writer = new Xlsx($spreadsheet);
-        $nombreArchivo =
-            'archivos/' .
+        $path =
+            'Etiquetas_' .
             $resGpo->id .
             '_' .
             $resGpo->Remesa .
-            '_Etiquetas_' .
+            '_' .
             $resGpo->Municipio .
             '_' .
-            $resGpo->ResponsableEntrega .
+            str_replace(' ', '_', $resGpo->ResponsableEntrega) .
             '_' .
             $resGpo->CveInterventor .
             '.xlsx';
 
+        $nombreArchivo = 'archivos/' . $path;
         $writer->save($nombreArchivo);
-
         $file = public_path() . '/' . $nombreArchivo;
-
-        return response()->download(
-            $file,
-            $resGpo->id .
-                '_' .
-                $resGpo->Remesa .
-                '_Etiquetas_' .
-                $resGpo->Municipio .
-                '_' .
-                $resGpo->ResponsableEntrega .
-                '_' .
-                $resGpo->CveInterventor .
-                '.xlsx'
-        );
+        return response()->download($file, $path);
     }
 
     public function getReporteEntregaVales2023(Request $request)
@@ -8892,8 +8877,13 @@ class ReportesController extends Controller
                 'G.idMunicipio',
                 'G.Remesa',
                 'G.TotalAprobados',
-                'G.ResponsableEntrega'
+                'G.ResponsableEntrega',
+                'G.CveInterventor',
+                'M.Nombre AS Municipio',
+                'L.Nombre AS Localidad'
             )
+            ->Join('et_cat_municipio AS M', 'G.idMunicipio', 'M.id')
+            ->Join('et_cat_localidad_2022 AS L', 'G.idLocalidad', 'L.id')
             ->where('G.id', '=', $request->idGrupo)
             ->first();
 
@@ -8903,7 +8893,22 @@ class ReportesController extends Controller
         $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
 
         if (file_exists($fileExists)) {
-            return response()->download($fileExists);
+            return response()->download(
+                $fileExists,
+                'ACUSES_' .
+                    $resGpo->id .
+                    '_' .
+                    str_replace(' ', '_', $resGpo->Municipio) .
+                    '_' .
+                    $resGpo->CveInterventor .
+                    '_' .
+                    str_replace(' ', '_', $resGpo->ResponsableEntrega) .
+                    '_' .
+                    str_replace(' ', '_', $resGpo->TotalAprobados) .
+                    '_' .
+                    str_replace(' ', '_', $resGpo->Localidad) .
+                    '.zip'
+            );
         }
 
         $res = DB::table('vales as N')
@@ -8976,12 +8981,14 @@ class ReportesController extends Controller
         }
 
         $nombreArchivo =
-            'acuses_vales_' .
+            'ACUSES_' .
             $resGpo->id .
             '_' .
-            $resGpo->idMunicipio .
+            $resGpo->Remesa .
             '_' .
-            $resGpo->Remesa;
+            str_replace(' ', '_', $resGpo->Municipio) .
+            '_' .
+            str_replace(' ', '_', $resGpo->ResponsableEntrega);
 
         File::makeDirectory($path, $mode = 0777, true, true);
 
@@ -8998,7 +9005,20 @@ class ReportesController extends Controller
         $this->createZipEvidencia($carpeta);
 
         return response()->download(
-            public_path('subidos/' . $carpeta . '.zip')
+            public_path('subidos/' . $carpeta . '.zip'),
+            'ACUSES_' .
+                $resGpo->id .
+                '_' .
+                str_replace(' ', '_', $resGpo->Municipio) .
+                '_' .
+                $resGpo->CveInterventor .
+                '_' .
+                str_replace(' ', '_', $resGpo->ResponsableEntrega) .
+                '_' .
+                str_replace(' ', '_', $resGpo->TotalAprobados) .
+                '_' .
+                str_replace(' ', '_', $resGpo->Localidad) .
+                '.zip'
         );
     }
 
@@ -9030,10 +9050,16 @@ class ReportesController extends Controller
         $resGpo = DB::table('vales_grupos as G')
             ->select(
                 'G.id',
-                'G.ResponsableEntrega',
                 'G.idMunicipio',
-                'G.Remesa'
+                'G.Remesa',
+                'G.TotalAprobados',
+                'G.ResponsableEntrega',
+                'G.CveInterventor',
+                'M.Nombre AS Municipio',
+                'L.Nombre AS Localidad'
             )
+            ->Join('et_cat_municipio AS M', 'G.idMunicipio', 'M.id')
+            ->Join('et_cat_localidad_2022 AS L', 'G.idLocalidad', 'L.id')
             ->where('G.id', '=', $request->idGrupo)
             ->first();
 
@@ -9044,7 +9070,22 @@ class ReportesController extends Controller
         $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
 
         if (file_exists($fileExists)) {
-            return response()->download($fileExists);
+            return response()->download(
+                $fileExists,
+                'SOLICITUDES_' .
+                    $resGpo->id .
+                    '_' .
+                    str_replace(' ', '_', $resGpo->Municipio) .
+                    '_' .
+                    $resGpo->CveInterventor .
+                    '_' .
+                    str_replace(' ', '_', $resGpo->ResponsableEntrega) .
+                    '_' .
+                    str_replace(' ', '_', $resGpo->TotalAprobados) .
+                    '_' .
+                    str_replace(' ', '_', $resGpo->Localidad) .
+                    '.zip'
+            );
         }
 
         $res = DB::table('vales as N')
@@ -9111,10 +9152,10 @@ class ReportesController extends Controller
         }
 
         $nombreArchivo =
-            'solicitud_vales_' .
+            'SOLICITUDES_' .
             $resGpo->id .
             '_' .
-            $resGpo->idMunicipio .
+            str_replace(' ', '_', $resGpo->Municipio) .
             '_' .
             $resGpo->Remesa;
 
@@ -9133,7 +9174,20 @@ class ReportesController extends Controller
         $this->createZipEvidencia($carpeta);
 
         return response()->download(
-            public_path('subidos/' . $carpeta . '.zip')
+            public_path('subidos/' . $carpeta . '.zip'),
+            'SOLICITUDES_' .
+                $resGpo->id .
+                '_' .
+                str_replace(' ', '_', $resGpo->Municipio) .
+                '_' .
+                $resGpo->CveInterventor .
+                '_' .
+                str_replace(' ', '_', $resGpo->ResponsableEntrega) .
+                '_' .
+                str_replace(' ', '_', $resGpo->TotalAprobados) .
+                '_' .
+                str_replace(' ', '_', $resGpo->Localidad) .
+                '.zip'
         );
         // $vales = $d;
         // $nombreArchivo = 'solicitud_vales' . date('Y-m-d H:i:s');

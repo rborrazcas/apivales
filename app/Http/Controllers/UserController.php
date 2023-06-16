@@ -1191,7 +1191,7 @@ class UserController extends Controller
     function getArticularSolicitudes2023(Request $request)
     {
         $parameters = $request->all();
-
+        $user = auth()->user();
         try {
             $res = DB::table('vales as V')
                 ->select(
@@ -1228,6 +1228,35 @@ class UserController extends Controller
                 ->OrderBy('V.CveInterventor')
                 ->OrderBy('V.idLocalidad')
                 ->OrderBy('V.ResponsableEntrega');
+
+            //Filtro para mostrar solo registros que pertenecen a la misma remesa que el usuario
+            //! Si se necesita que vean todo el estado quitar este fragmento
+            //!-----------------------------------------------------------------------------------------//
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '28'])
+                ->get()
+                ->first();
+
+            if ($permisos !== null) {
+                $viewall = $permisos->ViewAll;
+                if ($viewall < 1) {
+                    $region = DB::table('users_region')
+                        ->selectRaw('Region')
+                        ->where(['idUser' => $user->id])
+                        ->first();
+                    if ($region === null) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'errors' => 'No tiene region asignada',
+                            'message' => 'No tiene region asignada',
+                        ];
+                        return response()->json($response, 200);
+                    }
+                    $res->where('M.SubRegion', $region->Region);
+                }
+            }
+            //!-----------------------------------------------------------------------------------------//
 
             $flag = 0;
             if (isset($parameters['filtered'])) {
