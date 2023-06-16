@@ -356,7 +356,7 @@ class PadronesImport implements
                     utf8_decode($originales),
                     $modificadas
                 );
-                $cadena = str_replace('.', ' ', $cadena);
+                $cadena = str_replace('.', '', $cadena);
                 return utf8_encode($cadena);
             } else {
                 return null;

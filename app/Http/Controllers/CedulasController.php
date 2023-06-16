@@ -7174,133 +7174,55 @@ class CedulasController extends Controller
 
         $params = $request->all();
         $userId = JWTAuth::parseToken()->toUser()->id;
-
-        $conciliacionPendiente = DB::table('users_filtros')
-            ->where('UserCreated', $userId)
-            ->where('api', 'uploadClasificacion')
-            ->get()
-            ->first();
-
-        if ($conciliacionPendiente != null) {
-            $response = [
-                'success' => true,
-                'results' => false,
-                'message' =>
-                    'Su usuario tiene una conciliacion pendiente, Contacte al administrador',
-            ];
-            return response()->json($response, 200);
-        }
-
-        DB::table('users_filtros')->insert([
-            'UserCreated' => $userId,
-            'Api' => 'uploadClasificacion',
-            'Consulta' => '',
-            'created_at' => date('Y-m-d h-m-s'),
-        ]);
-
         $file = $params['NewFiles'][0];
-
-        DB::table('preconciliacion_vales')
-            ->where('idUser', $userId)
-            ->delete();
-
-        Excel::import(new ConciliacionImport(), $file);
-
-        $totalRows = DB::table('preconciliacion_vales')
-            ->selectRaw('COUNT(id) AS total')
-            ->where('idUser', $userId)
-            ->get()
-            ->first();
-
-        if ($totalRows->total == 0) {
-            $this->limpiarTabla();
-            $response = [
-                'success' => true,
-                'results' => false,
-                'message' =>
-                    'El excel esta vacio o los encabezados no coinciden',
-                'errors' =>
-                    'El excel esta vacio o los encabezados no coinciden',
-            ];
-            return response()->json($response, 200);
-        }
-
-        $nombreArchivo = $file->getClientOriginalName();
         $fechaActual = date('Y-m-d h-m-s');
+        $nombreArchivo = $file->getClientOriginalName();
         $size = $file->getSize();
-        $total = intval($totalRows->total);
 
-        $archivoConciliacion = [
+        $dataFile = [
             'Quincena' => $fechaActual,
             'Nombre' => $nombreArchivo,
             'Peso' => $size,
-            'Registros' => $total,
+            'Registros' => 0,
             'FechaUpload' => $fechaActual,
             'UserUpload' => $userId,
         ];
 
         DB::beginTransaction();
-        $id = DB::table('conciliacion_archivos')->insertGetId(
-            $archivoConciliacion
-        );
+        $id = DB::table('conciliacion_archivos')->insertGetId($dataFile);
         DB::commit();
 
-        $infoVales = DB::table('preconciliacion_vales')
-            ->select(
-                'idUser',
-                'folio_vale',
-                'cantidad',
-                'codigo',
-                'responsable_de_escaneo',
-                'farmacia',
-                'fecha_de_canje',
-                'tipo_de_operacion',
-                'fecha_de_captura',
-                'mes_de_canje',
-                'observacion'
-            )
-            ->where('idUser', $userId)
-            ->get()
-            ->chunk(1000);
-
         try {
-            foreach ($infoVales as $items) {
-                $insert_data = [];
-                $folios = [];
-                foreach ($items as $data) {
-                    $insert_data[] = [
-                        'cantidad' => $data->cantidad,
-                        'codigo' => $data->codigo,
-                        'responsable_de_escaneo' =>
-                            $data->responsable_de_escaneo,
-                        'farmacia' => $data->farmacia,
-                        'fecha_de_canje' => $data->fecha_de_canje,
-                        'tipo_de_operacion' => $data->tipo_de_operacion,
-                        'fecha_de_captura' => $data->fecha_de_captura,
-                        'mes_de_canje' => $data->mes_de_canje,
-                        'folio_vale' => $data->folio_vale,
-                        'observacion' => $data->observacion,
-                        'idArchivo' => $id,
-                    ];
-                    $folios[] = $data->folio_vale;
-                }
-                DB::table('conciliacion_vales')->insert($insert_data);
-                DB::table('vales_series_2022')
-                    ->whereIn('Serie', $folios)
-                    ->update(['Conciliado' => 1]);
-                unset($insert_data);
-                unset($folios);
+            Excel::import(new ConciliacionImport($id), $file);
+
+            $totalRows = DB::table('conciliacion_vales')
+                ->selectRaw('COUNT(id) AS total')
+                ->where('idArchivo', $id)
+                ->get()
+                ->first();
+
+            if ($totalRows->total == 0) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'El excel esta vacio o los encabezados no coinciden',
+                    'errors' =>
+                        'El excel esta vacio o los encabezados no coinciden',
+                ];
+                return response()->json($response, 200);
             }
 
-            $this->limpiarTabla($userId);
+            DB::table('conciliacion_archivos')
+                ->where('id', $id)
+                ->update(['Registros' => intval($totalRows->total)]);
 
             return [
                 'success' => true,
                 'results' => true,
                 'message' => 'Cargado con éxito',
             ];
-        } catch (\Illuminate\Database\QueryException $e) {
-            $this->limpiarTabla($userId);
+        } catch (Exception $e) {
             return [
                 'success' => false,
                 'message' =>
@@ -7308,18 +7230,6 @@ class CedulasController extends Controller
                 'error' => $e->getMessage(),
             ];
         }
-    }
-
-    public function limpiarTabla($userId)
-    {
-        DB::table('preconciliacion_vales')
-            ->where('idUser', $userId)
-            ->delete();
-
-        DB::table('users_filtros')
-            ->where('UserCreated', $userId)
-            ->where('api', 'uploadClasificacion')
-            ->delete();
     }
 
     public function getConciliacionArchivos(Request $request)
@@ -7342,7 +7252,8 @@ class CedulasController extends Controller
                         "CONCAT_WS(' ',b.Nombre,IFNULL(b.Paterno,''),IFNULL(b.Materno,'')) as UserUpload"
                     )
                 )
-                ->leftJoin('users as b', 'b.id', '=', 'a.UserUpload');
+                ->leftJoin('users as b', 'b.id', '=', 'a.UserUpload')
+                ->Where('Registros', '>', 0);
             $total = $res->count();
 
             $data = $res
@@ -7393,32 +7304,34 @@ class CedulasController extends Controller
                 'cv.tipo_de_operacion',
                 'cv.mes_de_canje',
                 'cv.observacion',
-                'cv.folio_vale',
+                'vs.folio_vale',
                 'vs.SerieInicial',
                 'vs.SerieFinal',
                 'vr.RemesaSistema',
-                'vss.CURP',
-                'vss.idSolicitud',
-                DB::RAW('lpad( hex( vss.idSolicitud ), 6, 0 ) FolioSolicitud'),
-                'vss.Nombre',
-                'vss.Paterno',
-                'vss.Materno',
-                'vss.Municipio',
+                'v.CURP',
+                'v.id AS idSolicitud',
+                DB::RAW('lpad( hex( v.id ), 6, 0 ) FolioSolicitud'),
+                'v.Nombre',
+                'v.Paterno',
+                'v.Materno',
+                'm.Nombre AS Municipio',
                 'v.entrega_at',
-                'vss.Articulador'
+                'v.ResponsableEntrega'
             )
-            ->join('vales_series_2022 AS vs', 'cv.folio_vale', 'vs.Serie')
-            ->join(
+            ->LeftJoin('folios_vales_2023 AS f', 'cv.codigo', 'f.CodigoBarras')
+            ->LeftJoin('vales_series_2023 AS vs', 'f.Serie', 'vs.Serie')
+            ->LeftJoin(
                 DB::RAW(
-                    '(SELECT * FROM vales_solicitudes WHERE Ejercicio = 2022 ) AS vss'
+                    '(SELECT id,idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023 ) AS s'
                 ),
-                'vs.SerieInicial',
-                'vss.SerieInicial'
+                's.SerieInicial',
+                'vs.SerieInicial'
             )
-            ->join('vales AS v', 'vss.IdSolicitud', 'v.id')
-            ->join('vales_remesas AS vr', 'v.Remesa', 'vr.Remesa')
+            ->LeftJoin('vales AS v', 's.IdSolicitud', 'v.id')
+            ->LeftJoin('vales_remesas AS vr', 'v.Remesa', 'vr.Remesa')
+            ->LeftJoin('et_cat_municipio AS m', 'v.idMunicipio', 'm.id')
             ->where('cv.idArchivo', $idArchivo)
-            ->orderBy('cv.folio_vale')
+            ->orderBy('cv.id')
             ->get();
 
         //dd(str_replace_array('?', $res->getBindings(), $res->toSql()));

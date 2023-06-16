@@ -1192,11 +1192,14 @@ class Vales2023Controller extends Controller
                                 $filterQuery .= " $id <> 1 ";
                                 break;
                             default:
-                                //dd($value);
-                                if ($value === -1) {
-                                    $filterQuery .= " $id IS NOT NULL ";
+                                if ($id == 'v.Expedientes' && $value > 0) {
+                                    $filterQuery .= " $id > 0 ";
                                 } else {
-                                    $filterQuery .= " $id = $value ";
+                                    if ($value === -1) {
+                                        $filterQuery .= " $id IS NOT NULL ";
+                                    } else {
+                                        $filterQuery .= " $id = $value ";
+                                    }
                                 }
                         }
                     }

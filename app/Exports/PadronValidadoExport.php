@@ -125,6 +125,7 @@ class PadronValidadoExport implements FromQuery, WithHeadings, ShouldQueue
             ->JOIN('et_cat_municipio AS mr', 'm.idCatalogo', 'mr.id')
             ->JOIN('padron_archivos AS a', 'a.id', 'p.idArchivo')
             ->Where('p.Remesa', $this->remesa)
+            ->Where('p.EstatusOrigen', 'SI')
             ->ORDERBY('p.id');
     }
 }
