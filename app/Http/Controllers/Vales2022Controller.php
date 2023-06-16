@@ -1604,16 +1604,31 @@ class Vales2022Controller extends Controller
 
         //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
         $writer = new Xlsx($spreadsheet);
-        $writer->save('archivos/' . $user->email . 'ValesEjercicio2023.xlsx');
+        $writer->save(
+            'archivos/' .
+                $user->id .
+                '_' .
+                $user->email .
+                '_' .
+                'ValesEjercicio2023.xlsx'
+        );
         $file =
             public_path() .
             '/archivos/' .
+            $user->id .
+            '_' .
             $user->email .
+            '_' .
             'ValesEjercicio2023.xlsx';
+        $fecha = date('Y-m-d H-i-s');
 
         return response()->download(
             $file,
-            $user->email . 'ValesEjercicio2023_' . date('Y-m-d H:i:s') . '.xlsx'
+            'ValesEjercicio2023_' .
+                date('Y-m-d') .
+                '_' .
+                str_replace(' ', '_', $fecha) .
+                '.xlsx'
         );
     }
 

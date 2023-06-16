@@ -522,13 +522,13 @@ class PadronesController extends Controller
                     "IF (p.NombreRenapoValido = 0,'EL NOMBRE ES DIFERENTE A RENAPO','') AS NombreRenapoValido"
                 ),
                 DB::raw(
-                    "IF (p.NombreRenapoValido = 0,rp.nombresLimpio,'') AS NombreRenapoCorrecto"
+                    "IF (p.NombreRenapoValido = 0,rp.nombres,'') AS NombreRenapoCorrecto"
                 ),
                 DB::raw(
-                    "IF (p.NombreRenapoValido = 0,rp.apellido1Limpio,'') AS PaternoRenapoCorrecto"
+                    "IF (p.NombreRenapoValido = 0,rp.apellido1,'') AS PaternoRenapoCorrecto"
                 ),
                 DB::raw(
-                    "IF (p.NombreRenapoValido = 0,rp.apellido2Limpio,'') AS MaternoRenapoCorrecto"
+                    "IF (p.NombreRenapoValido = 0,rp.apellido2,'') AS MaternoRenapoCorrecto"
                 ),
                 DB::raw(
                     "IF (p.MunicipioValido = 0,'EL MUNICIPIO NO ES VALIDO','') AS MunicipioValido"
@@ -652,8 +652,7 @@ class PadronesController extends Controller
         DB::select('CALL padron_errores(' . $id . ')');
         return response()->download(
             $file,
-            $user->email .
-                '_ErroresPadron_' .
+            'ErroresPadron_' .
                 $archivo->Codigo .
                 '_' .
                 date('Y-m-d H:i:s') .
