@@ -87,6 +87,386 @@ class Vales2023Controller extends Controller
         }
     }
 
+    function getSemanas(Request $request)
+    {
+        try {
+            $semanas = DB::Select(
+                "
+                SELECT
+	                CONCAT( 'SEMANA ', WEEK ( s.created_at ), ' - REMESA ', s.Remesa ) AS label,
+	                CONCAT( WEEK ( s.created_at ), '-', s.Remesa ) AS value
+                FROM
+	                vales_solicitudes AS s 
+                WHERE
+	                s.Ejercicio = 2023 
+                GROUP BY
+	                CONCAT( 'SEMANA ', WEEK ( s.created_at ), ' - REMESA ', s.Remesa ),
+	                CONCAT( WEEK ( s.created_at ), '-', s.Remesa );
+                "
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $semanas,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function getRemesas(Request $request)
+    {
+        try {
+            $remesas = DB::Select(
+                "
+                SELECT
+	                DISTINCT(RemesaSistema) AS value
+                FROM
+	                vales_remesas AS r 
+                WHERE
+	                r.Ejercicio = 2023 
+                    AND Estatus = 1
+                "
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $remesas,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getDays(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'clave' => 'required',
+        ]);
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'No se envió la semana a consultar',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $clave = explode('-', $params['clave']);
+
+        try {
+            $dias = DB::Select(
+                "
+                    SELECT
+	                    DATE( s.created_at ) AS value 
+                    FROM
+	                    vales_solicitudes AS s 
+                    WHERE
+	                    WEEK ( s.created_at ) = " .
+                    $clave[0] .
+                    "
+                        AND Remesa = '" .
+                    $clave[1] .
+                    "'" .
+                    "   
+                    GROUP BY
+	                    DATE( s.created_at ) 
+                    ORDER BY
+	                    value
+                "
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $dias,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getPineo(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'semana' => 'required',
+        ]);
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'No se envió la semana a consultar',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $clave = explode('-', $params['semana']);
+        $remesa = $clave[1];
+
+        try {
+            if ($params['vistaPor'] == 2) {
+                $data = DB::Select(
+                    "
+                        SELECT 
+                            HOUR( s.created_at ) AS Hora,
+                            COUNT( s.IdSolicitud ) AS Total 
+                        FROM
+                            vales_solicitudes AS s 
+                        WHERE
+                            s.Ejercicio = 2023
+                            AND s.Remesa = '" .
+                        $remesa .
+                        "'  AND DATE(s.created_at) = '" .
+                        $params['fecha'] .
+                        "' GROUP BY
+                            HOUR ( s.created_at );
+                    "
+                );
+            } else {
+                $data = DB::Select(
+                    "
+                        SELECT 
+                            DATE( s.created_at ) AS Fecha,
+                            COUNT( s.IdSolicitud ) AS Total 
+                        FROM
+                            vales_solicitudes AS s 
+                        WHERE
+                            s.Ejercicio = 2023
+                            AND s.Remesa = '" .
+                        $remesa .
+                        "'  AND WEEK(s.created_at) = '" .
+                        $clave[0] .
+                        "' GROUP BY
+                            DATE( s.created_at );
+                    "
+                );
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $data,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getPineoUser(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'semana' => 'required',
+            'fecha' => 'required',
+        ]);
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'No se envió la semana a consultar',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $clave = explode('-', $params['semana']);
+        $remesa = $clave[1];
+
+        try {
+            $data = DB::Select(
+                "
+                    SELECT
+	                    CONCAT_WS( ' ', u.Nombre, u.Paterno, u.Materno ) AS User,
+	                    COUNT( s.IdSolicitud ) AS Total 
+                    FROM
+	                    vales_solicitudes AS s
+	                    JOIN users AS u ON s.UserCreated = u.id 
+                    WHERE
+	                    s.Ejercicio = 2023 
+	                    AND s.Remesa = '" .
+                    $remesa .
+                    "' AND DATE( s.created_at ) = '" .
+                    $params['fecha'] .
+                    "' 
+                    GROUP BY
+	                    s.UserCreated
+                "
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $data,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getPineoRegionMunicipio(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'remesa' => 'required',
+            'region' => 'required',
+        ]);
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'No se enviaron los datos a consultar',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+
+        try {
+            $dataRegion = DB::Select(
+                "
+                    SELECT 
+                        m.SubRegion AS Region,
+                        COUNT( s.idSolicitud ) AS Total 
+                    FROM
+                        vales AS v
+                        JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
+                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
+                    WHERE
+                            r.RemesaSistema = '" .
+                    $params['remesa'] .
+                    "' GROUP BY
+                        m.SubRegion;
+                "
+            );
+
+            $dataMetasRegion = DB::Select(
+                "
+                    SELECT 
+                        m.SubRegion AS Region,
+                        COUNT( v.id ) AS Total 
+                    FROM
+                        vales AS v
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
+                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
+                    WHERE
+                            r.RemesaSistema = '" .
+                    $params['remesa'] .
+                    "' GROUP BY
+                        m.SubRegion;
+                "
+            );
+
+            $dataMunicipio = DB::Select(
+                "
+                    SELECT 
+                        m.Nombre AS Municipio,
+                        COUNT( s.idSolicitud ) AS Total 
+                    FROM
+                        vales AS v
+                        JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
+                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
+                    WHERE
+                        r.RemesaSistema = '" .
+                    $params['remesa'] .
+                    "' AND m.Subregion = " .
+                    $params['region'] .
+                    " GROUP BY
+                        m.Nombre;
+                "
+            );
+
+            $dataMetasMunicipio = DB::Select(
+                "
+                    SELECT 
+                        m.Nombre AS Municipio,
+                        COUNT( v.id ) AS Total 
+                    FROM
+                        vales AS v
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
+                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
+                        WHERE
+                        r.RemesaSistema = '" .
+                    $params['remesa'] .
+                    "' AND m.Subregion = " .
+                    $params['region'] .
+                    " GROUP BY
+                        m.Nombre;
+                "
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => [
+                    'region' => $dataRegion,
+                    'metasRegion' => $dataMetasRegion,
+                    'municipio' => $dataMunicipio,
+                    'metasMunicipio' => $dataMetasMunicipio,
+                ],
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function getMunicipios(Request $request)
     {
         try {
@@ -1984,6 +2364,81 @@ class Vales2023Controller extends Controller
                 'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
             return response()->json($response, 200);
+        }
+    }
+
+    public function getAvancesGrupos(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        $permisos = DB::table('users_menus')
+            ->where(['idUser' => $user->id, 'idMenu' => '11'])
+            ->get()
+            ->first();
+
+        try {
+            $select = DB::table('vales_grupos AS g')
+                ->select(
+                    'r.RemesaSistema',
+                    'm.SubRegion AS Region',
+                    'm.Nombre AS Municipio',
+                    'g.CveInterventor',
+                    'l.Nombre AS Localidad',
+                    'g.ResponsableEntrega',
+                    'g.TotalAprobados',
+                    DB::RAW('COUNT( s.idSolicitud ) AS Avance')
+                )
+                ->JOIN('et_cat_municipio AS m', 'g.idMunicipio', 'm.Id')
+                ->JOIN('et_cat_localidad_2022 AS l', 'g.idLocalidad', 'l.Id')
+                ->JOIN('vales AS v', 'g.id', 'v.idGrupo')
+                ->JOIN('vales_remesas AS r', 'g.Remesa', 'r.Remesa')
+                ->LEFTJOIN('vales_solicitudes AS s', 'v.id', 's.idSolicitud')
+                ->WHERE('r.RemesaSistema', $parameters['remesa'])
+                ->GROUPBY('g.id')
+                ->ORDERBY('g.id');
+
+            if ($permisos) {
+                if ($permisos->ViewAll == 0) {
+                    $userRegion = DB::table('users_region')
+                        ->select('Region')
+                        ->Where('idUser', $user->id)
+                        ->first();
+                    $select->where('m.SubRegion', $userRegion->Region);
+                }
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No tiene permisos asignados en el menú',
+                    'data' => $data,
+                ]);
+            }
+
+            if (
+                isset($parameters['region']) &&
+                intval($parameters['region'] > 0)
+            ) {
+                $select->where('m.SubRegion', $parameters['region']);
+            }
+
+            $total = (clone $select)->get()->count();
+            $page = $parameters['page'];
+            $pageSize = $parameters['pageSize'];
+            $startIndex = $page * $pageSize;
+
+            $data = $select
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'data' => $data,
+            ]);
+        } catch (QueryException $e) {
+            return ['success' => false, 'errors' => $e->getMessage()];
         }
     }
 }

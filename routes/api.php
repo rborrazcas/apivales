@@ -1000,6 +1000,20 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             '/validateSolicitud',
             'Vales2023Controller@validateSolicitud'
         );
+
+        Route::get('/getSemanasTrabajo', 'Vales2023Controller@getSemanas');
+        Route::get('/getRemesas', 'Vales2023Controller@getRemesas');
+        Route::post('/getDaysForWeek', 'Vales2023Controller@getDays');
+        Route::post('/getPineo', 'Vales2023Controller@getPineo');
+        Route::post('/getPineoUser', 'Vales2023Controller@getPineoUser');
+        Route::post(
+            '/getPineoRegionMunicipio',
+            'Vales2023Controller@getPineoRegionMunicipio'
+        );
+        Route::post(
+            '/getAvancesGrupos',
+            'Vales2023Controller@getAvancesGrupos'
+        );
     });
 
     Route::group(['prefix' => 'trabajemos'], function ($route) {
