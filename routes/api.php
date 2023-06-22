@@ -1193,6 +1193,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('/getTotalPendientes', 'CalentadoresSolares@getPendientes');
         Route::post('/getTotalObservadas', 'CalentadoresSolares@getObservadas');
         Route::post('/getTotalValidadas', 'CalentadoresSolares@getValidadas');
+        Route::get('/cargaMasivo', 'CalentadoresSolares@cargaMasiva');
     });
 
     Route::post('/deleteRelation', 'TrabajemosJuntosController@deleteRelation');
