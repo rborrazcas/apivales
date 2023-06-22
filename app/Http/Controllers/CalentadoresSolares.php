@@ -1488,41 +1488,14 @@ class CalentadoresSolares extends Controller
                     ->Select(
                         'c.id',
                         'ine.idSolicitud AS ine',
-                        'curp.idSolicitud AS curp',
+                        'visita.idSolicitud AS visita',
                         'comp.idSolicitud AS comprobante',
                         'sol.idSolicitud AS solicitud',
                         'ev.idSolicitud AS evidencia'
                     )
                     ->LeftJoin(
                         DB::RAW(
-                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 3 AND idSolicitud = ' .
-                                $params['id'] .
-                                ') AS ine'
-                        ),
-                        'c.id',
-                        'ine.idSolicitud'
-                    )
-                    ->LeftJoin(
-                        DB::RAW(
-                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 4 AND idSolicitud = ' .
-                                $params['id'] .
-                                ') AS curp'
-                        ),
-                        'c.id',
-                        'curp.idSolicitud'
-                    )
-                    ->LeftJoin(
-                        DB::RAW(
-                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 6 AND idSolicitud = ' .
-                                $params['id'] .
-                                ') AS comp'
-                        ),
-                        'c.id',
-                        'comp.idSolicitud'
-                    )
-                    ->LeftJoin(
-                        DB::RAW(
-                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 15 AND idSolicitud = ' .
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 1 AND idSolicitud = ' .
                                 $params['id'] .
                                 ') AS sol'
                         ),
@@ -1531,7 +1504,35 @@ class CalentadoresSolares extends Controller
                     )
                     ->LeftJoin(
                         DB::RAW(
-                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 7 AND idSolicitud = ' .
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 2 AND idSolicitud = ' .
+                                $params['id'] .
+                                ') AS ine'
+                        ),
+                        'c.id',
+                        'ine.idSolicitud'
+                    )
+                    ->LeftJoin(
+                        DB::RAW(
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 3 AND idSolicitud = ' .
+                                $params['id'] .
+                                ') AS comp'
+                        ),
+                        'c.id',
+                        'comp.idSolicitud'
+                    )
+                    ->LeftJoin(
+                        DB::RAW(
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 5 AND idSolicitud = ' .
+                                $params['id'] .
+                                ') AS visita'
+                        ),
+                        'c.id',
+                        'visita.idSolicitud'
+                    )
+
+                    ->LeftJoin(
+                        DB::RAW(
+                            '(SELECT idSolicitud FROM solicitudes_archivos WHERE FechaElimino IS NULL AND idPrograma = 2 AND idClasificacion = 6 AND idSolicitud = ' .
                                 $params['id'] .
                                 ') AS ev'
                         ),
@@ -1545,8 +1546,8 @@ class CalentadoresSolares extends Controller
                     $message = '';
                     if (!$expediente->ine) {
                         $message = 'Falta cargar la INE';
-                    } elseif (!$expediente->curp) {
-                        $message = 'Falta cargar el CURP';
+                    } elseif (!$expediente->visita) {
+                        $message = 'Falta cargar el formato de visita';
                     } elseif (!$expediente->comprobante) {
                         $message = 'Falta cargar el Comprobante de Domicilio';
                     } elseif (!$expediente->solicitud) {
@@ -1793,7 +1794,7 @@ class CalentadoresSolares extends Controller
                 DB::RAW(
                     '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
                         $id .
-                        ' AND idClasificacion = 15 ) AS solicitud'
+                        ' AND idClasificacion = 1 ) AS solicitud'
                 ),
                 'solicitud.idSolicitud',
                 'c.id'
@@ -1802,7 +1803,7 @@ class CalentadoresSolares extends Controller
                 DB::RAW(
                     '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
                         $id .
-                        ' AND idClasificacion = 3 ) AS ine'
+                        ' AND idClasificacion = 2 ) AS ine'
                 ),
                 'ine.idSolicitud',
                 'c.id'
@@ -1811,7 +1812,7 @@ class CalentadoresSolares extends Controller
                 DB::RAW(
                     '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
                         $id .
-                        ' AND idClasificacion = 6 ) AS comp'
+                        ' AND idClasificacion = 3 ) AS comp'
                 ),
                 'comp.idSolicitud',
                 'c.id'
@@ -1820,7 +1821,7 @@ class CalentadoresSolares extends Controller
                 DB::RAW(
                     '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
                         $id .
-                        ' AND idClasificacion = 10 ) AS formato'
+                        ' AND idClasificacion = 5 ) AS formato'
                 ),
                 'formato.idSolicitud',
                 'c.id'
@@ -1829,7 +1830,7 @@ class CalentadoresSolares extends Controller
                 DB::RAW(
                     '(SELECT idSolicitud FROM solicitudes_archivos WHERE idPrograma = 2 AND FechaElimino IS NULL AND idSolicitud = ' .
                         $id .
-                        ' AND idClasificacion = 12 ) AS foto'
+                        ' AND idClasificacion = 6 ) AS foto'
                 ),
                 'foto.idSolicitud',
                 'c.id'
@@ -1858,7 +1859,7 @@ class CalentadoresSolares extends Controller
                 ->Where([
                     'idPrograma' => 2,
                     'idSolicitud' => $id,
-                    'idClasificacion' => 11,
+                    'idClasificacion' => 4,
                 ])
                 ->WhereNull('FechaElimino')
                 ->first();
@@ -1869,5 +1870,77 @@ class CalentadoresSolares extends Controller
         }
 
         return $flag;
+    }
+
+    public function cargaMasiva()
+    {
+        try {
+            $pendientes = DB::table('carga_archivos_masivo_calentadores')
+                ->whereNull('Cargado')
+                ->get();
+            if ($pendientes->count() > 0) {
+                $pendientes->each(function ($item, $key) {
+                    $curpRegistrada = DB::table('solicitudes_calentadores')
+                        ->Select('id', 'CURP')
+                        ->Where('CURP', $item->CURP)
+                        ->first();
+                    if ($curpRegistrada) {
+                        $extension = explode('.', $item->NombreArchivo);
+                        $valesArchivos = [
+                            'idSolicitud' => $curpRegistrada->id,
+                            'idClasificacion' => $item->Clasificacion,
+                            'idPrograma' => 2,
+                            'idEstatus' => 1,
+                            'NombreOriginal' => $item->NombreArchivo,
+                            'NombreSistema' => $item->NombreArchivo,
+                            'Descripcion' => 'Carga masiva',
+                            'Tipo' => 'image',
+                            'Extension' => $extension[1],
+                            'idUsuarioCreo' => 1,
+                            'FechaCreo' => date('Y-m-d H:i:s'),
+                        ];
+
+                        DB::table('solicitudes_archivos')->insert(
+                            $valesArchivos
+                        );
+                        DB::table('carga_archivos_masivo_calentadores')
+                            ->where('id', $item->id)
+                            ->update(['Cargado' => 1]);
+
+                        if ($this->validateExpediente($curpRegistrada->id)) {
+                            DB::table('solicitudes_calentadores')
+                                ->where('id', $curpRegistrada->id)
+                                ->update([
+                                    'ExpedienteCompleto' => 1,
+                                ]);
+                        }
+                    } else {
+                        DB::table('carga_archivos_masivo_calentadores')
+                            ->where('id', $item->id)
+                            ->update(['Cargado' => 0]);
+                    }
+                });
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'message' => 'Archivos cargados con éxito',
+                ];
+                return response()->json($response, 200);
+            }
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'No hay archivos pendientes de carga',
+            ];
+            return response()->json($response, 200);
+        } catch (Exception $e) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => $e,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
     }
 }

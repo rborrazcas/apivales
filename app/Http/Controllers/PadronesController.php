@@ -61,7 +61,7 @@ class PadronesController extends Controller
     function getOrigin()
     {
         try {
-            $res = DB::table('cat_origen')
+            $res = DB::table('cat_padron_origen')
                 ->select('Origen AS label', 'id AS value')
                 ->where(['idPrograma' => 1])
                 ->orderBy('Origen')
