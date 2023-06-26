@@ -1943,4 +1943,45 @@ class CalentadoresSolares extends Controller
             return response()->json($response, 200);
         }
     }
+
+    public function checkFiles()
+    {
+        try {
+            $pendientes = DB::table('solicitudes_calentadores')
+                ->whereNull('FechaElimino')
+                ->Where('ExpedienteCompleto', 0)
+                ->get();
+            if ($pendientes->count() > 0) {
+                $pendientes->each(function ($item, $key) {
+                    if ($this->validateExpediente($item->id)) {
+                        DB::table('solicitudes_calentadores')
+                            ->where('id', $item->id)
+                            ->update([
+                                'ExpedienteCompleto' => 1,
+                            ]);
+                    }
+                });
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'message' => 'Solicitudes Validadas con Éxito',
+                ];
+                return response()->json($response, 200);
+            }
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'No hay solicitudes pendientes de revisión',
+            ];
+            return response()->json($response, 200);
+        } catch (Exception $e) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => $e,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
 }
