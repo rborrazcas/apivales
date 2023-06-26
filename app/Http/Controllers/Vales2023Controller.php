@@ -28,6 +28,7 @@ use App\VNegociosFiltros;
 use Carbon\Carbon as time;
 use Excel;
 use App\Imports\ConciliacionImport;
+use App\Exports\PadronBeneficiariosExport;
 
 class Vales2023Controller extends Controller
 {
@@ -2440,5 +2441,305 @@ class Vales2023Controller extends Controller
         } catch (QueryException $e) {
             return ['success' => false, 'errors' => $e->getMessage()];
         }
+    }
+
+    function getRemesaEjercicio(Request $request)
+    {
+        $params = $request->all();
+        try {
+            $res = DB::table('vales_remesas')
+                ->select('RemesaSistema AS label', 'RemesaSistema AS value')
+                ->where(['Ejercicio' => $params['ejercicio']])
+                ->orderBy('RemesaSistema')
+                ->distinct()
+                ->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $e->getMessage(),
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function getRegiones(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $res = DB::table('cat_regiones')
+                ->select('id AS value', 'Region AS label')
+                ->orderBy('id')
+                ->get();
+
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '32'])
+                ->get()
+                ->first();
+
+            if ($permisos) {
+                if ($permisos->ViewAll > 0) {
+                    $res->push(['value' => 99, 'label' => 'OTROS']);
+                }
+            }
+
+            return [
+                'success' => true,
+                'results' => true,
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $e->getMessage(),
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function getAvancesPadron(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'remesa' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No se recibió la remesa consultar',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $procedure = '';
+
+            if (isset($params['region'])) {
+                if ($params['region'] == 99) {
+                    $procedure = 'remesa_otros("' . $params['remesa'];
+                } else {
+                    $procedure =
+                        'remesa_region("' .
+                        $params['remesa'] .
+                        '", "' .
+                        $params['region'];
+                }
+            } else {
+                $procedure = 'remesa("' . $params['remesa'];
+            }
+
+            $data = DB::Select(
+                'CALL padron_resumen_avance_' . $procedure . '")'
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $data,
+                'total' => count($data),
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getReporteAvances(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'remesa' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No se recibió la remesa consultar',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $procedure = '';
+
+            if (isset($params['region'])) {
+                if ($params['region'] == 99) {
+                    $procedure = 'remesa_otros("' . $params['remesa'];
+                } else {
+                    $procedure =
+                        'remesa_region("' .
+                        $params['remesa'] .
+                        '", "' .
+                        $params['region'];
+                }
+            } else {
+                $procedure = 'remesa("' . $params['remesa'];
+            }
+
+            $data = DB::Select(
+                'CALL padron_resumen_avance_' . $procedure . '")'
+            );
+
+            $res = [];
+            foreach ($data as $item) {
+                $res[] = is_object($item) ? (array) $item : $item;
+            }
+
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoReporteAvancePadron.xlsx'
+            );
+            $sheet = $spreadsheet->getActiveSheet();
+            $largo = count($res);
+            $impresion = $largo + 12;
+            $sheet->getPageSetup()->setPrintArea('A1:I' . $impresion);
+            $sheet
+                ->getPageSetup()
+                ->setOrientation(PageSetup::ORIENTATION_PORTRAIT);
+            $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+
+            $sheet->fromArray($res, null, 'C6');
+
+            $sheet->setCellValue('E2', 'Fecha: ' . date('Y-m-d H:i:s'));
+
+            for ($i = 1; $i <= $largo; $i++) {
+                $inicio = 5 + $i;
+                $sheet->setCellValue('B' . $inicio, $i);
+            }
+
+            $sheet->getDefaultRowDimension()->setRowHeight(-1);
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('archivos/Avance_' . $params['remesa'] . '.xlsx');
+            $file =
+                public_path() .
+                '/archivos/Avance_' .
+                $params['remesa'] .
+                '.xlsx';
+
+            return response()->download(
+                $file,
+                'Avance_' . $params['remesa'] . '.xlsx'
+            );
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getBeneficiariosAvances(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'region' => 'required',
+        ]);
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'No se recibió la region a consultar',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        ini_set('memory_limit', '-1');
+        set_time_limit(0);
+
+        $data = DB::table('padron_validado AS p')
+            ->select(
+                'o.Origen',
+                DB::RAW('LPAD(HEX(p.id),6,0) AS FolioPadron'),
+                'p.Region',
+                'p.Nombre',
+                'p.Paterno',
+                'p.Materno',
+                'p.FechaNacimiento',
+                'p.Sexo',
+                'p.EstadoNacimiento',
+                'p.CURP',
+                'p.CURPAnterior',
+                'p.Municipio',
+                'p.NumLocalidad',
+                'p.Localidad',
+                'p.Colonia',
+                'p.CveColonia',
+                'p.CveInterventor',
+                'p.CveTipoCalle',
+                'p.Calle',
+                'p.NumExt',
+                'p.NumInt',
+                'p.CP',
+                'p.Telefono',
+                'p.Celular',
+                'p.TelRecados',
+                'p.FechaIne',
+                'p.FolioTarjetaContigoSi',
+                'p.EnlaceOrigen',
+                'p.EnlaceIntervencion1',
+                'p.EnlaceIntervencion2',
+                'p.EnlaceIntervencion3',
+                'p.FechaSolicitud',
+                'p.ResponsableEntrega',
+                'p.EstatusOrigen',
+                'p.Remesa',
+                DB::raw(
+                    "IF (p.TieneApoyo = 1,'El BENEFICIARIO TIENE APOYO EN OTRA REMESA',NULL) AS ApoyoMultiple"
+                ),
+                DB::raw(
+                    "IF (p.CURPAnterior IS NOT NULL ,'El CURP FUE ACTUALIZADO POR RENAPO',NULL) AS CURPDiferente"
+                )
+            )
+            ->JOIN('padron_archivos AS a', 'a.id', 'p.idArchivo')
+            ->Join('cat_padron_origen AS o', 'a.idOrigen', '=', 'o.id')
+            ->JOIN('vales_remesas AS r', 'p.Remesa', 'r.Remesa');
+
+        if ($params['region'] == 99) {
+            $data
+                ->Where('r.RemesaSistema', $params['remesa'])
+                ->Where('o.id', '>', 7);
+        } else {
+            $data
+                ->JOIN(
+                    'municipios_padron_vales AS mp',
+                    'mp.Municipio',
+                    'p.Municipio'
+                )
+                ->JOIN('et_cat_municipio AS m', 'mp.idCatalogo', 'm.Id')
+                ->Where('r.RemesaSistema', $params['remesa'])
+                ->Where('m.SubRegion', $params['region'])
+                ->Where('o.id', '<', 8);
+        }
+
+        $data->Where('p.EstatusOrigen', 'SI')->OrderBy('p.id');
+        //dd(str_replace_array('?', $data->getBindings(), $data->toSql()));
+
+        return (new PadronBeneficiariosExport($data))->Download(
+            'Padron_Validado_Remesa_' . $params['remesa'] . '.xlsx'
+        );
     }
 }

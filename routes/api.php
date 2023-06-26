@@ -1003,6 +1003,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
         Route::get('/getSemanasTrabajo', 'Vales2023Controller@getSemanas');
         Route::get('/getRemesas', 'Vales2023Controller@getRemesas');
+        Route::post(
+            '/getRemesaEjercicio',
+            'Vales2023Controller@getRemesaEjercicio'
+        );
         Route::post('/getDaysForWeek', 'Vales2023Controller@getDays');
         Route::post('/getPineo', 'Vales2023Controller@getPineo');
         Route::post('/getPineoUser', 'Vales2023Controller@getPineoUser');
@@ -1013,6 +1017,15 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post(
             '/getAvancesGrupos',
             'Vales2023Controller@getAvancesGrupos'
+        );
+        Route::post('getAvancesPadron', 'Vales2023Controller@getAvancesPadron');
+        Route::get(
+            'getReporteAvances',
+            'Vales2023Controller@getReporteAvances'
+        );
+        Route::get(
+            'getReporteBeneficiarios',
+            'Vales2023Controller@getBeneficiariosAvances'
         );
     });
 
@@ -1210,4 +1223,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get('/getAcuseUnico', 'ReportesController@getAcuseUnico');
 
     Route::post('/cargaMasivo', 'Vales2023Controller@cargaMasiva');
+    Route::post('/checkFilesCalentadores', 'CalentadoresSolares@checkFiles');
+    Route::get('/getRegiones', 'Vales2023Controller@getRegiones');
 });
