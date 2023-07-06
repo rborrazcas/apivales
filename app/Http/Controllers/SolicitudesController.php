@@ -90,6 +90,9 @@ class SolicitudesController extends Controller
                 case 2:
                     $menu = 27;
                     break;
+                case 3:
+                    $menu = 33;
+                    break;
                 default:
                     $menu = 27;
                     break;
@@ -101,20 +104,10 @@ class SolicitudesController extends Controller
                 ->first();
             $filtroPermisos = '';
 
-            if ($permisos->ViewAll < 1 && $permisos->Seguimiento < 1) {
-                $filtroPermisos =
-                    'et_cat_municipio.id IN (' .
-                    'SELECT idMunicipio FROM users_municipios WHERE idPrograma = ' .
-                    $id .
-                    ' AND idUser = ' .
-                    $user->id .
-                    ')';
-            } elseif ($permisos->ViewAll < 1) {
+            if ($permisos->ViewAll < 1) {
                 $filtroPermisos =
                     'et_cat_municipio.SubRegion IN (' .
-                    'SELECT Region FROM users_region WHERE idPrograma = ' .
-                    $id .
-                    ' AND idUser = ' .
+                    'SELECT Region FROM users_region WHERE idUser = ' .
                     $user->id .
                     ')';
             }
@@ -188,7 +181,12 @@ class SolicitudesController extends Controller
                     'a.Tipo',
                     DB::RAW(
                         'CONCAT_WS(" ",u.Nombre,u.Paterno,u.Materno) AS UserAprobo'
-                    )
+                    ),
+                    'pc.id AS idCotizacion',
+                    'pc.FolioCotizacion',
+                    'pc.Subtotal',
+                    'pc.Iva',
+                    'pc.Total'
                 )
                 ->JOIN('cat_estatus_archivos AS ea', 'ea.id', 'a.idEstatus')
                 ->JOIN(
@@ -197,14 +195,20 @@ class SolicitudesController extends Controller
                     'ac.id'
                 )
                 ->LEFTJOIN('users AS u', 'a.idUsuarioAprobo', 'u.id')
+                ->LeftJoin(
+                    'solicitudes_proyectos_cotizaciones AS pc',
+                    'a.id',
+                    'pc.idArchivo'
+                )
                 ->where(['a.idSolicitud' => $id, 'a.idPrograma' => $idPrograma])
                 ->whereNull('a.FechaElimino')
+                ->OrderBy('a.idClasificacion', 'DESC')
                 ->get();
 
             $archivos = array_map(function ($o) {
                 $o->ruta =
-                    //'https://apivales.apisedeshu.com/subidos/' .
-                    //$o->NombreSistema;
+                    //     'https://apivales.apisedeshu.com/subidos/' .
+                    //     $o->NombreSistema;
                     Storage::disk('subidos')->url($o->NombreSistema);
 
                 $observaciones = DB::table(
@@ -245,7 +249,122 @@ class SolicitudesController extends Controller
 
                 $o->correciones = $crs;
 
+                $productos = DB::table('solicitudes_proyectos_productos AS c')
+                    ->select('Producto', 'Cantidad', 'Precio')
+                    ->where([
+                        'c.idCotizacion' => $o->idCotizacion,
+                    ])
+                    ->get();
+                $pd = [];
+                if ($productos != null) {
+                    $pd = $productos->toArray();
+                }
+                $o->productos = $pd;
+
                 $o->color = $this->getColor($o->idEstatus);
+
+                return $o;
+            }, $archivos2->toArray());
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'éxito',
+                'data' => $archivos,
+            ];
+            return response()->json($response, 200);
+        } catch (\Throwable $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    function getFilesProyectos(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'idSolicitud' => 'required',
+            'idPrograma' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $id = $params['idSolicitud'];
+        $idPrograma = $params['idPrograma'];
+
+        try {
+            $archivos2 = DB::table('solicitudes_archivos AS a')
+                ->SELECT(
+                    'a.id',
+                    'a.idSolicitud',
+                    'a.idPrograma',
+                    'a.idClasificacion',
+                    'ac.Clasificacion',
+                    'a.idEstatus',
+                    'ea.Estatus',
+                    'a.NombreOriginal',
+                    'a.NombreSistema',
+                    'a.Extension',
+                    'a.Tipo',
+                    DB::RAW(
+                        'CONCAT_WS(" ",u.Nombre,u.Paterno,u.Materno) AS UserAprobo'
+                    ),
+                    'pc.id AS idCotizacion',
+                    'pc.FolioCotizacion',
+                    'pc.Subtotal',
+                    'pc.Iva',
+                    'pc.Total'
+                )
+                ->JOIN('cat_estatus_archivos AS ea', 'ea.id', 'a.idEstatus')
+                ->JOIN(
+                    'solicitudes_archivos_clasificacion AS ac',
+                    'a.idClasificacion',
+                    'ac.id'
+                )
+                ->LeftJoin('users AS u', 'a.idUsuarioAprobo', 'u.id')
+                ->LeftJoin(
+                    'solicitudes_proyectos_cotizaciones AS pc',
+                    'a.id',
+                    'pc.idArchivo'
+                )
+                ->where(['a.idSolicitud' => $id, 'a.idPrograma' => $idPrograma])
+                ->whereNull('a.FechaElimino')
+                ->OrderBy('a.idClasificacion', 'DESC')
+                ->get();
+
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    //'https://apivales.apisedeshu.com/subidos/' .
+                    //$o->NombreSistema;
+                    Storage::disk('subidos')->url($o->NombreSistema);
+
+                $productos = DB::table('solicitudes_proyectos_productos AS c')
+                    ->select('Producto', 'Cantidad', 'SubTotal')
+                    ->where([
+                        'c.idCotizacion' => $o->idCotizacion,
+                    ])
+                    ->WhereNull('c.FechaElimino')
+                    ->get();
+                $obs = [];
+                if ($productos != null) {
+                    $obs = $productos->toArray();
+                }
+                $o->productos = $obs;
+                $o->color = $this->getColor('#CCC');
 
                 return $o;
             }, $archivos2->toArray());
