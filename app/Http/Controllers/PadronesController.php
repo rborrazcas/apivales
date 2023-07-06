@@ -671,39 +671,6 @@ class PadronesController extends Controller
         return (new PadronValidadoExport($id))->download(
             'Padron_Validado_Remesa-' . $id . '.xlsx'
         );
-
-        // $regiones = DB::SELECT('CALL getTotalRemesas("' . $id . '")');
-        // $carpeta = 'Padron_Validado_' . $user->email;
-
-        // $path = public_path() . '/archivos/' . $carpeta;
-
-        // File::makeDirectory($path, $mode = 0777, true, true);
-
-        // //foreach ($regiones as $r) {
-        // Excel::store(
-        //     new PadronValidadoExport($id, 1),
-        //     'Padron_Remesa_' . $id . '_Region_1.xlsx',
-        //     'public'
-        // );
-        // //}
-
-        // dd('Listo');
-
-        // $file =
-        //     public_path() .
-        //     '/archivos/' .
-        //     $user->email .
-        //     'PlantillaPadron.xlsx';
-
-        // return response()->download(
-        //     $file,
-        //     $user->email .
-        //         '_PlantillaPadron_' .
-        //         $id .
-        //         '_' .
-        //         date('Y-m-d H:i:s') .
-        //         '.xlsx'
-        // );
     }
 
     public function getPlantilla()

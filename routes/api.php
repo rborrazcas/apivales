@@ -819,30 +819,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         );
     });
 
-    Route::group(['prefix' => 'proyectos'], function ($route) {
-        Route::post(
-            '/getEstatusGlobalVentanillaProyectos',
-            'ProyectosController@getEstatusGlobal'
-        );
-        Route::post('/create', 'ProyectosController@create');
-        Route::get('/getById/{id}', 'ProyectosController@getById');
-        Route::get(
-            '/getArchivosByIdP/{id}',
-            'ProyectosController@getFilesById'
-        );
-        Route::get(
-            '/getClasificacionArchivos',
-            'CedulasController@getClasificacionArchivos'
-        );
-        Route::post('/update', 'ProyectosController@update');
-        Route::post('/delete', 'ProyectosController@delete');
-        Route::post(
-            '/updateArchivosCedula',
-            'ProyectosController@updateArchivosCedula'
-        );
-        Route::post('/enviarIGTO', 'ProyectosController@enviarIGTO');
-    });
-
     Route::group(['prefix' => 'diagnostico'], function ($route) {
         Route::post(
             '/getEstatusGlobalVentanillaDiagnostico',
@@ -1003,6 +979,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
         Route::get('/getSemanasTrabajo', 'Vales2023Controller@getSemanas');
         Route::get('/getRemesas', 'Vales2023Controller@getRemesas');
+        Route::post(
+            '/getRemesaEjercicio',
+            'Vales2023Controller@getRemesaEjercicio'
+        );
         Route::post('/getDaysForWeek', 'Vales2023Controller@getDays');
         Route::post('/getPineo', 'Vales2023Controller@getPineo');
         Route::post('/getPineoUser', 'Vales2023Controller@getPineoUser');
@@ -1013,6 +993,15 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post(
             '/getAvancesGrupos',
             'Vales2023Controller@getAvancesGrupos'
+        );
+        Route::post('getAvancesPadron', 'Vales2023Controller@getAvancesPadron');
+        Route::get(
+            'getReporteAvances',
+            'Vales2023Controller@getReporteAvances'
+        );
+        Route::get(
+            'getReporteBeneficiarios',
+            'Vales2023Controller@getBeneficiariosAvances'
         );
     });
 
@@ -1166,7 +1155,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::get('/getPdf', 'CalentadoresSolares@getPdf');
         Route::get('/getSolicitud/{id}', 'CalentadoresSolares@getSolicitud');
         Route::post('/getSolicitudes', 'CalentadoresSolares@getSolicitudes');
-        Route::get('/getSolicitud/{id}', 'CalentadoresSolares@getSolicitud');
         Route::get(
             '/getSolicitudesReporte',
             'CalentadoresSolares@getSolicitudesReporte'
@@ -1196,6 +1184,60 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::get('/cargaMasivo', 'CalentadoresSolares@cargaMasiva');
     });
 
+    //! Proyectos Productivos
+    Route::group(['prefix' => 'proyectos'], function ($route) {
+        // * 2022
+        Route::post(
+            '/getEstatusGlobalVentanillaProyectos',
+            'ProyectosController@getEstatusGlobal'
+        );
+        Route::post('/create', 'ProyectosController@create');
+        Route::get('/getById/{id}', 'ProyectosController@getById');
+        Route::get(
+            '/getArchivosByIdP/{id}',
+            'ProyectosController@getFilesById'
+        );
+        Route::get(
+            '/getClasificacionArchivos',
+            'CedulasController@getClasificacionArchivos'
+        );
+        Route::post('/update', 'ProyectosController@update');
+        Route::post('/delete', 'ProyectosController@delete');
+        Route::post(
+            '/updateArchivosCedula',
+            'ProyectosController@updateArchivosCedula'
+        );
+        Route::post('/enviarIGTO', 'ProyectosController@enviarIGTO');
+
+        // * 2023
+        Route::post('/getMunicipios', 'ProyectosPController@getMunicipios');
+        Route::post('/getTotalSolicitudes', 'ProyectosPController@getTotal');
+        Route::post(
+            '/getTotalPendientes',
+            'ProyectosPController@getPendientes'
+        );
+        Route::post('/getTotalValidadas', 'ProyectosPController@getValidas');
+        Route::get('/getSolicitud/{id}', 'ProyectosPController@getSolicitud');
+        Route::post('/getSolicitudes', 'ProyectosPController@getSolicitudes');
+        Route::get(
+            '/getSolicitudesReporte',
+            'ProyectosPController@getSolicitudesReporte'
+        );
+        Route::get(
+            '/getClasificacionArchivos',
+            'ProyectosPController@getFilesClasification'
+        );
+        Route::get('/getPdf', 'ProyectosPController@getPdf');
+        Route::post('/createSolicitud', 'ProyectosPController@create');
+        Route::post('/updateSolicitud', 'ProyectosPController@update');
+        Route::post('/deleteSolicitud', 'ProyectosPController@delete');
+        Route::post(
+            '/createCotizacion',
+            'ProyectosPController@createCotizacion'
+        );
+        Route::post('/saveNewFiles', 'ProyectosPController@saveNewFiles');
+    });
+
     Route::post('/deleteRelation', 'TrabajemosJuntosController@deleteRelation');
 
     Route::post('/addRelation', 'TrabajemosJuntosController@addRelation');
@@ -1210,4 +1252,6 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get('/getAcuseUnico', 'ReportesController@getAcuseUnico');
 
     Route::post('/cargaMasivo', 'Vales2023Controller@cargaMasiva');
+    Route::post('/checkFilesCalentadores', 'CalentadoresSolares@checkFiles');
+    Route::get('/getRegiones', 'Vales2023Controller@getRegiones');
 });
