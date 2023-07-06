@@ -2321,23 +2321,37 @@ class Vales2023Controller extends Controller
                         ->Where('CURP', $item->CURP)
                         ->first();
                     if ($curpRegistrada) {
-                        $extension = explode('.', $item->NombreArchivo);
-                        $valesArchivos = [
-                            'idSolicitud' => $curpRegistrada->id,
-                            'idClasificacion' => $item->Clasificacion,
-                            'NombreOriginal' => $item->NombreArchivo,
-                            'NombreSistema' => $item->NombreArchivo,
-                            'Tipo' => 'image',
-                            'Extension' => $extension[1],
-                            'idUsuarioCreo' => 1,
-                            'FechaCreo' => date('Y-m-d H:i:s'),
-                        ];
+                        $archivoRegistrado = DB::table('vales_archivos')
+                            ->Select('idSolicitud')
+                            ->WhereNull('FechaElimino')
+                            ->Where([
+                                'idSolicitud' => $curpRegistrada->id,
+                                'idClasificacion' => $item->Clasificacion,
+                            ])
+                            ->first();
+                        if (!$archivoRegistrado) {
+                            $extension = explode('.', $item->NombreArchivo);
+                            $valesArchivos = [
+                                'idSolicitud' => $curpRegistrada->id,
+                                'idClasificacion' => $item->Clasificacion,
+                                'NombreOriginal' => $item->NombreArchivo,
+                                'NombreSistema' => $item->NombreArchivo,
+                                'Tipo' => 'image',
+                                'Extension' => $extension[1],
+                                'idUsuarioCreo' => 1,
+                                'FechaCreo' => date('Y-m-d H:i:s'),
+                            ];
 
-                        DB::table('vales_archivos')->insert($valesArchivos);
-                        DB::table('carga_archivos_masivo')
-                            ->where('id', $item->ID)
-                            ->update(['Cargado' => 1]);
-                        $this->validarExpediente($curpRegistrada->id);
+                            DB::table('vales_archivos')->insert($valesArchivos);
+                            DB::table('carga_archivos_masivo')
+                                ->where('id', $item->ID)
+                                ->update(['Cargado' => 1]);
+                            $this->validarExpediente($curpRegistrada->id);
+                        } else {
+                            DB::table('carga_archivos_masivo')
+                                ->where('id', $item->ID)
+                                ->update(['Cargado' => 2]);
+                        }
                     } else {
                         DB::table('carga_archivos_masivo')
                             ->where('id', $item->ID)
