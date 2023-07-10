@@ -159,6 +159,59 @@ class Vales2023Controller extends Controller
         }
     }
 
+    function getRemesasAll(Request $request)
+    {
+        try {
+            $parameters = $request->all();
+            $user = auth()->user();
+
+            $ejercicio = 2022;
+            if (isset($parameters['ejercicio'])) {
+                $ejercicio = $parameters['ejercicio'];
+            }
+
+            if ($ejercicio == 2022) {
+                $res = DB::table('vales_remesas')
+                    ->distinct()
+                    ->where('Ejercicio', $ejercicio);
+
+                $res = $res->orderBy('RemesaSistema');
+
+                $total = $res->count();
+                $remesas = $res->get(['RemesaSistema']);
+            } else {
+                $remesas = DB::Select(
+                    "
+                    SELECT
+                        Remesa AS RemesaSistema
+                    FROM
+                        vales_remesas AS r 
+                    WHERE
+                        r.Ejercicio = 2023                         
+                    "
+                );
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'total' => 0,
+                'data' => $remesas,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     public function getDays(Request $request)
     {
         $v = Validator::make($request->all(), [
@@ -236,7 +289,30 @@ class Vales2023Controller extends Controller
         $remesa = $clave[1];
 
         try {
-            if ($params['vistaPor'] == 2) {
+            $dias = DB::Select(
+                "
+                    SELECT
+                        DATE( s.created_at ) AS value 
+                    FROM
+                        vales_solicitudes AS s 
+                    WHERE
+                        WEEK ( s.created_at ) = " .
+                    $clave[0] .
+                    "
+                        AND Remesa = '" .
+                    $remesa .
+                    "'" .
+                    "   
+                    GROUP BY
+                        DATE( s.created_at ) 
+                    ORDER BY
+                        value
+                "
+            );
+
+            $dataWeek = [];
+
+            foreach ($dias as $dia) {
                 $data = DB::Select(
                     "
                         SELECT 
@@ -249,35 +325,75 @@ class Vales2023Controller extends Controller
                             AND s.Remesa = '" .
                         $remesa .
                         "'  AND DATE(s.created_at) = '" .
-                        $params['fecha'] .
+                        $dia->value .
                         "' GROUP BY
                             HOUR ( s.created_at );
                     "
                 );
-            } else {
-                $data = DB::Select(
+
+                $dataTotal = DB::Select(
                     "
-                        SELECT 
-                            DATE( s.created_at ) AS Fecha,
-                            COUNT( s.IdSolicitud ) AS Total 
+                        SELECT
+                            COUNT(*) AS Total
                         FROM
-                            vales_solicitudes AS s 
+                            vales_solicitudes AS s
                         WHERE
                             s.Ejercicio = 2023
                             AND s.Remesa = '" .
                         $remesa .
-                        "'  AND WEEK(s.created_at) = '" .
-                        $clave[0] .
-                        "' GROUP BY
-                            DATE( s.created_at );
+                        "'  AND DATE(s.created_at) = '" .
+                        $dia->value .
+                        "';
                     "
                 );
-            }
 
+                $dataWeek[] = [
+                    'dia' => $dia->value,
+                    'total' => $dataTotal ? $dataTotal[0]->Total : 0,
+                    'data' => $data,
+                ];
+            }
+            // if ($params['vistaPor'] == 2) {
+            //     $data = DB::Select(
+            //         "
+            //             SELECT
+            //                 HOUR( s.created_at ) AS Hora,
+            //                 COUNT( s.IdSolicitud ) AS Total
+            //             FROM
+            //                 vales_solicitudes AS s
+            //             WHERE
+            //                 s.Ejercicio = 2023
+            //                 AND s.Remesa = '" .
+            //             $remesa .
+            //             "'  AND DATE(s.created_at) = '" .
+            //             $params['fecha'] .
+            //             "' GROUP BY
+            //                 HOUR ( s.created_at );
+            //         "
+            //     );
+            // } else {
+            //     $data = DB::Select(
+            //         "
+            //             SELECT
+            //                 DATE( s.created_at ) AS Fecha,
+            //                 COUNT( s.IdSolicitud ) AS Total
+            //             FROM
+            //                 vales_solicitudes AS s
+            //             WHERE
+            //                 s.Ejercicio = 2023
+            //                 AND s.Remesa = '" .
+            //             $remesa .
+            //             "'  AND WEEK(s.created_at) = '" .
+            //             $clave[0] .
+            //             "' GROUP BY
+            //                 DATE( s.created_at );
+            //         "
+            //     );
+            // }
             $response = [
                 'success' => true,
                 'results' => true,
-                'data' => $data,
+                'data' => $dataWeek,
             ];
             return response()->json($response, 200);
         } catch (\QueryException $errors) {
@@ -668,7 +784,7 @@ class Vales2023Controller extends Controller
                     if (in_array($id, $filtersCedulas)) {
                         $id = 'c' . $id;
                     } elseif (in_array($id, $filtersRemesas)) {
-                        $id = 'r.RemesaSistema';
+                        $id = 'r.Remesa';
                     } else {
                         $id = 'v' . $id;
                     }

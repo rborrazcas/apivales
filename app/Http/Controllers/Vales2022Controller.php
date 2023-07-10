@@ -1492,7 +1492,7 @@ class Vales2022Controller extends Controller
                         if (in_array($id, $filtersCedulas)) {
                             $id = 'c' . $id;
                         } elseif (in_array($id, $filtersRemesas)) {
-                            $id = 'r.RemesaSistema';
+                            $id = 'r.Remesa';
                         } else {
                             $id = 'vales' . $id;
                         }

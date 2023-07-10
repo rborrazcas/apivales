@@ -1477,7 +1477,10 @@ class CalentadoresSolares extends Controller
                 ->where('solicitudes_calentadores.id', $params['id'])
                 ->first();
 
-            if ($solicitud->idEstatusSolicitud === 5) {
+            if (
+                $solicitud->idEstatusSolicitud === 5 &&
+                $params['idEstatusSolicitud'] != 14
+            ) {
                 $response = [
                     'success' => true,
                     'results' => false,
