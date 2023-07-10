@@ -437,7 +437,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'CedulasController@getArticuladoresVentanilla'
     );
 
-    Route::post('/getRemesasVales', 'Vales2022Controller@getRemesas');
+    //Route::post('/getRemesasVales', 'Vales2022Controller@getRemesas');
+    Route::post('/getRemesasVales', 'Vales2023Controller@getRemesasAll');
 
     Route::post(
         '/getArticuladoresYoPuedo',
@@ -1003,6 +1004,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'getReporteBeneficiarios',
             'Vales2023Controller@getBeneficiariosAvances'
         );
+        Route::post('/getRemesasAll', 'Vales2023Controller@getRemesasAll');
     });
 
     Route::group(['prefix' => 'trabajemos'], function ($route) {
