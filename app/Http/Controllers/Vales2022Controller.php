@@ -1326,7 +1326,7 @@ class Vales2022Controller extends Controller
         $query =
             'vales.id,' .
             'CONCAT(lpad(hex(vales.id),6,0)," ") AS FolioSolicitud, ' .
-            'r.RemesaSistema AS Remesa, ' .
+            'r.Remesa, ' .
             'sol.SerieInicial,' .
             'sol.SerieFinal,' .
             'vales.FechaSolicitud, ' .
@@ -1356,11 +1356,12 @@ class Vales2022Controller extends Controller
             'CASE WHEN vales.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
             'vales.entrega_at AS FechaEntrega, ' .
             's.Estatus,' .
-            'vales.ResponsableEntrega';
+            'vales.ResponsableEntrega, ' .
+            'CASE WHEN vales.Devuelto = 0 THEN "" ELSE "DEVUELTO" END AS Devuelto';
         $queryCve =
             'vales.id,' .
             'CONCAT(lpad(hex(vales.id),6,0)," ") AS FolioSolicitud, ' .
-            'r.RemesaSistema AS Remesa, ' .
+            'r.Remesa, ' .
             'sol.SerieInicial,' .
             'sol.SerieFinal,' .
             'vales.FechaSolicitud, ' .
@@ -1392,7 +1393,8 @@ class Vales2022Controller extends Controller
             's.Estatus,' .
             'vales.ResponsableEntrega,' .
             'LPAD(HEX(vales.idGrupo),6,0) AS FolioGrupo, ' .
-            'CONCAT(vales.Remesa,"_",vales.CveInterventor)';
+            'CONCAT(vales.Remesa,"_",vales.CveInterventor) AS Cve, ' .
+            'CASE WHEN vales.Devuelto = 0 THEN "" ELSE "DEVUELTO" END AS Devuelto';
 
         $res = DB::table('vales')
             ->selectRaw($user->id === 1132 ? $queryCve : $query)
@@ -1474,6 +1476,14 @@ class Vales2022Controller extends Controller
 
                         if ($id == '.id') {
                             $value = hexdec($value);
+                        }
+
+                        if ($id == '.isEntregado' && $value == 0) {
+                            if ($filterQuery != '') {
+                                $filterQuery .= ' AND Devuelto = 0 AND ';
+                            } else {
+                                $filterQuery = 'Devuelto = 0 AND ';
+                            }
                         }
 
                         if ($id == 'region') {
