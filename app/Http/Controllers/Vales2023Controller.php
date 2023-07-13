@@ -700,7 +700,7 @@ class Vales2023Controller extends Controller
                     'v.id,' .
                         'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
                         'v.FechaSolicitud, ' .
-                        'r.RemesaSistema AS Remesa, ' .
+                        'r.Remesa, ' .
                         'v.Nombre, ' .
                         'v.Paterno, ' .
                         'v.Materno, ' .
@@ -766,6 +766,14 @@ class Vales2023Controller extends Controller
 
                     if ($id == '.id') {
                         $value = hexdec($value);
+                    }
+
+                    if ($id == '.isEntregado' && $value == 0) {
+                        if ($filterQuery != '') {
+                            $filterQuery .= ' AND Devuelto = 0 AND ';
+                        } else {
+                            $filterQuery = 'Devuelto = 0 AND ';
+                        }
                     }
 
                     if ($id == 'region') {
@@ -2510,7 +2518,7 @@ class Vales2023Controller extends Controller
         try {
             $select = DB::table('vales_grupos AS g')
                 ->select(
-                    'r.RemesaSistema',
+                    'r.Remesa AS RemesaSistema',
                     'm.SubRegion AS Region',
                     'm.Nombre AS Municipio',
                     'g.CveInterventor',
@@ -2524,7 +2532,7 @@ class Vales2023Controller extends Controller
                 ->JOIN('vales AS v', 'g.id', 'v.idGrupo')
                 ->JOIN('vales_remesas AS r', 'g.Remesa', 'r.Remesa')
                 ->LEFTJOIN('vales_solicitudes AS s', 'v.id', 's.idSolicitud')
-                ->WHERE('r.RemesaSistema', $parameters['remesa'])
+                ->WHERE('r.Remesa', $parameters['remesa'])
                 ->GROUPBY('g.id')
                 ->ORDERBY('g.id');
 
@@ -2561,6 +2569,120 @@ class Vales2023Controller extends Controller
                 ->offset($startIndex)
                 ->take($pageSize)
                 ->get();
+
+            return response()->json([
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'data' => $data,
+            ]);
+        } catch (QueryException $e) {
+            return ['success' => false, 'errors' => $e->getMessage()];
+        }
+    }
+
+    public function getAvancesGruposReporte(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        $permisos = DB::table('users_menus')
+            ->where(['idUser' => $user->id, 'idMenu' => '11'])
+            ->get()
+            ->first();
+
+        try {
+            $select = DB::table('vales_grupos AS g')
+                ->select(
+                    'r.Remesa AS RemesaSistema',
+                    'm.SubRegion AS Region',
+                    'm.Nombre AS Municipio',
+                    'g.CveInterventor',
+                    'l.Nombre AS Localidad',
+                    'g.ResponsableEntrega',
+                    'g.TotalAprobados',
+                    DB::RAW('COUNT( s.idSolicitud ) AS Avance')
+                )
+                ->JOIN('et_cat_municipio AS m', 'g.idMunicipio', 'm.Id')
+                ->JOIN('et_cat_localidad_2022 AS l', 'g.idLocalidad', 'l.Id')
+                ->JOIN('vales AS v', 'g.id', 'v.idGrupo')
+                ->JOIN('vales_remesas AS r', 'g.Remesa', 'r.Remesa')
+                ->LEFTJOIN('vales_solicitudes AS s', 'v.id', 's.idSolicitud')
+                ->WHERE('r.Remesa', $parameters['remesa'])
+                ->GROUPBY('g.id')
+                ->ORDERBY('g.id');
+
+            if ($permisos) {
+                if ($permisos->ViewAll == 0) {
+                    $userRegion = DB::table('users_region')
+                        ->select('Region')
+                        ->Where('idUser', $user->id)
+                        ->first();
+                    $select->where('m.SubRegion', $userRegion->Region);
+                }
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'errors' => 'No tiene permisos asignados en el menú',
+                    'data' => $data,
+                ]);
+            }
+
+            if (
+                isset($parameters['region']) &&
+                intval($parameters['region'] > 0)
+            ) {
+                $select->where('m.SubRegion', $parameters['region']);
+            }
+
+            $data = $select->get();
+
+            $res = $data
+                ->map(function ($x) {
+                    $x = is_object($x) ? (array) $x : $x;
+                    return $x;
+                })
+                ->toArray();
+
+            $reader = IOFactory::createReader('Xlsx');
+            $spreadsheet = $reader->load(
+                public_path() . '/archivos/formatoAvanceGrupos.xlsx'
+            );
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->fromArray($res, null, 'B6');
+            $largo = count($res);
+            $sheet->setCellValue('D3', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+
+            for ($i = 1; $i <= $largo; $i++) {
+                $inicio = 5 + $i;
+                $sheet->setCellValue('A' . $inicio, $i);
+            }
+            $sheet->getDefaultRowDimension()->setRowHeight(-1);
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save(
+                'archivos/' .
+                    $user->email .
+                    'AvanceGrupos_' .
+                    $parameters['remesa'] .
+                    '.xlsx'
+            );
+            $file =
+                public_path() .
+                '/archivos/' .
+                $user->email .
+                'AvanceGrupos_' .
+                $parameters['remesa'] .
+                '.xlsx';
+
+            return response()->download(
+                $file,
+                $user->email .
+                    'AvanceGrupos_' .
+                    $parameters['remesa'] .
+                    date('Y-m-d H:i:s') .
+                    '.xlsx'
+            );
 
             return response()->json([
                 'success' => true,
@@ -2871,5 +2993,55 @@ class Vales2023Controller extends Controller
         return (new PadronBeneficiariosExport($data))->Download(
             'Padron_Validado_Remesa_' . $params['remesa'] . '.xlsx'
         );
+    }
+
+    public function getRegionesMenu(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $parameters = $request->all();
+            $res = DB::table('cat_regiones')->select(
+                'id AS value',
+                'Region AS label'
+            );
+
+            if (isset($parameters['menu'])) {
+                $permisos = DB::table('users_menus')
+                    ->where([
+                        'idUser' => $user->id,
+                        'idMenu' => $parameters['menu'],
+                    ])
+                    ->get()
+                    ->first();
+
+                if ($permisos) {
+                    if ($permisos->ViewAll == 0) {
+                        $res->WhereRaw(
+                            'id IN (' .
+                                'SELECT Region FROM users_region WHERE idUser = ' .
+                                $user->id .
+                                ')'
+                        );
+                    }
+                }
+            }
+
+            $res = $res->orderBy('id')->get();
+
+            return [
+                'success' => true,
+                'results' => true,
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $e->getMessage(),
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
     }
 }
