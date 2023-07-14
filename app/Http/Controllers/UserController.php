@@ -1209,6 +1209,7 @@ class UserController extends Controller
                 ->JOIN('et_cat_municipio as M', 'V.idMunicipio', '=', 'M.Id')
                 ->JOIN('et_cat_localidad_2022 as L', 'L.id', 'V.idLocalidad')
                 ->where('V.idStatus', '=', 5)
+                ->where('V.Devuelto', '=', 0)
                 ->where('V.idIncidencia', '=', 1)
                 ->where('V.Ejercicio', 2023)
                 ->whereNotIn('V.id', function ($query) {
