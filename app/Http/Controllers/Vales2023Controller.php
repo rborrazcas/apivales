@@ -1680,7 +1680,7 @@ class Vales2023Controller extends Controller
                         }
                     } else {
                         if (in_array($id, $filtersRemesas)) {
-                            $id = 'r.RemesaSistema';
+                            $id = 'r.Remesa';
                         } else {
                             $id = 'v' . $id;
                         }
