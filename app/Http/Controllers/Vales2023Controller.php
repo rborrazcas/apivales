@@ -91,6 +91,35 @@ class Vales2023Controller extends Controller
     function getSemanas(Request $request)
     {
         try {
+            $user = auth()->user();
+            $permisos = DB::table('users_menus AS um')
+                ->Select('Seguimiento', 'ViewAll')
+                ->Where(['idUser' => $user->id, 'idMenu' => 31])
+                ->first();
+
+            $filtroPermisos = '';
+
+            if ($permisos) {
+                if ($permisos->ViewAll === 0) {
+                    $userRegion = DB::table('users_region')
+                        ->select('Region')
+                        ->Where('idUser', $user->id)
+                        ->first();
+                    $filtroPermisos =
+                        ' AND m.SubRegion = ' . $userRegion->Region . ' ';
+                }
+            } else {
+                $response = [
+                    'success' => false,
+                    'results' => false,
+                    'total' => 0,
+                    'errors' => 'No tiene permisos en este menú',
+                    'message' => 'No tiene permisos en este menú',
+                ];
+
+                return response()->json($response, 200);
+            }
+
             $semanas = DB::Select(
                 "
                 SELECT
@@ -98,9 +127,11 @@ class Vales2023Controller extends Controller
 	                CONCAT( WEEK ( s.created_at ), '-', s.Remesa ) AS value
                 FROM
 	                vales_solicitudes AS s 
+                    JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                 WHERE
-	                s.Ejercicio = 2023 
-                GROUP BY
+	                s.Ejercicio = 2023 " .
+                    $filtroPermisos .
+                    " GROUP BY
 	                CONCAT( 'SEMANA ', WEEK ( s.created_at ), ' - REMESA ', s.Remesa ),
 	                CONCAT( WEEK ( s.created_at ), '-', s.Remesa );
                 "
@@ -228,6 +259,34 @@ class Vales2023Controller extends Controller
 
         $params = $request->all();
         $clave = explode('-', $params['clave']);
+        $user = auth()->user();
+        $permisos = DB::table('users_menus AS um')
+            ->Select('Seguimiento', 'ViewAll')
+            ->Where(['idUser' => $user->id, 'idMenu' => 31])
+            ->first();
+
+        $filtroPermisos = '';
+
+        if ($permisos) {
+            if ($permisos->ViewAll === 0) {
+                $userRegion = DB::table('users_region')
+                    ->select('Region')
+                    ->Where('idUser', $user->id)
+                    ->first();
+                $filtroPermisos =
+                    ' AND m.SubRegion = ' . $userRegion->Region . ' ';
+            }
+        } else {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => 'No tiene permisos en este menú',
+                'message' => 'No tiene permisos en este menú',
+            ];
+
+            return response()->json($response, 200);
+        }
 
         try {
             $dias = DB::Select(
@@ -236,6 +295,7 @@ class Vales2023Controller extends Controller
 	                    DATE( s.created_at ) AS value 
                     FROM
 	                    vales_solicitudes AS s 
+                        JOIN et_cat_municipio AS m ON m.Id = s.idMunicipio
                     WHERE
 	                    WEEK ( s.created_at ) = " .
                     $clave[0] .
@@ -243,6 +303,7 @@ class Vales2023Controller extends Controller
                         AND Remesa = '" .
                     $clave[1] .
                     "'" .
+                    $filtroPermisos .
                     "   
                     GROUP BY
 	                    DATE( s.created_at ) 
@@ -288,6 +349,35 @@ class Vales2023Controller extends Controller
         $clave = explode('-', $params['semana']);
         $remesa = $clave[1];
 
+        $user = auth()->user();
+        $permisos = DB::table('users_menus AS um')
+            ->Select('Seguimiento', 'ViewAll')
+            ->Where(['idUser' => $user->id, 'idMenu' => 31])
+            ->first();
+
+        $filtroPermisos = '';
+
+        if ($permisos) {
+            if ($permisos->ViewAll === 0) {
+                $userRegion = DB::table('users_region')
+                    ->select('Region')
+                    ->Where('idUser', $user->id)
+                    ->first();
+                $filtroPermisos =
+                    ' AND m.SubRegion = ' . $userRegion->Region . ' ';
+            }
+        } else {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => 'No tiene permisos en este menú',
+                'message' => 'No tiene permisos en este menú',
+            ];
+
+            return response()->json($response, 200);
+        }
+
         try {
             $dias = DB::Select(
                 "
@@ -295,13 +385,15 @@ class Vales2023Controller extends Controller
                         DATE( s.created_at ) AS value 
                     FROM
                         vales_solicitudes AS s 
+                        JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                     WHERE
                         WEEK ( s.created_at ) = " .
                     $clave[0] .
                     "
                         AND Remesa = '" .
                     $remesa .
-                    "'" .
+                    "' " .
+                    $filtroPermisos .
                     "   
                     GROUP BY
                         DATE( s.created_at ) 
@@ -320,13 +412,16 @@ class Vales2023Controller extends Controller
                             COUNT( s.IdSolicitud ) AS Total 
                         FROM
                             vales_solicitudes AS s 
+                            JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                         WHERE
                             s.Ejercicio = 2023
                             AND s.Remesa = '" .
                         $remesa .
                         "'  AND DATE(s.created_at) = '" .
                         $dia->value .
-                        "' GROUP BY
+                        "' " .
+                        $filtroPermisos .
+                        "GROUP BY
                             HOUR ( s.created_at );
                     "
                 );
@@ -337,13 +432,16 @@ class Vales2023Controller extends Controller
                             COUNT(*) AS Total
                         FROM
                             vales_solicitudes AS s
+                            JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                         WHERE
                             s.Ejercicio = 2023
                             AND s.Remesa = '" .
                         $remesa .
                         "'  AND DATE(s.created_at) = '" .
                         $dia->value .
-                        "';
+                        "' " .
+                        $filtroPermisos .
+                        ";
                     "
                 );
 
@@ -427,6 +525,34 @@ class Vales2023Controller extends Controller
         $params = $request->all();
         $clave = explode('-', $params['semana']);
         $remesa = $clave[1];
+        $user = auth()->user();
+        $permisos = DB::table('users_menus AS um')
+            ->Select('Seguimiento', 'ViewAll')
+            ->Where(['idUser' => $user->id, 'idMenu' => 31])
+            ->first();
+
+        $filtroPermisos = '';
+
+        if ($permisos) {
+            if ($permisos->ViewAll === 0) {
+                $userRegion = DB::table('users_region')
+                    ->select('Region')
+                    ->Where('idUser', $user->id)
+                    ->first();
+                $filtroPermisos =
+                    ' AND m.SubRegion = ' . $userRegion->Region . ' ';
+            }
+        } else {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => 'No tiene permisos en este menú',
+                'message' => 'No tiene permisos en este menú',
+            ];
+
+            return response()->json($response, 200);
+        }
 
         try {
             $data = DB::Select(
@@ -437,13 +563,16 @@ class Vales2023Controller extends Controller
                     FROM
 	                    vales_solicitudes AS s
 	                    JOIN users AS u ON s.UserCreated = u.id 
+                        JOIN et_cat_municipio AS m ON m.Id = s.idMunicipio
                     WHERE
 	                    s.Ejercicio = 2023 
 	                    AND s.Remesa = '" .
                     $remesa .
                     "' AND DATE( s.created_at ) = '" .
                     $params['fecha'] .
-                    "' 
+                    "' " .
+                    $filtroPermisos .
+                    "
                     GROUP BY
 	                    s.UserCreated
                 "
@@ -484,6 +613,34 @@ class Vales2023Controller extends Controller
         }
 
         $params = $request->all();
+        $user = auth()->user();
+        $permisos = DB::table('users_menus AS um')
+            ->Select('Seguimiento', 'ViewAll')
+            ->Where(['idUser' => $user->id, 'idMenu' => 31])
+            ->first();
+
+        $filtroPermisos = '';
+
+        if ($permisos) {
+            if ($permisos->ViewAll === 0) {
+                $userRegion = DB::table('users_region')
+                    ->select('Region')
+                    ->Where('idUser', $user->id)
+                    ->first();
+                $filtroPermisos =
+                    ' AND m.SubRegion = ' . $userRegion->Region . ' ';
+            }
+        } else {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => 'No tiene permisos en este menú',
+                'message' => 'No tiene permisos en este menú',
+            ];
+
+            return response()->json($response, 200);
+        }
 
         try {
             $dataRegion = DB::Select(
@@ -499,7 +656,10 @@ class Vales2023Controller extends Controller
                     WHERE
                             r.RemesaSistema = '" .
                     $params['remesa'] .
-                    "' GROUP BY
+                    "' " .
+                    $filtroPermisos .
+                    "
+                    GROUP BY
                         m.SubRegion;
                 "
             );
@@ -516,7 +676,10 @@ class Vales2023Controller extends Controller
                     WHERE
                             r.RemesaSistema = '" .
                     $params['remesa'] .
-                    "' GROUP BY
+                    "' " .
+                    $filtroPermisos .
+                    "
+                    GROUP BY
                         m.SubRegion;
                 "
             );
@@ -536,7 +699,10 @@ class Vales2023Controller extends Controller
                     $params['remesa'] .
                     "' AND m.Subregion = " .
                     $params['region'] .
-                    " GROUP BY
+                    ' ' .
+                    $filtroPermisos .
+                    "
+                    GROUP BY
                         m.Nombre;
                 "
             );
@@ -555,7 +721,10 @@ class Vales2023Controller extends Controller
                     $params['remesa'] .
                     "' AND m.Subregion = " .
                     $params['region'] .
-                    " GROUP BY
+                    ' ' .
+                    $filtroPermisos .
+                    " 
+                    GROUP BY
                         m.Nombre;
                 "
             );
@@ -1680,7 +1849,7 @@ class Vales2023Controller extends Controller
                         }
                     } else {
                         if (in_array($id, $filtersRemesas)) {
-                            $id = 'r.RemesaSistema';
+                            $id = 'r.Remesa';
                         } else {
                             $id = 'v' . $id;
                         }
@@ -3039,6 +3208,254 @@ class Vales2023Controller extends Controller
                 'results' => false,
                 'errors' => $e->getMessage(),
                 'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getMunicipiosRemesas(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+            $municipios = DB::Select(
+                "
+                    SELECT
+                        DISTINCT v.idMunicipio AS value,
+                        m.Nombre AS label
+                    FROM
+                        vales AS v 
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
+                    WHERE
+                        v.Remesa = '" .
+                    $params['remesa'] .
+                    "'"
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $municipios,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getCveInterventor(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+
+            $permisos = DB::table('users_menus AS um')
+                ->Select('Seguimiento', 'ViewAll')
+                ->Where(['idUser' => $user->id, 'idMenu' => 34])
+                ->first();
+
+            $filtroPermisos = '';
+
+            if ($permisos) {
+                if ($permisos->ViewAll === 0) {
+                    $userRegion = DB::table('users_region')
+                        ->select('Region')
+                        ->Where('idUser', $user->id)
+                        ->first();
+                    $filtroPermisos =
+                        ' AND m.SubRegion = ' . $userRegion->Region . ' ';
+                }
+            } else {
+                $response = [
+                    'success' => false,
+                    'results' => false,
+                    'total' => 0,
+                    'errors' => 'No tiene permisos en este menú',
+                    'message' => 'No tiene permisos en este menú',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $cveInterventor = DB::Select(
+                "
+                    SELECT
+                        DISTINCT v.CveInterventor
+                    FROM
+                        vales AS v    
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.Id                     
+                    WHERE
+                        v.Remesa = '" .
+                    $params['remesa'] .
+                    "'" .
+                    $filtroPermisos .
+                    ' ORDER BY v.CveInterventor'
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $cveInterventor,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getLocalidad(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+            $localidades = DB::Select(
+                "
+                    SELECT
+                        DISTINCT v.idLocalidad AS value,
+                        l.Nombre AS label
+                    FROM
+                        vales AS v
+                        JOIN et_cat_localidad_2022 AS l ON v.idLocalidad = l.Id                    
+                    WHERE
+                        v.Remesa = '" .
+                    $params['remesa'] .
+                    "' AND v.idMunicipio = " .
+                    $params['municipio'] .
+                    " AND CveInterventor = '" .
+                    $params['cveInterventor'] .
+                    "'"
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $localidades,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getResponsables(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+            $responsables = DB::Select(
+                "
+                    SELECT
+                        DISTINCT v.ResponsableEntrega AS Responsable
+                    FROM
+                        vales AS v                        
+                    WHERE
+                        v.Remesa = '" .
+                    $params['remesa'] .
+                    "' AND CveInterventor = '" .
+                    $params['cveInterventor'] .
+                    "'"
+            );
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $responsables,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getGruposRevision(Request $request)
+    {
+        try {
+            $params = $request->all();
+            $user = auth()->user();
+
+            $grupos = DB::Select(
+                "
+                SELECT
+                    g.id AS idGrupo,
+                    g.Remesa,
+                    g.idMunicipio,
+                    m.Nombre AS Municipio,
+                    g.CveInterventor,
+                    g.idLocalidad,
+                    l.Nombre AS Localidad,
+                    g.ResponsableEntrega AS Responsable,
+                    g.TotalAprobados AS Aprobados,
+                    COUNT( s.idSolicitud ) AS Pineados 
+                FROM
+                    vales_grupos AS g
+                    JOIN vales AS v ON g.id = v.idGrupo
+                    LEFT JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
+                    JOIN et_cat_municipio AS m ON g.idMunicipio = m.Id
+                    JOIN et_cat_localidad_2022 AS l ON g.idLocalidad = l.Id 
+                WHERE
+                    g.Remesa = '" .
+                    $params['remesa'] .
+                    "' 
+                    AND g.CveInterventor = '" .
+                    $params['cveInterventor'] .
+                    "' 
+                    AND g.ResponsableEntrega = '" .
+                    $params['responsable'] .
+                    "' 
+                GROUP BY
+                    g.id
+                "
+            );
+
+            $total = count($grupos);
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'data' => $grupos,
+            ];
+            return response()->json($response, 200);
+        } catch (\QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
             ];
 
             return response()->json($response, 200);
