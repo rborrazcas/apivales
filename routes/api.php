@@ -1010,6 +1010,26 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             '/getAvancesGruposReporte',
             'Vales2023Controller@getAvancesGruposReporte'
         );
+
+        Route::post(
+            '/getMunicipiosValesRemesas',
+            'Vales2023Controller@getMunicipiosRemesas'
+        );
+
+        Route::post(
+            '/getCveInterventor',
+            'Vales2023Controller@getCveInterventor'
+        );
+
+        Route::post('/getLocalidad', 'Vales2023Controller@getLocalidad');
+        Route::post(
+            '/getResponsablesEntrega',
+            'Vales2023Controller@getResponsables'
+        );
+        Route::post(
+            '/getGruposRevision',
+            'Vales2023Controller@getGruposRevision'
+        );
     });
 
     Route::group(['prefix' => 'trabajemos'], function ($route) {
