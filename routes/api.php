@@ -1283,4 +1283,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get('/getRegiones', 'Vales2023Controller@getRegiones');
 
     Route::get('/getRegionesMenu', 'Vales2023Controller@getRegionesMenu');
+
+    Route::get('/getTokenImpulso', 'FilesTarjetaController@getTokenImpulso');
+    Route::post('/sendFilesImpulso', 'FilesTarjetaController@sendFiles');
 });

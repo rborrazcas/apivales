@@ -8343,16 +8343,33 @@ class ReportesController extends Controller
             ->where('id', $id)
             ->first();
 
+        $flag = false;
         if ($validaRegistro == null) {
-            return response()->json([
-                'success' => true,
-                'results' => true,
-                'data' => [],
-                'message' => 'No existe ninguna solicitud con este folio',
-            ]);
+            $validaRegistroAnterior = DB::table('vales_respaldo_2022')
+                ->select('id')
+                ->where('id', $id)
+                ->first();
+            if ($validaRegistroAnterior == null) {
+                return response()->json([
+                    'success' => true,
+                    'results' => true,
+                    'data' => [],
+                    'message' => 'No existe ninguna solicitud con este folio',
+                ]);
+            } else {
+                $flag = true;
+            }
         }
 
-        $res = DB::table('vales as N')
+        $tableVales = 'vales';
+        $tablesSolicitudes = 'vales_solicitudes';
+
+        if ($flag) {
+            $tableVales = 'vales_respaldo_2022';
+            $tablesSolicitudes = 'vales_solicitudes_respaldo_2022';
+        }
+
+        $res = DB::table($tableVales . ' as N')
             ->select(
                 'N.id',
                 DB::raw('LPAD(HEX(N.id),6,0) AS Folio'),
@@ -8380,7 +8397,12 @@ class ReportesController extends Controller
             )
             ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
-            ->LEFTJoin('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->LEFTJoin(
+                $tablesSolicitudes . ' as VS',
+                'VS.idSolicitud',
+                '=',
+                'N.id'
+            )
             ->LEFTJoin('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
@@ -8417,6 +8439,7 @@ class ReportesController extends Controller
             'success' => true,
             'results' => true,
             'data' => $d,
+            'ejercicio' => $flag ? 2022 : 2023,
         ]);
     }
 

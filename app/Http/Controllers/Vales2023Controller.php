@@ -629,6 +629,7 @@ class Vales2023Controller extends Controller
                     ->first();
                 $filtroPermisos =
                     ' AND m.SubRegion = ' . $userRegion->Region . ' ';
+                $params['region'] = $userRegion->Region;
             }
         } else {
             $response = [
@@ -650,7 +651,7 @@ class Vales2023Controller extends Controller
                         COUNT( s.idSolicitud ) AS Total 
                     FROM
                         vales AS v
-                        JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
+                        LEFT JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
                         JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
                         JOIN vales_remesas AS r ON v.Remesa = r.Remesa
                     WHERE
@@ -691,7 +692,7 @@ class Vales2023Controller extends Controller
                         COUNT( s.idSolicitud ) AS Total 
                     FROM
                         vales AS v
-                        JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
+                        LEFT JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
                         JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
                         JOIN vales_remesas AS r ON v.Remesa = r.Remesa
                     WHERE
@@ -729,6 +730,36 @@ class Vales2023Controller extends Controller
                 "
             );
 
+            $dataCveInterventor = DB::Select(
+                "
+                    SELECT
+	                    g.Remesa,
+	                    g.CveInterventor,
+	                    COUNT( v.id ) AS Meta,
+	                    COUNT( s.id ) AS Pineados,
+	                    COUNT( v.id ) - COUNT( s.id ) AS Pendientes 
+                    FROM
+	                    vales_grupos AS g
+	                    JOIN vales_remesas AS r ON g.Remesa = r.Remesa
+	                    JOIN vales AS v ON g.id = v.idGrupo
+	                    LEFT JOIN vales_solicitudes AS s ON s.idSolicitud = v.id 
+                    WHERE
+	                    r.RemesaSistema = '" .
+                    $params['remesa'] .
+                    "' " .
+                    ' AND g.idMunicipio IN ( SELECT id FROM et_cat_municipio WHERE SubRegion = ' .
+                    $params['region'] .
+                    " ) 
+                    GROUP BY
+	                    g.Remesa,
+	                    g.CveInterventor 
+                    ORDER BY
+	                    Pendientes DESC,
+	                    Meta DESC
+	                    LIMIT 5
+                "
+            );
+
             $response = [
                 'success' => true,
                 'results' => true,
@@ -737,6 +768,7 @@ class Vales2023Controller extends Controller
                     'metasRegion' => $dataMetasRegion,
                     'municipio' => $dataMunicipio,
                     'metasMunicipio' => $dataMetasMunicipio,
+                    'cveInterventor' => $dataCveInterventor,
                 ],
             ];
             return response()->json($response, 200);
