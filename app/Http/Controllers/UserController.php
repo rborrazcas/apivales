@@ -1420,7 +1420,7 @@ class UserController extends Controller
             }
 
             $page = $parameters['page'];
-            $pageSize = 10;
+            $pageSize = 5;
 
             $startIndex = $page * $pageSize;
 
