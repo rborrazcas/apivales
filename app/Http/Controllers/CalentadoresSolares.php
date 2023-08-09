@@ -927,6 +927,19 @@ class CalentadoresSolares extends Controller
                         'FechaActualizo' => date('Y-m-d H:i:s'),
                     ]);
 
+                $sol = DB::table('solicitudes_archivos AS a')
+                    ->Select('a.idSolicitud')
+                    ->where('a.id', $params['idArchivo'])
+                    ->first();
+
+                if ($this->validateExpediente($sol->idSolicitud)) {
+                    DB::table('solicitudes_calentadores')
+                        ->where('id', $sol->idSolicitud)
+                        ->update([
+                            'ExpedienteCompleto' => 1,
+                        ]);
+                }
+
                 $response = [
                     'success' => true,
                     'results' => true,

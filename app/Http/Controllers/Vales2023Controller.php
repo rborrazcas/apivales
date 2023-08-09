@@ -575,6 +575,7 @@ class Vales2023Controller extends Controller
                     "
                     GROUP BY
 	                    s.UserCreated
+                        ORDER BY Total DESC
                 "
             );
 
@@ -784,19 +785,36 @@ class Vales2023Controller extends Controller
             return response()->json($response, 200);
         }
     }
-
+    //Aqui
     function getMunicipios(Request $request)
     {
+        $user = auth()->user();
         try {
-            $archivos_clasificacion = DB::table('et_cat_municipio')
-                ->select('id', 'Nombre', 'Region', 'SubRegion')
-                ->orderby('Nombre')
-                ->get();
+            $municipios = DB::table('et_cat_municipio')->select(
+                'id',
+                'Nombre',
+                'Region',
+                'SubRegion'
+            );
+
+            $permisos = $this->getPermisos();
+            if ($permisos !== null) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where('idUser', $user->id)
+                    ->first();
+
+                if ($region !== null) {
+                    $municipios->where('SubRegion', $region->Region);
+                }
+            }
+
+            $municipios->orderby('Nombre');
 
             $response = [
                 'success' => true,
                 'results' => true,
-                'data' => $archivos_clasificacion,
+                'data' => $municipios->get(),
             ];
             return response()->json($response, 200);
         } catch (\Throwable $errors) {
@@ -815,25 +833,31 @@ class Vales2023Controller extends Controller
     function getFilesById(Request $request, $id)
     {
         try {
-            $archivos2 = DB::table('vales_archivos')
+            $archivos2 = DB::table('vales_archivos AS a')
                 ->select(
-                    'id',
-                    'idClasificacion',
-                    'NombreOriginal AS name',
-                    'NombreSistema',
-                    'Tipo AS type'
+                    'a.id',
+                    'a.idClasificacion',
+                    'c.Clasificacion',
+                    'a.NombreOriginal AS name',
+                    'a.NombreSistema',
+                    'a.Tipo AS type'
                 )
-                ->where('idSolicitud', $id)
-                ->whereRaw('FechaElimino IS NULL')
+                ->Join(
+                    'vales_archivos_clasificacion AS c',
+                    'c.id',
+                    'a.idClasificacion'
+                )
+                ->where('a.idSolicitud', $id)
+                ->whereRaw('a.FechaElimino IS NULL')
                 ->get();
             $archivosClasificacion = array_map(function ($o) {
                 return $o->idClasificacion;
             }, $archivos2->toArray());
             $archivos = array_map(function ($o) {
-                // $o->ruta =
-                //     'https://apivales.apisedeshu.com/subidos/' .
-                //     $o->NombreSistema;
-                $o->ruta = Storage::disk('expedientes')->url($o->NombreSistema);
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/Remesa01/' .
+                    $o->NombreSistema;
+                //$o->ruta = Storage::disk('expedientes')->url($o->NombreSistema);
                 return $o;
             }, $archivos2->toArray());
 
@@ -1133,6 +1157,205 @@ class Vales2023Controller extends Controller
         }
     }
 
+    function getListadoSolicitudes2023(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'page' => 'required',
+                'pageSize' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $user = auth()->user();
+
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '35'])
+                ->get()
+                ->first();
+
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('vales as v')
+
+                ->selectRaw(
+                    'v.id,' .
+                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
+                        'r.Remesa, ' .
+                        'v.Nombre, ' .
+                        'v.Paterno, ' .
+                        'v.Materno, ' .
+                        'v.CURP, ' .
+                        's.id AS idSol, ' .
+                        's.SerieInicial, ' .
+                        's.SerieFinal'
+                )
+                ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
+                ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+                ->Join('vales_solicitudes AS s', 's.idSolicitud', 'v.id')
+                ->Where('idIncidencia', 1);
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where('idUser', $user->id)
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene region asignada',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('m.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+            $municipioRegion = [];
+            $mun = [];
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                $filtersSeries = ['.SerieInicial', '.CodigoBarrasInicial'];
+                foreach ($params['filtered'] as $filtro) {
+                    if ($filterQuery != '') {
+                        $filterQuery .= ' AND ';
+                    }
+                    $id = $filtro['id'];
+                    $value = $filtro['value'];
+
+                    if ($id == '.id') {
+                        $value = hexdec($value);
+                    }
+
+                    if (in_array($id, $filtersSeries)) {
+                        $id = 's' . $id;
+                    } else {
+                        $id = 'v' . $id;
+                    }
+
+                    switch (gettype($value)) {
+                        case 'string':
+                            $filterQuery .= " $id LIKE '%$value%' ";
+                            break;
+                        case 'array':
+                            $colonDividedValue = implode(', ', $value);
+                            $filterQuery .= " $id IN ($colonDividedValue) ";
+                            break;
+                        case 'boolean':
+                            $filterQuery .= " $id <> 1 ";
+                            break;
+                        default:
+                            //dd($value);
+                            if ($value === -1) {
+                                $filterQuery .= " $id IS NOT NULL ";
+                            } else {
+                                $filterQuery .= " $id = $value ";
+                            }
+                    }
+                }
+            }
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
+
+            $startIndex = $page * $pageSize;
+
+            $total = $solicitudes->count();
+            $solicitudes = $solicitudes
+                ->OrderBy('s.SerieInicial', 'ASC')
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'filtros' => $params['filtered'],
+                    'data' => $array_res,
+                ];
+            }
+
+            $temp = [];
+            foreach ($solicitudes as $data) {
+                $temp = [
+                    'id' => $data->id,
+                    'FolioSolicitud' => $data->FolioSolicitud,
+                    'Remesa' => $data->Remesa,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'CURP' => $data->CURP,
+                    'idSol' => $data->idSol,
+                    'SerieInicial' => $data->SerieInicial,
+                    'SerieFinal' => $data->SerieFinal,
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            $filtros = '';
+            if (isset($params['filtered'])) {
+                $filtros = $params['filtered'];
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'total' => $total,
+                'filtros' => $filtros,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
     function updateArchivosSolicitud(Request $request)
     {
         try {
@@ -1258,14 +1481,14 @@ class Vales2023Controller extends Controller
                 $img->adaptiveResizeImage($width, $height);
 
                 //Guardar en el nuevo storage
-                $url_storage = Storage::disk('subidos')->path($uniqueName);
+                $url_storage = Storage::disk('expedientes')->path($uniqueName);
                 // $img->writeImage(sprintf('subidos/%s', $uniqueName));
                 $img->writeImage($url_storage);
                 File::delete($img_tmp_path);
                 unset($img);
             } else {
                 // $file->move('subidos', $uniqueName);
-                Storage::disk('subidos')->put(
+                Storage::disk('expedientes')->put(
                     $uniqueName,
                     File::get($file->getRealPath()),
                     'public'
@@ -3492,5 +3715,248 @@ class Vales2023Controller extends Controller
 
             return response()->json($response, 200);
         }
+    }
+
+    public function valesIncidencia(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'devueltos' => 'required',
+        ]);
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => 'No se recibió ningun registro',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $user = auth()->user();
+        $valesADevolver = $params['devueltos'];
+        $valesConciliados = '';
+        foreach ($valesADevolver as $valera) {
+            $conciliado = DB::table('vales_solicitudes AS s')
+                ->Select('s.idSolicitud')
+                ->Join(
+                    'vales_series_2023 AS serie',
+                    'serie.SerieInicial',
+                    's.SerieInicial'
+                )
+                ->Join(
+                    'vales_conciliados_2023 AS conciliados',
+                    'conciliados.SerieVale',
+                    'serie.Serie'
+                )
+                ->Where('s.SerieInicial', $valera['SerieInicial'])
+                ->first();
+
+            if ($conciliado) {
+                $valesConciliados =
+                    $valesConciliados . "\n  - " . $valera['FolioSolicitud'];
+            }
+        }
+
+        if (strlen($valesConciliados) > 0) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'Los siguientes folios no pueden ser devueltos porque se encuentran conciliados: ' .
+                    $valesConciliados,
+            ];
+            return response()->json($response, 200);
+        }
+
+        $valesEntregados = '';
+        foreach ($valesADevolver as $valera) {
+            $entregado = DB::table('vales AS v')
+                ->Select('v.id')
+                ->Where('v.id', $valera['id'])
+                ->WhereRaw('v.entrega_at IS NOT NULL')
+                ->first();
+
+            if ($entregado) {
+                $valesEntregados =
+                    $valesEntregados . "\n  - " . $valera['FolioSolicitud'];
+            }
+        }
+
+        if (strlen($valesEntregados) > 0) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'Los siguientes folios no pueden ser devueltos porque están marcados como entregados : ' .
+                    $valesEntregados,
+            ];
+            return response()->json($response, 200);
+        }
+
+        $infoDevueltos = [
+            'idUsuarioCarga' => $user->id,
+            'FechaCarga' => date('Y-m-d H:i:s'),
+            'TotalDevueltos' => count($valesADevolver),
+        ];
+
+        $idCarga = DB::table('vales_carga_devueltos')->insertGetId(
+            $infoDevueltos
+        );
+
+        foreach ($valesADevolver as $valera) {
+            $sol = DB::table('vales_solicitudes AS s')
+                ->Where('s.id', $valera['idSol'])
+                ->first();
+            $solicitud = (array) $sol;
+            $solicitud['UserDeleted'] = $user->id;
+            $solicitud['deleted_at'] = date('Y-m-d H:i:s');
+            $solicitud['idCargaDevueltos'] = $idCarga;
+            DB::beginTransaction();
+            DB::table('vales_solicitudes_devueltos')->insert($solicitud);
+            DB::commit();
+            DB::beginTransaction();
+            DB::table('vales AS v')
+                ->Where('id', $valera['id'])
+                ->update([
+                    'idIncidencia' => 7,
+                    'UserUpdated' => $user->id,
+                    'updated_at' => date('Y-m-d H:i:s'),
+                    'Devuelto' => 1,
+                ]);
+            DB::commit();
+            DB::beginTransaction();
+            DB::table('vales_solicitudes')
+                ->where('id', $valera['idSol'])
+                ->delete();
+            DB::commit();
+        }
+
+        $response = [
+            'success' => true,
+            'results' => true,
+            'message' => 'Valeras devueltas correctamente',
+            'idCarga' => $idCarga,
+        ];
+        return response()->json($response, 200);
+    }
+
+    public function getReporteDevueltos(Request $request)
+    {
+        $params = $request->all();
+        $user = auth()->user();
+        $query =
+            'v.id AS idVale,' .
+            'CONCAT(lpad(hex(v.id),6,0)," ") AS FolioSolicitud, ' .
+            'r.Remesa, ' .
+            'sol.SerieInicial,' .
+            'sol.SerieFinal,' .
+            'v.FechaSolicitud, ' .
+            'v.CURP, ' .
+            'v.Nombre, ' .
+            'v.Paterno, ' .
+            'v.Materno, ' .
+            'm.SubRegion AS Region,' .
+            'm.Nombre AS Municipio,' .
+            'l.Nombre AS Localidad,' .
+            'v.Colonia, ' .
+            'v.Calle, ' .
+            'v.NumExt, ' .
+            'v.NumInt, ' .
+            'v.CP, ' .
+            'v.TelCelular, ' .
+            'v.TelFijo, ' .
+            'i.Incidencia, ' .
+            'v.ResponsableEntrega, ' .
+            'CASE WHEN v.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
+            '"DEVUELTO" AS Devuelto';
+
+        $res = DB::table('vales AS v')
+            ->selectRaw($query)
+            ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
+            ->LEFTJOIN(
+                'vales_solicitudes_devueltos AS sol',
+                'sol.idSolicitud',
+                'v.id'
+            )
+            ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
+            ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'v.idLocalidad')
+            ->LEFTJOIN('vales_status AS s', 's.id', 'v.idStatus')
+            ->LEFTJOIN('vales_incidencias AS i', 'i.id', 'v.idIncidencia')
+            ->WHERE('r.Ejercicio', '2023')
+            ->Where([
+                'sol.idCargaDevueltos' => $params['Carga'],
+            ])
+            ->orderBy('sol.SerieInicial', 'asc');
+
+        $data = $res->get();
+
+        if (count($data) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteSolicitudValesV3.xlsx';
+
+            return response()->download(
+                $file,
+                'ValesDevueltos' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        //Mapeamos el resultado como un array
+        $res = $data
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+
+        $reader = IOFactory::createReader('Xlsx');
+
+        $spreadsheet = $reader->load(
+            public_path() . '/archivos/ValesDevueltos2023.xlsx'
+        );
+
+        $sheet = $spreadsheet->getActiveSheet();
+        $largo = count($res);
+        $sheet
+            ->getPageSetup()
+            ->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+        $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_LETTER);
+
+        $largo = count($res);
+
+        //Llenar excel con el resultado del query
+        $sheet->fromArray($res, null, 'A3');
+        //Agregamos la fecha
+        $sheet->setCellValue('C1', 'Fecha Reporte: ' . date('Y-m-d H:i:s'));
+
+        $sheet->getDefaultRowDimension()->setRowHeight(-1);
+
+        //guardamos el excel creado y luego lo obtenemos en $file para poder descargarlo
+        $writer = new Xlsx($spreadsheet);
+        $writer->save(
+            'archivos/' .
+                $user->id .
+                '_' .
+                $user->email .
+                '_' .
+                'ValesDevueltosEjercicio2023.xlsx'
+        );
+        $file =
+            public_path() .
+            '/archivos/' .
+            $user->id .
+            '_' .
+            $user->email .
+            '_' .
+            'ValesDevueltosEjercicio2023.xlsx';
+        $fecha = date('Y-m-d H-i-s');
+
+        return response()->download(
+            $file,
+            'ValesDevueltosEjercicio2023_' .
+                date('Y-m-d') .
+                '_' .
+                str_replace(' ', '_', $fecha) .
+                '.xlsx'
+        );
     }
 }
