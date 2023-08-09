@@ -417,6 +417,58 @@ class ReportesController extends Controller
         }
     }
 
+    public function getListados2023(Request $request)
+    {
+        $v = Validator::make($request->all(), [
+            'remesa' => 'required',
+            'municipio' => 'required',
+        ]);
+
+        if ($v->fails()) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'errors' => 'La remesa o el municipio no fueron enviados',
+                'data' => [],
+            ];
+
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        try {
+            $grupos = DB::table('vales_grupos AS g')
+                ->Select(
+                    'g.id AS idGrupo',
+                    DB::RAW(
+                        'CONCAT(g.CveInterventor," - Loc: ",l.Nombre," - Resp: ",g.ResponsableEntrega," - ",g.TotalAprobados) AS Listado'
+                    )
+                )
+                ->Join('et_cat_municipio AS m', 'm.Id', 'g.idMunicipio')
+                ->Join('et_cat_localidad_2022 AS l', 'l.Id', 'g.idLocalidad')
+                ->WhereRaw('g.Ejercicio = 2023')
+                ->Where([
+                    'm.Nombre' => $params['municipio'],
+                    'g.Remesa' => $params['remesa'],
+                ])
+                ->orderBy('g.id', 'ASC')
+                ->get()
+                ->toArray();
+
+            $data = [
+                'Listados' => $grupos,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'results' => true,
+                'data' => $data,
+            ]);
+        } catch (QueryException $e) {
+            return ['success' => false, 'errors' => $e->getMessage()];
+        }
+    }
+
     function getCatGrupos2023(Request $request)
     {
         $parameters = $request->all();
@@ -8343,16 +8395,33 @@ class ReportesController extends Controller
             ->where('id', $id)
             ->first();
 
+        $flag = false;
         if ($validaRegistro == null) {
-            return response()->json([
-                'success' => true,
-                'results' => true,
-                'data' => [],
-                'message' => 'No existe ninguna solicitud con este folio',
-            ]);
+            $validaRegistroAnterior = DB::table('vales_respaldo_2022')
+                ->select('id')
+                ->where('id', $id)
+                ->first();
+            if ($validaRegistroAnterior == null) {
+                return response()->json([
+                    'success' => true,
+                    'results' => true,
+                    'data' => [],
+                    'message' => 'No existe ninguna solicitud con este folio',
+                ]);
+            } else {
+                $flag = true;
+            }
         }
 
-        $res = DB::table('vales as N')
+        $tableVales = 'vales';
+        $tablesSolicitudes = 'vales_solicitudes';
+
+        if ($flag) {
+            $tableVales = 'vales_respaldo_2022';
+            $tablesSolicitudes = 'vales_solicitudes_respaldo_2022';
+        }
+
+        $res = DB::table($tableVales . ' as N')
             ->select(
                 'N.id',
                 DB::raw('LPAD(HEX(N.id),6,0) AS Folio'),
@@ -8380,7 +8449,12 @@ class ReportesController extends Controller
             )
             ->leftJoin('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->leftJoin('et_cat_localidad as L', 'N.idLocalidad', '=', 'L.Id')
-            ->LEFTJoin('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->LEFTJoin(
+                $tablesSolicitudes . ' as VS',
+                'VS.idSolicitud',
+                '=',
+                'N.id'
+            )
             ->LEFTJoin('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->leftJoin('users as UOC', 'UOC.id', '=', 'N.UserOwned')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
@@ -8417,6 +8491,7 @@ class ReportesController extends Controller
             'success' => true,
             'results' => true,
             'data' => $d,
+            'ejercicio' => $flag ? 2022 : 2023,
         ]);
     }
 

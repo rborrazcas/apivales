@@ -245,7 +245,7 @@ class ZisController extends Controller
 
     public function hashPassword()
     {
-        $data = DB::table('UsersPendientes')->get();
+        $data = DB::table('tabla_auxiliar_para_generar_contraseñas')->get();
 
         if (count($data) == 0) {
             return response()->json([
@@ -265,9 +265,9 @@ class ZisController extends Controller
 
         foreach (array_chunk($res, 500) as $chunk) {
             foreach ($chunk as $r) {
-                $password = Hash::make(str_replace("\r", '', $r['Celular']));
+                $password = Hash::make($r['Celular']);
                 if (!is_null($password)) {
-                    DB::table('UsersPendientes')
+                    DB::table('tabla_auxiliar_para_generar_contraseñas')
                         ->where('Celular', $r['Celular'])
                         ->update(['pass' => $password]);
                 }

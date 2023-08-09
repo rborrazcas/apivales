@@ -210,6 +210,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'Vales2022Controller@getReporteVales2023'
     );
     Route::get(
+        '/getReporteDevueltos',
+        'Vales2023Controller@getReporteDevueltos'
+    );
+    Route::get(
         '/getReporteSolicitudVentanillaCalentadores',
         'CalentadoresController@getReporteSolicitudVentanillaCalentadores'
     );
@@ -524,6 +528,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
     Route::post('/getCatGrupos', 'ReportesController@getCatGrupos');
     Route::post('/getCatGrupos2023', 'ReportesController@getCatGrupos2023');
+    Route::post('/getListados2023', 'ReportesController@getListados2023');
 
     //APIS PULSERAS GTO 30 SEPTIEMBRE
     Route::post(
@@ -911,7 +916,11 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::get('/getMunicipiosVales', 'Vales2023Controller@getMunicipios');
         Route::get('/getFilesById/{id}', 'Vales2023Controller@getFilesById');
         Route::post('/getVales2023', 'Vales2023Controller@getSolicitudes2023');
-
+        Route::post(
+            '/getListadoVales2023',
+            'Vales2023Controller@getListadoSolicitudes2023'
+        );
+        Route::post('/valesIncidencia', 'Vales2023Controller@valesIncidencia');
         Route::post(
             '/updateArchivosSolicitud',
             'Vales2023Controller@updateArchivosSolicitud'
@@ -1283,4 +1292,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get('/getRegiones', 'Vales2023Controller@getRegiones');
 
     Route::get('/getRegionesMenu', 'Vales2023Controller@getRegionesMenu');
+
+    Route::get('/getTokenImpulso', 'FilesTarjetaController@getTokenImpulso');
+    Route::post('/sendFilesImpulso', 'FilesTarjetaController@sendFiles');
 });

@@ -927,6 +927,19 @@ class CalentadoresSolares extends Controller
                         'FechaActualizo' => date('Y-m-d H:i:s'),
                     ]);
 
+                $sol = DB::table('solicitudes_archivos AS a')
+                    ->Select('a.idSolicitud')
+                    ->where('a.id', $params['idArchivo'])
+                    ->first();
+
+                if ($this->validateExpediente($sol->idSolicitud)) {
+                    DB::table('solicitudes_calentadores')
+                        ->where('id', $sol->idSolicitud)
+                        ->update([
+                            'ExpedienteCompleto' => 1,
+                        ]);
+                }
+
                 $response = [
                     'success' => true,
                     'results' => true,
@@ -1396,6 +1409,32 @@ class CalentadoresSolares extends Controller
                         $year_start .
                         ' con el Folio ' .
                         $curpRegistrado->Folio,
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            $curpRegistrado2 = DB::table('calentadores_solicitudes')
+                ->select(DB::RAW('lpad( hex(id ), 6, 0 ) AS Folio'), 'CURP')
+                ->where('CURP', $params['CURP'])
+                ->whereNull('FechaElimino')
+                //->whereRaw('YEAR(FechaCreo) = ' . $year_start)
+                ->first();
+
+            if ($curpRegistrado2 !== null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' fue registrado en el ejercicio 2022 con el Folio ' .
+                        $curpRegistrado2->Folio,
+                    'message' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' fue registrado en el ejercicio 2022 con el Folio ' .
+                        $curpRegistrado2->Folio,
                 ];
 
                 return response()->json($response, 200);
