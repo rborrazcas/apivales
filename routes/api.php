@@ -69,6 +69,11 @@ Route::post('/acuse', 'CedulasController@getFile');
 Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
 
 // Route::post(
+//     '/RegisterCalentadores',
+//     'CalentadoresSolares@validateCalentadores'
+// );
+
+// Route::post(
 //     '/envioMasivoVentanilla',
 //     'CedulasController@envioMasivoVentanilla'
 // );
@@ -1218,6 +1223,13 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('/getTotalObservadas', 'CalentadoresSolares@getObservadas');
         Route::post('/getTotalValidadas', 'CalentadoresSolares@getValidadas');
         Route::get('/cargaMasivo', 'CalentadoresSolares@cargaMasiva');
+    });
+
+    Route::group(['prefix' => 'q1417/v1'], function ($route) {
+        Route::post('validate', 'CalentadoresSolares@validateCURP');
+        Route::post('register', 'CalentadoresSolares@register');
+        Route::post('getList', 'CalentadoresSolares@getList');
+        Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioApi');
     });
 
     //! Proyectos Productivos

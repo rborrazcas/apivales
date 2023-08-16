@@ -4565,11 +4565,15 @@ class YoPuedoController extends Controller
 
     public function getAuthUsuario($idUser, $index)
     {
+        $userDefault = DB::table('cuentas_regionales_ventanilla')
+            ->selectRaw('uId,Nombre,correoCuenta,rol')
+            ->where('id', 9)
+            ->first();
         $json = json_encode(
             [
-                'uid' => '62cdc01786674330d7288cf1',
-                'name' => 'MARIA DE MONTSERRAT RAMIREZ FUENTES (RESPONSABLE Q)', //Cambiar a sedeshu
-                'email' => 'mramirezfuen@guanajuato.gob.mx',
+                'uid' => $userDefault->uId,
+                'name' => $userDefault->Nombre, //Cambiar a sedeshu
+                'email' => $userDefault->correoCuenta,
                 'role' => [
                     'key' => 'RESPONSABLE_Q_ROL',
                     'name' => 'Rol Responsable Programa VIM',

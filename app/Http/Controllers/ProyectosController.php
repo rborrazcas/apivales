@@ -3579,11 +3579,15 @@ class ProyectosController extends Controller
         }
 
         if ($flag) {
+            $userDefault = DB::table('cuentas_regionales_ventanilla')
+                ->selectRaw('uId,Nombre,correoCuenta,rol')
+                ->where('id', 8)
+                ->first();
             $json = json_encode(
                 [
-                    'uid' => '626c06d49c1fce80afa1faa6',
-                    'name' => 'ALEJANDRA CAUDILLO OLMOS (RESPONSABLE Q)', //Cambiar a sedeshu
-                    'email' => 'acaudilloo@guanajuato.gob.mx',
+                    'uid' => $userDefault->uId,
+                    'name' => $userDefault->Nombre,
+                    'email' => $userDefault->correoCuenta,
                     'role' => [
                         'key' => 'RESPONSABLE_Q_ROL',
                         'name' => 'Rol Responsable Programa VIM',

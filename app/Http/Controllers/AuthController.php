@@ -436,6 +436,12 @@ class AuthController extends Controller
                     'results' => true,
                     'token' => $jwt_token,
                 ];
+            } elseif ($user->idTipoUser->id == 10 && $user->id > 1) {
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'token' => $jwt_token,
+                ];
             } else {
                 $response = [
                     'success' => true,
