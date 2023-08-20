@@ -159,9 +159,9 @@ return [
         Illuminate\Translation\TranslationServiceProvider::class,
         Illuminate\Validation\ValidationServiceProvider::class,
         Illuminate\View\ViewServiceProvider::class,
-        Chumper\Zipper\ZipperServiceProvider::class,
-        Milon\Barcode\BarcodeServiceProvider::class,
-        Barryvdh\DomPDF\ServiceProvider::class,
+        // Chumper\Zipper\ZipperServiceProvider::class,
+        // Milon\Barcode\BarcodeServiceProvider::class,
+        // Barryvdh\DomPDF\ServiceProvider::class,
 
         /*
          * Package Service Providers...
@@ -175,8 +175,9 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
-        Barryvdh\Cors\ServiceProvider::class,
-        Maatwebsite\Excel\ExcelServiceProvider::class,
+        // Barryvdh\Cors\ServiceProvider::class,
+        // Maatwebsite\Excel\ExcelServiceProvider::class,
+        Tymon\JWTAuth\Providers\LaravelServiceProvider::class,
     ],
 
     /*
@@ -226,10 +227,10 @@ return [
         'URL' => Illuminate\Support\Facades\URL::class,
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View' => Illuminate\Support\Facades\View::class,
-        'Zipper' => Chumper\Zipper\Zipper::class,
-        'DNS1D' => Milon\Barcode\Facades\DNS1DFacade::class,
-        'DNS2D' => Milon\Barcode\Facades\DNS2DFacade::class,
-        'PDF' => Barryvdh\DomPDF\Facade::class,
-        'ExcelMaat' => Maatwebsite\Excel\Facades\Excel::class,
+        // 'Zipper' => Chumper\Zipper\Zipper::class,
+        // 'DNS1D' => Milon\Barcode\Facades\DNS1DFacade::class,
+        // 'DNS2D' => Milon\Barcode\Facades\DNS2DFacade::class,
+        // 'PDF' => Barryvdh\DomPDF\Facade::class,
+        // 'ExcelMaat' => Maatwebsite\Excel\Facades\Excel::class,
     ],
 ];

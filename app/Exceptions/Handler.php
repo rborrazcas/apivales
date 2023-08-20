@@ -38,10 +38,10 @@ class Handler extends ExceptionHandler
      * @param  \Exception  $exception
      * @return void
      */
-    public function report(Exception $exception)
-    {
-        parent::report($exception);
-    }
+    // public function report(Exception $exception)
+    // {
+    //     parent::report($exception);
+    // }
 
     /**
      * Render an exception into an HTTP response.
@@ -50,38 +50,48 @@ class Handler extends ExceptionHandler
      * @param  \Exception  $exception
      * @return \Illuminate\Http\Response
      */
-    public function render($request, Exception $exception)
-    {
+    // public function render($request, Exception $exception)
+    // {
         
-        if ($exception instanceof TokenExpiredException) {
-            $response =  ['success'=>false,'results'=>false,
-            'filtros'=>false,'errors'=>'token_expired','data'=>[]];
-            return response()->json($response, 200);
-        }
-        else if ($exception instanceof TokenBlacklistedException) {
-            $response =  ['success'=>false,'results'=>false,
-            'filtros'=>false,'errors'=>'token_blacklist','data'=>[]];
-            return response()->json($response, 200);
-        }
-        else if ($exception instanceof TokenInvalidException) {
-            $response =  ['success'=>false,'results'=>false,
-            'filtros'=>false,'errors'=>'token_invalid','data'=>[]];
-            return response()->json($response, 200);
-        }
-        else if ($exception instanceof JWTException) {
-            $response =  ['success'=>false,'results'=>false,
-            'filtros'=>false,'errors'=>'token_invalid','data'=>[]];
-            return response()->json($response, 200);
-        }
-        else if($exception instanceof UnauthorizedHttpException){
-            $errors = [
-				"Clave"=>"XX"
-            ];
+    //     if ($exception instanceof TokenExpiredException) {
+    //         $response =  ['success'=>false,'results'=>false,
+    //         'filtros'=>false,'errors'=>'token_expired','data'=>[]];
+    //         return response()->json($response, 200);
+    //     }
+    //     else if ($exception instanceof TokenBlacklistedException) {
+    //         $response =  ['success'=>false,'results'=>false,
+    //         'filtros'=>false,'errors'=>'token_blacklist','data'=>[]];
+    //         return response()->json($response, 200);
+    //     }
+    //     else if ($exception instanceof TokenInvalidException) {
+    //         $response =  ['success'=>false,'results'=>false,
+    //         'filtros'=>false,'errors'=>'token_invalid','data'=>[]];
+    //         return response()->json($response, 200);
+    //     }
+    //     else if ($exception instanceof JWTException) {
+    //         $response =  ['success'=>false,'results'=>false,
+    //         'filtros'=>false,'errors'=>'token_invalid','data'=>[]];
+    //         return response()->json($response, 200);
+    //     }
+    //     else if($exception instanceof UnauthorizedHttpException){
+    //         $errors = [
+	// 			"Clave"=>"XX"
+    //         ];
             
-            $response =  ['success'=>false,'results'=>false,
-            'filtros'=>false,'errors'=> $errors, 'message' => 'El token no fue enviado, es un token expirado o no es valido.','data'=>[]];
-            return response()->json($response, 200);
-        }
-        return parent::render($request, $exception);
+    //         $response =  ['success'=>false,'results'=>false,
+    //         'filtros'=>false,'errors'=> $errors, 'message' => 'El token no fue enviado, es un token expirado o no es valido.','data'=>[]];
+    //         return response()->json($response, 200);
+    //     }
+    //     return parent::render($request, $exception);
+    // }
+
+    /**
+     * Register the exception handling callbacks for the application.
+     */
+    public function register(): void
+    {
+        $this->reportable(function (Throwable $e) {
+            //
+        });
     }
 }
