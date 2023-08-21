@@ -17,7 +17,8 @@ use App\Http\Controllers\Controller;
 use DB;
 use PDF;
 use File;
-use Zipper;
+// use Zipper;
+use ZipArchive;
 
 use PhpOffice\PhpPresentation\IOFactory as IOFactories;
 
@@ -9478,15 +9479,20 @@ class ReportesController extends Controller
     private function createZipEvidencia($carpeta)
     {
         try {
-            $files = glob(public_path('subidos/' . $carpeta . '/*'));
+            $files = public_path('subidos/' . $carpeta . '/*');
+            $input_dir = public_path('subidos/' . $carpeta);
             $fileName = $carpeta . '.zip';
-            //$path = Storage::disk('subidos')->path($fileName);
             $path = public_path('subidos/' . $fileName);
-            Zipper::make($path)
-                ->add($files)
-                ->close();
-            if (\file_exists(public_path('subidos/' . $carpeta))) {
-                File::deleteDirectory(public_path('subidos/' . $carpeta));
+            $zip = new ZipArchive();
+            if (!$zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
+                exit("Error creando ZIP en $path");
+            }
+            $options = ['remove_all_path' => TRUE];
+            $zip->addPattern('/\.(?:png|pdf|xlsx)$/', $input_dir, $options);
+            $zip->close();
+
+            if (\file_exists($input_dir)) {
+                File::deleteDirectory($input_dir);
             }
         } catch (Exception $e) {
             return false;
@@ -9834,10 +9840,21 @@ class ReportesController extends Controller
             );
         }
         //Se utiliza la libreria de Zipper para generar el archivo .zip
-        $files = glob(public_path('tarjetas/*'));
-        Zipper::make(public_path('archivos/grupo' . $request->idGrupo . '.zip'))
-            ->add($files)
-            ->close();
+        // $files = glob(public_path('tarjetas/*'));
+        
+        // Zipper::make(public_path('archivos/grupo' . $request->idGrupo . '.zip'))
+        //     ->add($files)
+        //     ->close();
+        $zip = new ZipArchive();
+        $path = public_path('archivos/grupo' . $request->idGrupo . '.zip');
+        if (!$zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
+            exit("Error creando ZIP en $path");
+        }
+
+        $input_dir = public_path('tarjetas');
+        $options = ['remove_all_path' => TRUE];
+        $zip->addPattern('/\.(?:png|pdf|xlsx)$/', $input_dir, $options);
+        $zip->close();
 
         //Descargamos el zip
         return response()->download(
