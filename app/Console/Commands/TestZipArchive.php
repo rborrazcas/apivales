@@ -38,15 +38,15 @@ class TestZipArchive extends Command
             exit("Error abriendo ZIP en $fileName");
         }
         
-        $files = File::files($input_dir);
+        // $files = File::files($input_dir);
 
-        foreach ($files as $key => $value) {
-            $relativeNameInZipFile = basename($value);
-            $zip->addFile($value, $relativeNameInZipFile);
-        }
+        // foreach ($files as $key => $value) {
+        //     $relativeNameInZipFile = basename($value);
+        //     $zip->addFile($value, $relativeNameInZipFile);
+        // }
          
-        // $options = ['remove_all_path' => TRUE];
-        // $zip->addGlob("*.png", GLOB_BRACE, $options);
+        $options = ['remove_all_path' => TRUE];
+        $zip->addPattern('/\.(?:png|pdf)$/', $input_dir, $options);
         $zip->close();
         
         $this->info('Termina');
