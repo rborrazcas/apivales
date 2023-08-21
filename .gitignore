@@ -13,3 +13,4 @@ yarn-error.log
 *.lock
 .DS_Store
 public/archivos/
+public/subidos
