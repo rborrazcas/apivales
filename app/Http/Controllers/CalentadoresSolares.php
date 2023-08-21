@@ -2675,6 +2675,15 @@ class CalentadoresSolares extends Controller
             ]
         );
 
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
         try {
             $params = $request->only(['FolioApi']);
             $user = auth()->user();
@@ -2705,7 +2714,44 @@ class CalentadoresSolares extends Controller
             }
 
             $tabla = 'solicitudes_archivos AS a';
-            $folioApi = $value = hexdec($params['FolioApi']);
+            try {
+                $folioApi = hexdec($params['FolioApi']);
+            } catch (Exception $e) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'El folio ingresado no es válido.',
+                ]);
+            }
+
+            $solicitud = DB::Table('solicitudes_calentadores')
+                ->Select('idEstatusSolicitud')
+                ->Where('id', $folioApi)
+                ->WhereNull('FechaElimino')
+                ->first();
+
+            if (!$solicitud) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La solicitud no fue encontrada',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($solicitud->idEstatusSolicitud != 14) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'La solicitud aún no está marcada como aprobada por comité',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
             $archivos = DB::table($tabla)
                 ->SELECT('c.Clasificacion AS Nombre', 'a.NombreSistema')
                 ->JOIN(
@@ -2734,8 +2780,184 @@ class CalentadoresSolares extends Controller
             if ($total == 0) {
                 return [
                     'success' => true,
-                    'results' => true,
-                    'total' => $total,
+                    'results' => false,
+                    'message' =>
+                        'La solicitud consultada no fue encontrada o no tiene archivos',
+                    'data' => $array_res,
+                ];
+            }
+
+            foreach ($solicitudes as $data) {
+                $urlStorage = Storage::disk('subidos')->path(
+                    $data->NombreSistema
+                );
+                // $urlStorage =
+                //     '/Users/diegolopez/Desktop/PruebaEnvioIne/' .
+                //     $data->NombreSistema;
+
+                $img2 = file_get_contents($urlStorage);
+                $extension = explode('.', $data->NombreSistema);
+                if (strtolower($extension[1]) == 'pdf') {
+                    $imgEncode = base64_encode($img2);
+                } else {
+                    $imgEncode =
+                        'data:image/' .
+                        strtolower($extension['1']) .
+                        ';base64,' .
+                        base64_encode($img2);
+                }
+
+                $data->Archivo = $imgEncode;
+                unset($data->NombreSistema);
+            }
+
+            $array_res[] = $solicitudes;
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'totalArchivos' => $total,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'totalArchivos' => 0,
+                'errors' => $errors,
+                'message' => 'Ocurrio un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getFilesByFolioImpulso(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioImpulso' => 'required|size:19',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        try {
+            $params = $request->only(['FolioImpulso']);
+
+            if (!preg_match('/^S2023QC141701/', $params['FolioImpulso'])) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'El folio impulso no es válido',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $user = auth()->user();
+            $permisos = DB::table('users')
+                ->Select('idTipoUser')
+                ->Where('id', $user->id)
+                ->first();
+
+            if (!$permisos) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'No tiene acceso para ver la información',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($permisos->idTipoUser !== 10) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'No tiene autorización para ver la información',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+            $tabla = 'solicitudes_archivos AS a';
+            $folioApi = $params['FolioImpulso'];
+
+            $solicitud = DB::Table('solicitudes_calentadores')
+                ->Select('idEstatusSolicitud')
+                ->Where('FolioImpulso', $folioApi)
+                ->WhereNull('FechaElimino')
+                ->first();
+
+            if (!$solicitud) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La solicitud no fue encontrada',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($solicitud->idEstatusSolicitud != 14) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'La solicitud aún no está marcada como aprobada por comité',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            $archivos = DB::Table($tabla)
+                ->Select('c.Clasificacion AS Nombre', 'a.NombreSistema')
+                ->Join(
+                    'solicitudes_calentadores AS sol',
+                    'sol.id',
+                    'a.idSolicitud'
+                )
+                ->Join(
+                    'solicitudes_archivos_clasificacion as c',
+                    'c.id',
+                    'a.idClasificacion'
+                )
+                ->whereNull('a.FechaElimino')
+                ->Where('sol.FolioImpulso', $folioApi);
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $total = $archivos->count();
+            $solicitudes = $archivos
+                ->orderby('a.idClasificacion', 'asc')
+                ->get();
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'La solicitud consultada no fue encontrada o no tiene archivos',
                     'data' => $array_res,
                 ];
             }
@@ -2977,6 +3199,322 @@ class CalentadoresSolares extends Controller
                 'errors' => $errors,
                 'message' => 'Ocurrio un error, consulte al administrador',
             ];
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getPdfByFolioApi(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioApi' => 'required|size:6',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+        $params = $request->only(['FolioApi']);
+        $user = auth()->user();
+        $permisos = DB::table('users')
+            ->Select('idTipoUser')
+            ->Where('id', $user->id)
+            ->first();
+        if (!$permisos) {
+            return [
+                'success' => true,
+                'results' => false,
+                'message' => 'No tiene acceso para ver la información',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+        if ($permisos->idTipoUser !== 10) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'No tiene autorización para ver la información',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+        try {
+            $folioApi = hexdec($params['FolioApi']);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'El folio ingresado no es válido.',
+            ]);
+        }
+
+        $solicitud = DB::Table('solicitudes_calentadores')
+            ->Select('idEstatusSolicitud')
+            ->Where('id', $folioApi)
+            ->WhereNull('FechaElimino')
+            ->first();
+
+        if (!$solicitud) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'La solicitud no fue encontrada',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        if ($solicitud->idEstatusSolicitud != 14) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'La solicitud aún no está marcada como aprobada por comité',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        try {
+            $res = DB::table('solicitudes_calentadores as N')
+                ->select(
+                    'N.FolioImpulso AS id',
+                    DB::RAw(
+                        'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+            ELSE "          " END AS FechaSolicitud'
+                    ),
+                    DB::raw(
+                        'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                    ),
+                    'N.CURP',
+                    'N.Sexo',
+                    'N.Calle',
+                    'N.NumExt',
+                    'N.NumInt',
+                    'N.CP',
+                    'N.Colonia',
+                    'L.Nombre AS Localidad',
+                    'm.Nombre AS Municipio',
+                    DB::raw(
+                        'CONCAT_WS(" ",N.NombreTutor,N.PaternoTutor,N.MaternoTutor) AS Tutor'
+                    ),
+                    'p.Parentesco',
+                    'N.CURPTutor',
+                    'N.Telefono',
+                    'N.Celular',
+                    'N.Correo'
+                )
+                ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+                ->JOIN(
+                    'et_cat_localidad_2022 as L',
+                    'N.idLocalidad',
+                    '=',
+                    'L.id'
+                )
+                ->LeftJoin(
+                    'cat_parentesco_tutor AS p',
+                    'p.id',
+                    'N.idParentescoTutor'
+                )
+                ->where('N.id', $folioApi)
+                ->get();
+
+            if ($res->count() === 0) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La solicitud consultada no fue encontrada.',
+                    'data' => [],
+                ];
+            }
+
+            $calentadores = $res
+                ->map(function ($x) {
+                    $x = is_object($x) ? (array) $x : $x;
+                    return $x;
+                })
+                ->toArray();
+            $pdf = \PDF::loadView('pdf_solicitud_c2', compact('calentadores'));
+            return $pdf->download($folioApi . '.pdf');
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getPdfByFolioImpulso(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioImpulso' => 'required|size:19',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+        $params = $request->only(['FolioImpulso']);
+        if (!preg_match('/^S2023QC141701/', $params['FolioImpulso'])) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'El folio impulso no es válido',
+            ];
+            return response()->json($response, 200);
+        }
+        $user = auth()->user();
+        $permisos = DB::table('users')
+            ->Select('idTipoUser')
+            ->Where('id', $user->id)
+            ->first();
+        if (!$permisos) {
+            return [
+                'success' => true,
+                'results' => false,
+                'message' => 'No tiene acceso para ver la información',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+        if ($permisos->idTipoUser !== 10) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'No tiene autorización para ver la información',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        $folioApi = $params['FolioImpulso'];
+
+        $solicitud = DB::Table('solicitudes_calentadores')
+            ->Select('idEstatusSolicitud')
+            ->Where('FolioImpulso', $folioApi)
+            ->WhereNull('FechaElimino')
+            ->first();
+
+        if (!$solicitud) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'La solicitud no fue encontrada',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        if ($solicitud->idEstatusSolicitud != 14) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'La solicitud aún no está marcada como aprobada por comité',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        try {
+            $res = DB::table('solicitudes_calentadores as N')
+                ->select(
+                    'N.FolioImpulso AS id',
+                    DB::RAw(
+                        'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+            ELSE "          " END AS FechaSolicitud'
+                    ),
+                    DB::raw(
+                        'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                    ),
+                    'N.CURP',
+                    'N.Sexo',
+                    'N.Calle',
+                    'N.NumExt',
+                    'N.NumInt',
+                    'N.CP',
+                    'N.Colonia',
+                    'L.Nombre AS Localidad',
+                    'm.Nombre AS Municipio',
+                    DB::raw(
+                        'CONCAT_WS(" ",N.NombreTutor,N.PaternoTutor,N.MaternoTutor) AS Tutor'
+                    ),
+                    'p.Parentesco',
+                    'N.CURPTutor',
+                    'N.Telefono',
+                    'N.Celular',
+                    'N.Correo'
+                )
+                ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+                ->JOIN(
+                    'et_cat_localidad_2022 as L',
+                    'N.idLocalidad',
+                    '=',
+                    'L.id'
+                )
+                ->LeftJoin(
+                    'cat_parentesco_tutor AS p',
+                    'p.id',
+                    'N.idParentescoTutor'
+                )
+                ->where('N.FolioImpulso', $folioApi)
+                ->get();
+
+            if ($res->count() === 0) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La solicitud consultada no fue encontrada.',
+                    'data' => [],
+                ];
+            }
+
+            $calentadores = $res
+                ->map(function ($x) {
+                    $x = is_object($x) ? (array) $x : $x;
+                    return $x;
+                })
+                ->toArray();
+            $pdf = \PDF::loadView('pdf_solicitud_c2', compact('calentadores'));
+            return $pdf->download($folioApi . '.pdf');
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
             return response()->json($response, 200);
         }
     }

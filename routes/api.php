@@ -1229,7 +1229,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('validate', 'CalentadoresSolares@validateCURP');
         Route::post('register', 'CalentadoresSolares@register');
         Route::post('getList', 'CalentadoresSolares@getList');
-        Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioApi');
+        //Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioApi');
+        Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioImpulso');
+        //Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioApi');
+        Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioImpulso');
     });
 
     //! Proyectos Productivos
