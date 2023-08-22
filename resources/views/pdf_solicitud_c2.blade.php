@@ -175,53 +175,61 @@
                 <tr>
                     <td style="width:7%;">CURP:</td>
                     <td
-                        style="width:44%;font-weight:bold;text-align:center;border-bottom:1px solid;letter-spacing:5px;">
+                        style="width:40%;font-weight:bold;text-align:center;border-bottom:1px solid;letter-spacing:5px;">
                         {{ $calentador['CURP'] }}
                     </td>
-                    <td colspan="2">
+                    <td style="width:5%;">
                         Sexo:
                     </td>
-                    <td colspan="4" style="width:44%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                    <td style="width:10%;font-weight:bold;text-align:center;border-bottom:1px solid;">
                         {{ $calentador['Sexo'] }}
                     </td>
-                </tr>
-                <tr style="line-height:25px;">
                     <td style="width:8%;">Calle:</td>
-                    <td style="width:44%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                    <td style="width:30%;font-weight:bold;text-align:center;border-bottom:1px solid;">
                         {{ $calentador['Calle'] }}
                     </td>
+                </tr>
+            </table>
+            <table class="body-datos" style="margin-top: 3px;">
+                <tr style="line-height:25px;">
+                    <td style="width:7%;">Colonia:</td>
+                    <td style="width:43%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                        {{ $calentador['Colonia'] }}</td>
                     <td style="width:8%;">No. Ext.:</td>
-                    <td style="width:9%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                    <td style="width:8%;font-weight:bold;text-align:center;border-bottom:1px solid;">
                         {{ $calentador['NumExt'] }}</td>
-                    <td style="width:5%;">No. Int.:</td>
-                    <td style="width:6%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                    <td style="width:8%;">No. Int.:</td>
+                    <td style="width:8%;font-weight:bold;text-align:center;border-bottom:1px solid;">
                         {{ $calentador['NumInt'] }}</td>
-                    <td style="width:4%;">C.P.:</td>
-                    <td style="width:6%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                    <td style="width:8%;">C.P.:</td>
+                    <td style="width:8%;font-weight:bold;text-align:center;border-bottom:1px solid;">
                         {{ $calentador['CP'] }}
                     </td>
                 </tr>
+            </table>
+            <table class="body-datos" style="margin-top: 3px;">
                 <tr style="line-height:25px;">
-                    <td style="width:7%;">Colonia:</td>
-                    <td style="width:44%;font-weight:bold;text-align:center;border-bottom:1px solid;">
-                        {{ $calentador['Colonia'] }}</td>
-                    <td colspan="2">
-                        Localidad:
-                    </td>
-                    <td colspan="4" style="width:44%;font-weight:bold;text-align:center;border-bottom:1px solid;">
-                        {{ $calentador['Localidad'] }}
-                    </td>
-                </tr>
-                <tr style="line-height:25px;">
-                    <td style="width:7%;">Municipio:</td>
-                    <td style="width:44%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                    <td style="width:12%;">Municipio:</td>
+                    <td style="width:63%;font-weight:bold;text-align:center;border-bottom:1px solid;">
                         {{ $calentador['Municipio'] }}</td>
-                    <td colspan="2">
+
+                    <td style="width:7%;">
                         Estado:
                     </td>
-                    <td colspan="4" style="width:44%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                    <td style="width:18%;font-weight:bold;text-align:center;border-bottom:1px solid;">
                         GUANAJUATO
                     </td>
+                </tr>
+            </table>
+            <table class="body-datos" style="margin-top: 3px;">
+                <tr style="line-height:25px;">
+                    <td style="width:8%;">
+                        Localidad:
+                    </td>
+                    <td style="width:92%;font-weight:bold;text-align:center;border-bottom:1px solid;">
+                        {{ $calentador['Localidad'] }}
+                    </td>
+
                 </tr>
             </table>
             <table class="body-datos" style="margin-top: 25px;">

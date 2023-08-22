@@ -291,6 +291,23 @@ class CalentadoresSolares extends Controller
                 ];
             }
 
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                foreach ($params['filtered'] as $filtro) {
+                    $value = $filtro['value'];
+
+                    if (!$this->validateInput($value)) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Uno o más filtros utilizados no son válidos, intente nuevamente',
+                        ];
+
+                        return response()->json($response, 200);
+                    }
+                }
+            }
+
             $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
             $filtroPermisos = '';
@@ -317,6 +334,7 @@ class CalentadoresSolares extends Controller
                 ->SELECT(
                     DB::RAW('LPAD(HEX(c.id),6,0) AS FolioSolicitud'),
                     'c.id',
+                    'c.FolioImpulso',
                     'c.idEstatusSolicitud',
                     'e.Estatus',
                     'c.Nombre',
@@ -1440,6 +1458,21 @@ class CalentadoresSolares extends Controller
                 return response()->json($response, 200);
             }
 
+            $isRegistered = $this->isRegistered($params['CURP']);
+            if ($isRegistered) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'La CURP ya cuenta con una solicitud para calentador solar',
+                    'message' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' fue registrado con el Folio Impulso ' .
+                        $isRegistered->FolioImpulso,
+                ];
+                return response()->json($response, 200);
+            }
+
             $params['idUsuarioCreo'] = $user->id;
             $params['FechaCreo'] = date('Y-m-d H:i:s');
             $params['idEntidadVive'] = 12;
@@ -1458,6 +1491,93 @@ class CalentadoresSolares extends Controller
             }
 
             $folioSolicitud = str_pad(dechex($id), 6, '0', STR_PAD_LEFT);
+
+            $curpValida = $this->isCurp($params['CURP']);
+            $newRecord = [
+                'FolioApi' => $folioSolicitud,
+                'FechaSolicitud' => $params['FechaSolicitud'],
+                'FolioTarjetaImpulso' => isset($params['FolioTarjetaImpulso'])
+                    ? $params['FolioTarjetaImpulso']
+                    : null,
+                'CURP' => $params['CURP'],
+                'Nombre' => $params['Nombre'],
+                'Paterno' => $params['Paterno'],
+                'Materno' => isset($params['Materno'])
+                    ? $params['Materno']
+                    : null,
+                'FechaNacimiento' => isset($params['FechaNacimiento'])
+                    ? $params['FechaNacimiento']
+                    : null,
+                'Sexo' => isset($params['Sexo']) ? $params['Sexo'] : null,
+                'EntidadNacimiento' => isset($params['idEntidadNacimiento'])
+                    ? $params['idEntidadNacimiento']
+                    : null,
+                'RFC' => isset($params['RFC']) ? $params['RFC'] : null,
+                'Celular' => isset($params['Celular'])
+                    ? $params['Celular']
+                    : null,
+                'Telefono' => isset($params['Telefono'])
+                    ? $params['Telefono']
+                    : null,
+                'TelRecados' => isset($params['TelRecados'])
+                    ? $params['TelRecados']
+                    : null,
+                'Correo' => isset($params['Correo']) ? $params['Correo'] : null,
+                'idMunicipio' => isset($params['idMunicipio'])
+                    ? $params['idMunicipio']
+                    : null,
+                'idLocalidad' => isset($params['idLocalidad'])
+                    ? $params['idLocalidad']
+                    : null,
+                'Colonia' => isset($params['Colonia'])
+                    ? $params['Colonia']
+                    : null,
+                'Calle' => isset($params['Calle']) ? $params['Calle'] : null,
+                'NumExt' => isset($params['NumExt']) ? $params['NumExt'] : null,
+                'NumInt' => isset($params['NumInt']) ? $params['NumInt'] : null,
+                'CP' => isset($params['CP']) ? $params['CP'] : null,
+                'Referencias' => isset($params['Referencias'])
+                    ? $params['Referencias']
+                    : null,
+                'CURPInformante' => isset($params['CURPTutor'])
+                    ? $params['CURPTutor']
+                    : null,
+                'NombreInformante' => isset($params['NombreTutor'])
+                    ? $params['NombreTutor']
+                    : null,
+                'PaternoInformante' => isset($params['PaternoTutor'])
+                    ? $params['PaternoTutor']
+                    : null,
+                'MaternoInformante' => isset($params['MaternoTutor'])
+                    ? $params['MaternoTutor']
+                    : null,
+                'TelefonoInformante' => isset($params['TelefonoTutor'])
+                    ? $params['TelefonoTutor']
+                    : null,
+                'Enlace' => isset($params['Enlace']) ? $params['Enlace'] : null,
+                'idEstatusSolicitud' => 1,
+                'FormatoCURPCorrecto' => $curpValida,
+                'idUsuarioCreo' => $user->id,
+                'FechaCreo' => date('Y-m-d H:i:s'),
+            ];
+
+            DB::beginTransaction();
+            $idImpulso = DB::table(
+                'solicitudes_calentadores_master'
+            )->insertGetId($newRecord);
+            DB::commit();
+            $folioImpulso = 'S2023QC14170100' . $idImpulso;
+            DB::beginTransaction();
+            DB::table('solicitudes_calentadores_master')
+                ->Where('id', $idImpulso)
+                ->update([
+                    'FolioImpulso' => $folioImpulso,
+                ]);
+            DB::table('solicitudes_calentadores')
+                ->Where('id', $id)
+                ->update(['FolioImpulso' => $folioImpulso]);
+            DB::commit();
+
             $response = [
                 'success' => true,
                 'results' => true,
@@ -2032,5 +2152,1396 @@ class CalentadoresSolares extends Controller
             ];
             return response()->json($response, 200);
         }
+    }
+
+    public function validateCURP(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'CURP' => 'required|size:18',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->only(['CURP']);
+        $user = auth()->user();
+
+        $isRegistered = $this->isRegistered($params['CURP']);
+
+        if ($isRegistered) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'La CURP ya cuenta con una solicitud para calentador solar',
+                'data' => $isRegistered,
+            ];
+
+            return response()->json($response, 200);
+        } else {
+            $curpValida = $this->isCurp($params['CURP']);
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'CURP no registrada',
+                'formatoCorrecto' => $curpValida,
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function register(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'CURP' => 'required|size:18',
+                'FechaSolicitud' => 'required|date_format:Y-m-d',
+                'Nombre' => 'required|between:3,150',
+                'Paterno' => 'required|between:3,150',
+                'FolioApi' => 'max:6',
+                'FolioTarjetaImpulso' => 'max:15',
+                'Materno' => 'max:150',
+                'Sexo' => 'max:1',
+                'RFC' => 'max:13',
+                'Celular' => 'max:10',
+                'Telefono' => 'max:13',
+                'TelRecados' => 'max:13',
+                'Correo' => 'max:70',
+                'Colonia' => 'max:150',
+                'Calle' => 'max:120',
+                'NumExt' => 'max:20',
+                'NumInt' => 'max:20',
+                'CP' => 'max:6',
+                'CURPInformante' => 'max:18',
+                'NombreInformante' => 'max:65',
+                'PaternoInformante' => 'max:65',
+                'MaternoInformante' => 'max:65',
+                'TelefonoInformante' => 'max:10',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+                'between' =>
+                    'El campo :attribute debe tener una longitud de entre :min y :max caracteres.',
+                'date_format' =>
+                    'El formato del campo :attribute es incorrecto debe enviarse como: aaaa-m-d',
+                'max' =>
+                    'El campo :attribute de tener una longitud máxima de :max caracteres.',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $user = auth()->user();
+        $isRegistered = $this->isRegistered($params['CURP']);
+        if ($isRegistered) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'La CURP ya cuenta con una solicitud para calentador solar',
+                'data' => $isRegistered,
+            ];
+            return response()->json($response, 200);
+        } else {
+            if (isset($params['idMunicipio'])) {
+                $mun = DB::table('et_cat_muninicipio')
+                    ->Select('id')
+                    ->Where('id', $params['idMunicipio'])
+                    ->first();
+                if (!$mun) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'message' =>
+                            'El municipio enviado no se encuentra en el catálogo',
+                    ];
+                    return response()->json($response, 200);
+                }
+
+                $loc = DB::table('et_cat_localidad_2022')
+                    ->Select('id')
+                    ->Where([
+                        'id' => $params['idLocalidad'],
+                    ])
+                    ->first();
+                if (!$loc) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'message' =>
+                            'La localidad enviada no se encuentra en el catálogo',
+                    ];
+                    return response()->json($response, 200);
+                }
+            }
+
+            $curpValida = $this->isCurp($params['CURP']);
+            $newRecord = [
+                'FolioApi' => isset($params['FolioApi'])
+                    ? $params['FolioApi']
+                    : null,
+                'FechaSolicitud' => $params['FechaSolicitud'],
+                'FolioTarjetaImpulso' => isset($params['FolioTarjetaImpulso'])
+                    ? $params['FolioTarjetaImpulso']
+                    : null,
+                'CURP' => $params['CURP'],
+                'Nombre' => $params['Nombre'],
+                'Paterno' => $params['Paterno'],
+                'Materno' => isset($params['Materno'])
+                    ? $params['Materno']
+                    : null,
+                'FechaNacimiento' => isset($params['FechaNacimiento'])
+                    ? $params['FechaNacimiento']
+                    : null,
+                'Sexo' => isset($params['Sexo']) ? $params['Sexo'] : null,
+                'EntidadNacimiento' => isset($params['EntidadNacimiento'])
+                    ? $params['EntidadNacimiento']
+                    : null,
+                'RFC' => isset($params['RFC']) ? $params['RFC'] : null,
+                'Celular' => isset($params['Celular'])
+                    ? $params['Celular']
+                    : null,
+                'Telefono' => isset($params['Telefono'])
+                    ? $params['Telefono']
+                    : null,
+                'TelRecados' => isset($params['TelRecados'])
+                    ? $params['TelRecados']
+                    : null,
+                'Correo' => isset($params['Correo']) ? $params['Correo'] : null,
+                'idMunicipio' => isset($params['idMunicipio'])
+                    ? $params['idMunicipio']
+                    : null,
+                'idLocalidad' => isset($params['idLocalidad'])
+                    ? $params['idLocalidad']
+                    : null,
+                'Colonia' => isset($params['Colonia'])
+                    ? $params['Colonia']
+                    : null,
+                'Calle' => isset($params['Calle']) ? $params['Calle'] : null,
+                'NumExt' => isset($params['NumExt']) ? $params['NumExt'] : null,
+                'NumInt' => isset($params['NumInt']) ? $params['NumInt'] : null,
+                'CP' => isset($params['CP']) ? $params['CP'] : null,
+                'Referencias' => isset($params['Referencias'])
+                    ? $params['Referencias']
+                    : null,
+                'Latitud' => isset($params['Latitud'])
+                    ? $params['Latitud']
+                    : null,
+                'Longitud' => isset($params['Longitud'])
+                    ? $params['Longitud']
+                    : null,
+                'CveZap' => isset($params['CveZap']) ? $params['CveZap'] : null,
+                'CURPInformante' => isset($params['CURPInformante'])
+                    ? $params['CURPInformante']
+                    : null,
+                'NombreInformante' => isset($params['NombreInformante'])
+                    ? $params['NombreInformante']
+                    : null,
+                'PaternoInformante' => isset($params['PaternoInformante'])
+                    ? $params['PaternoInformante']
+                    : null,
+                'MaternoInformante' => isset($params['MaternoInformante'])
+                    ? $params['MaternoInformante']
+                    : null,
+                'TelefonoInformante' => isset($params['TelefonoInformante'])
+                    ? $params['TelefonoInformante']
+                    : null,
+                'Enlace' => isset($params['Enlace']) ? $params['Enlace'] : null,
+                'idEstatusSolicitud' => 1,
+                'FormatoCURPCorrecto' => $curpValida,
+                'idUsuarioCreo' => $user->id,
+                'FechaCreo' => date('Y-m-d H:i:s'),
+            ];
+            DB::beginTransaction();
+            $idImpulso = DB::table(
+                'solicitudes_calentadores_master'
+            )->insertGetId($newRecord);
+            DB::commit();
+            $folioImpulso = 'S2023QC14170100' . $idImpulso;
+            DB::beginTransaction();
+            DB::table('solicitudes_calentadores_master')
+                ->Where('id', $idImpulso)
+                ->update([
+                    'FolioImpulso' => $folioImpulso,
+                ]);
+            DB::commit();
+            $response = [
+                'success' => true,
+                'results' => true,
+                'message' => 'Solicitud registada con éxito',
+                'folio' => $folioImpulso,
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    public function isRegistered($curp)
+    {
+        try {
+            $res = DB::table('solicitudes_calentadores_master as c')
+                ->select(
+                    'c.id',
+                    'c.FolioImpulso',
+                    'c.FechaSolicitud',
+                    'c.CURP',
+                    'e.Estatus'
+                )
+                ->join(
+                    'solicitudes_status AS e',
+                    'c.idEstatusSolicitud',
+                    'e.id'
+                )
+                ->where('c.CURP', $curp)
+                ->first();
+
+            if ($res) {
+                return $res;
+            } else {
+                return null;
+            }
+        } catch (QueryException $errors) {
+            return null;
+        }
+    }
+
+    public function getList(Request $request)
+    {
+        try {
+            $params = $request->only(['filtered']);
+            $user = auth()->user();
+            $permisos = DB::table('users')
+                ->Select('idTipoUser')
+                ->Where('id', $user->id)
+                ->first();
+
+            if (!$permisos) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'No tiene acceso para ver la información',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($permisos->idTipoUser !== 10) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'No tiene autorización para ver la información',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            $filtros = [
+                'FolioImpulso',
+                'FolioApi',
+                'FechaSolicitud',
+                'CURP',
+                'Nombre',
+                'Paterno',
+                'Materno',
+                'Region',
+                'idMunicipio',
+            ];
+
+            if (isset($params['filtered'])) {
+                foreach ($params['filtered'] as $filtro) {
+                    if (!in_array($filtro['id'], $filtros)) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Los campos de filtrado no son válidos',
+                            'data' => [],
+                        ];
+                        return response()->json($response, 200);
+                    }
+                }
+            }
+
+            $tabla = 'solicitudes_calentadores AS c';
+
+            $solicitudes = DB::table($tabla)
+                ->SELECT(
+                    DB::RAW('LPAD(HEX(c.id),6,0) AS FolioApi'),
+                    'c.FolioImpulso',
+                    'e.Estatus',
+                    'c.FechaSolicitud',
+                    'c.FolioTarjetaImpulso',
+                    'c.Nombre',
+                    'c.Paterno',
+                    'c.Materno',
+                    'c.FechaNacimiento',
+                    'c.Sexo',
+                    'c.CURP',
+                    'm.SubRegion AS Region',
+                    'm.Nombre As Municipio',
+                    'l.Nombre AS Localidad',
+                    'c.Colonia',
+                    'c.Calle',
+                    'c.NumExt',
+                    'c.NumInt',
+                    'c.Referencias',
+                    'c.CP',
+                    'c.Telefono',
+                    'c.Celular',
+                    'c.TelRecados',
+                    'c.Correo',
+                    'c.NombreTutor AS NombreInformante',
+                    'c.PaternoTutor AS PaternoInformante',
+                    'c.MaternoTutor AS MaternoInformante',
+                    'c.CURPTutor AS CURPInformante',
+                    DB::RAW(
+                        "CONCAT_WS(' ',creadores.Nombre,creadores.Paterno,creadores.Materno) AS CreadoPor"
+                    )
+                )
+                ->leftJoin(
+                    'users AS creadores',
+                    'creadores.id',
+                    'c.idUsuarioCreo'
+                )
+                ->leftJoin(
+                    'solicitudes_status AS e',
+                    'e.id',
+                    'c.idEstatusSolicitud'
+                )
+                ->JOIN('et_cat_municipio as m', 'm.id', 'c.idMunicipio')
+                ->JOIN('et_cat_localidad_2022 as l', 'l.id', 'c.idLocalidad')
+                ->whereNull('c.FechaElimino')
+                ->Where('c.idEstatusSolicitud', 14);
+
+            $filterQuery = '';
+            $municipioRegion = [];
+            $mun = [];
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                foreach ($params['filtered'] as $filtro) {
+                    if ($filterQuery != '') {
+                        $filterQuery .= ' AND ';
+                    }
+                    $id = $filtro['id'];
+                    $value = $filtro['value'];
+
+                    if ($id == 'FechaSolicitud') {
+                        $timestamp = strtotime($value);
+                        $value = date('Y-m-d', $timestamp);
+                    }
+
+                    if ($id == 'FolioApi') {
+                        $id = 'id';
+                        $value = hexdec($value);
+                    }
+
+                    if ($id == 'Region') {
+                        $municipios = DB::table('et_cat_municipio')
+                            ->select('Id')
+                            ->whereIN('SubRegion', $value)
+                            ->get();
+                        foreach ($municipios as $m) {
+                            $municipioRegion[] = $m->Id;
+                        }
+
+                        $id = 'idMunicipio';
+                        $value = $municipioRegion;
+                    }
+                    $id = 'c.' . $id;
+                    switch (gettype($value)) {
+                        case 'string':
+                            $filterQuery .= " $id LIKE '%$value%' ";
+                            break;
+                        case 'array':
+                            $colonDividedValue = implode(', ', $value);
+                            $filterQuery .= " $id IN ($colonDividedValue) ";
+                            break;
+                        default:
+                            if ($value === -1) {
+                                $filterQuery .= " $id IS NOT NULL ";
+                            } else {
+                                $filterQuery .= " $id = $value ";
+                            }
+                    }
+                }
+            }
+
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $total = $solicitudes->count();
+            $solicitudes = $solicitudes->orderby('c.id', 'asc')->get();
+
+            $parameters_serializado = serialize($params);
+            $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
+                ->where('api', '=', 'getCalentadores')
+                ->first();
+
+            if ($filtro_usuario) {
+                $filtro_usuario->parameters = $parameters_serializado;
+                $filtro_usuario->updated_at = time::now();
+                $filtro_usuario->update();
+            } else {
+                $objeto_nuevo = new VNegociosFiltros();
+                $objeto_nuevo->api = 'getCalentadores';
+                $objeto_nuevo->idUser = $user->id;
+                $objeto_nuevo->parameters = $parameters_serializado;
+                $objeto_nuevo->save();
+            }
+            $array_res = [];
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'data' => $array_res,
+                ];
+            }
+
+            foreach ($solicitudes as $data) {
+                // $files = DB::table('solicitudes_archivos AS a')
+                //     ->Select('a.NombreSistema')
+                //     ->WhereNULL('a.FechaElimino')
+                //     ->Where('a.idSolicitud', $data->id)
+                //     ->get();
+
+                // if ($files->count() > 0) {
+                //     $dataImg = [];
+                //     foreach ($files as $f) {
+                //         // $urlStorage = Storage::disk('subidos')->path(
+                //         //     $f->NombreSistema
+                //         // );
+                //         $urlStorage =
+                //             '/Users/diegolopez/Desktop/PruebaEnvioIne/' .
+                //             $f->NombreSistema;
+                //         $img2 = file_get_contents($urlStorage);
+                //         $imgEncode = base64_encode($img2);
+                //         $dataImg[] = $imgEncode;
+                //     }
+                //     $data->Files = $dataImg;
+                // }
+                $array_res[] = $data;
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'total' => $total,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ocurrio un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getFilesByFolioApi(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioApi' => 'required|size:6',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        try {
+            $params = $request->only(['FolioApi']);
+            $user = auth()->user();
+            $permisos = DB::table('users')
+                ->Select('idTipoUser')
+                ->Where('id', $user->id)
+                ->first();
+
+            if (!$permisos) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'No tiene acceso para ver la información',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($permisos->idTipoUser !== 10) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'No tiene autorización para ver la información',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            $tabla = 'solicitudes_archivos AS a';
+            try {
+                $folioApi = hexdec($params['FolioApi']);
+            } catch (Exception $e) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'El folio ingresado no es válido.',
+                ]);
+            }
+
+            $solicitud = DB::Table('solicitudes_calentadores')
+                ->Select('idEstatusSolicitud')
+                ->Where('id', $folioApi)
+                ->WhereNull('FechaElimino')
+                ->first();
+
+            if (!$solicitud) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La solicitud no fue encontrada',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($solicitud->idEstatusSolicitud != 14) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'La solicitud aún no está marcada como aprobada por comité',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            $archivos = DB::table($tabla)
+                ->SELECT('c.Clasificacion AS Nombre', 'a.NombreSistema')
+                ->JOIN(
+                    'solicitudes_archivos_clasificacion as c',
+                    'c.id',
+                    'a.idClasificacion'
+                )
+                ->whereNull('a.FechaElimino')
+                ->Where('a.idSolicitud', $folioApi);
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $total = $archivos->count();
+            $solicitudes = $archivos
+                ->orderby('a.idClasificacion', 'asc')
+                ->get();
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'La solicitud consultada no fue encontrada o no tiene archivos',
+                    'data' => $array_res,
+                ];
+            }
+
+            foreach ($solicitudes as $data) {
+                $urlStorage = Storage::disk('subidos')->path(
+                    $data->NombreSistema
+                );
+                // $urlStorage =
+                //     '/Users/diegolopez/Desktop/PruebaEnvioIne/' .
+                //     $data->NombreSistema;
+
+                $img2 = file_get_contents($urlStorage);
+                $extension = explode('.', $data->NombreSistema);
+                if (strtolower($extension[1]) == 'pdf') {
+                    $imgEncode = base64_encode($img2);
+                } else {
+                    $imgEncode =
+                        'data:image/' .
+                        strtolower($extension['1']) .
+                        ';base64,' .
+                        base64_encode($img2);
+                }
+
+                $data->Archivo = $imgEncode;
+                unset($data->NombreSistema);
+            }
+
+            $array_res[] = $solicitudes;
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'totalArchivos' => $total,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'totalArchivos' => 0,
+                'errors' => $errors,
+                'message' => 'Ocurrio un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getFilesByFolioImpulso(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioImpulso' => 'required|size:19',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        try {
+            $params = $request->only(['FolioImpulso']);
+
+            if (!preg_match('/^S2023QC141701/', $params['FolioImpulso'])) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'El folio impulso no es válido',
+                ];
+                return response()->json($response, 200);
+            }
+
+            $user = auth()->user();
+            $permisos = DB::table('users')
+                ->Select('idTipoUser')
+                ->Where('id', $user->id)
+                ->first();
+
+            if (!$permisos) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'No tiene acceso para ver la información',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($permisos->idTipoUser !== 10) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'No tiene autorización para ver la información',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+            $tabla = 'solicitudes_archivos AS a';
+            $folioApi = $params['FolioImpulso'];
+
+            $solicitud = DB::Table('solicitudes_calentadores')
+                ->Select('idEstatusSolicitud')
+                ->Where('FolioImpulso', $folioApi)
+                ->WhereNull('FechaElimino')
+                ->first();
+
+            if (!$solicitud) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La solicitud no fue encontrada',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            if ($solicitud->idEstatusSolicitud != 14) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'La solicitud aún no está marcada como aprobada por comité',
+                    'data' => [],
+                ];
+                return response()->json($response, 200);
+            }
+
+            $archivos = DB::Table($tabla)
+                ->Select('c.Clasificacion AS Nombre', 'a.NombreSistema')
+                ->Join(
+                    'solicitudes_calentadores AS sol',
+                    'sol.id',
+                    'a.idSolicitud'
+                )
+                ->Join(
+                    'solicitudes_archivos_clasificacion as c',
+                    'c.id',
+                    'a.idClasificacion'
+                )
+                ->whereNull('a.FechaElimino')
+                ->Where('sol.FolioImpulso', $folioApi);
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $total = $archivos->count();
+            $solicitudes = $archivos
+                ->orderby('a.idClasificacion', 'asc')
+                ->get();
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' =>
+                        'La solicitud consultada no fue encontrada o no tiene archivos',
+                    'data' => $array_res,
+                ];
+            }
+
+            foreach ($solicitudes as $data) {
+                $urlStorage = Storage::disk('subidos')->path(
+                    $data->NombreSistema
+                );
+                // $urlStorage =
+                //     '/Users/diegolopez/Desktop/PruebaEnvioIne/' .
+                //     $data->NombreSistema;
+
+                $img2 = file_get_contents($urlStorage);
+                $extension = explode('.', $data->NombreSistema);
+                if (strtolower($extension[1]) == 'pdf') {
+                    $imgEncode = base64_encode($img2);
+                } else {
+                    $imgEncode =
+                        'data:image/' .
+                        strtolower($extension['1']) .
+                        ';base64,' .
+                        base64_encode($img2);
+                }
+
+                $data->Archivo = $imgEncode;
+                unset($data->NombreSistema);
+            }
+
+            $array_res[] = $solicitudes;
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'totalArchivos' => $total,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'totalArchivos' => 0,
+                'errors' => $errors,
+                'message' => 'Ocurrio un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    public function isCurp($string)
+    {
+        if (
+            $string !== null &&
+            trim($string) !== '' &&
+            strlen($string) === 18
+        ) {
+            // By @JorhelR
+            // TRANSFORMARMOS EN STRING EN MAYÚSCULAS RESPETANDO LAS Ñ PARA EVITAR ERRORES
+            $string = mb_strtoupper($string, 'UTF-8');
+            // EL REGEX POR @MARIANO
+            $pattern =
+                '/^([A-Z][AEIOUX][A-Z]{2}\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])[HM](?:AS|B[CS]|C[CLMSH]|D[FG]|G[TR]|HG|JC|M[CNS]|N[ETL]|OC|PL|Q[TR]|S[PLR]|T[CSL]|VZ|YN|ZS)[B-DF-HJ-NP-TV-Z]{3}[A-Z\d])(\d)$/';
+            $validate = preg_match($pattern, $string, $match);
+            if ($validate === false) {
+                // SI EL STRING NO CUMPLE CON EL PATRÓN REQUERIDO RETORNA FALSE
+                return false;
+            }
+            if (count($match) == 0) {
+                return false;
+            }
+            // ASIGNAMOS VALOR DE 0 A 36 DIVIDIENDO EL STRING EN UN ARRAY
+            $ind = preg_split(
+                '//u',
+                '0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ',
+                null,
+                PREG_SPLIT_NO_EMPTY
+            );
+            // REVERTIMOS EL CURP Y LE COLOCAMOS UN DÍGITO EXTRA PARA QUE EL VALOR DEL PRIMER CARACTER SEA 0 Y EL DEL PRIMER DIGITO DE LA CURP (INVERSA) SEA 1
+            $vals = str_split(strrev($match[0] . '?'));
+            // ELIMINAMOS EL CARACTER ADICIONAL Y EL PRIMER DIGITO DE LA CURP (INVERSA)
+            unset($vals[0]);
+            unset($vals[1]);
+            $tempSum = 0;
+            foreach ($vals as $v => $d) {
+                // SE BUSCA EL DÍGITO DE LA CURP EN EL INDICE DE LETRAS Y SU CLAVE(VALOR) SE MULTIPLICA POR LA CLAVE(VALOR) DEL DÍGITO. TODO ESTO SE SUMA EN $tempSum
+                $tempSum = array_search($d, $ind) * $v + $tempSum;
+            }
+            // ESTO ES DE @MARIANO NO SUPE QUE ERA
+            $digit = 10 - ($tempSum % 10);
+            // SI EL DIGITO CALCULADO ES 10 ENTONCES SE REASIGNA A 0
+            $digit = $digit == 10 ? 0 : $digit;
+            // SI EL DIGITO COINCIDE CON EL ÚLTIMO DÍGITO DE LA CURP RETORNA TRUE, DE LO CONTRARIO FALSE
+            return $match[2] == $digit;
+        } else {
+            return false;
+        }
+    }
+
+    public function validateCalentadores(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $tabla = 'solicitudes_calentadores AS c';
+            $solicitudes = DB::table($tabla)
+                ->SELECT(
+                    'c.id',
+                    DB::RAW('LPAD(HEX(c.id),6,0) AS FolioApi'),
+                    'c.FechaSolicitud',
+                    'c.FolioTarjetaImpulso',
+                    'c.CURP',
+                    'c.Nombre',
+                    'c.Paterno',
+                    'c.Materno',
+                    'c.FechaNacimiento',
+                    'c.Sexo',
+                    'c.idEntidadNacimiento',
+                    'c.RFC',
+                    'c.Celular',
+                    'c.Telefono',
+                    'c.TelRecados',
+                    'c.Correo',
+                    DB::RAW('12 as idEntidad'),
+                    'c.idMunicipio',
+                    'c.idLocalidad',
+                    'c.Colonia',
+                    'c.Calle',
+                    'c.NumExt',
+                    'c.NumInt',
+                    'c.CP',
+                    'c.Referencias',
+                    'c.CURPTutor AS CURPInformante',
+                    'c.NombreTutor AS NombreInformante',
+                    'c.PaternoTutor AS PaternoInformante',
+                    'c.MaternoTutor AS MaternoInformante',
+                    'c.Enlace',
+                    DB::RAW('1 AS idEstatusSolicitud'),
+                    DB::RAW('1 AS FormatoCURPCorrecto'),
+                    'c.idUsuarioCreo',
+                    'c.FechaCreo'
+                )
+                ->LeftJoin(
+                    'solicitudes_calentadores_master AS m',
+                    'm.CURP',
+                    'c.CURP'
+                )
+                ->whereNull('c.FechaElimino')
+                ->WhereNull('m.id');
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $total = $solicitudes->count();
+            $solicitudes = $solicitudes->get();
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'data' => $array_res,
+                ];
+            }
+
+            $newRegisters = [];
+            foreach ($solicitudes as $data) {
+                $newRecord = [
+                    'FolioApi' => $data->FolioApi,
+                    'FechaSolicitud' => $data->FechaSolicitud,
+                    'FolioTarjetaImpulso' => $data->FolioTarjetaImpulso,
+                    'CURP' => $data->CURP,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'FechaNacimiento' => $data->FechaNacimiento,
+                    'Sexo' => $data->Sexo,
+                    'EntidadNacimiento' => $data->idEntidadNacimiento,
+                    'RFC' => $data->RFC,
+                    'Celular' => $data->Celular,
+                    'Telefono' => $data->Telefono,
+                    'TelRecados' => $data->TelRecados,
+                    'Correo' => $data->Correo,
+                    'idEntidad' => $data->idEntidad,
+                    'idMunicipio' => $data->idMunicipio,
+                    'idLocalidad' => $data->idLocalidad,
+                    'Colonia' => $data->Colonia,
+                    'Calle' => $data->Calle,
+                    'NumExt' => $data->NumExt,
+                    'NumInt' => $data->NumInt,
+                    'CP' => $data->CP,
+                    'Referencias' => $data->Referencias,
+                    'CURPInformante' => $data->CURPInformante,
+                    'NombreInformante' => $data->NombreInformante,
+                    'PaternoInformante' => $data->PaternoInformante,
+                    'MaternoInformante' => $data->MaternoInformante,
+                    'Enlace' => $data->Enlace,
+                    'idEstatusSolicitud' => 1,
+                    'FormatoCURPCorrecto' => 1,
+                    'idUsuarioCreo' => $data->idUsuarioCreo,
+                    'FechaCreo' => $data->FechaCreo,
+                ];
+
+                DB::beginTransaction();
+                $idImpulso = DB::table(
+                    'solicitudes_calentadores_master'
+                )->insertGetId($newRecord);
+                DB::commit();
+                $folioImpulso = 'S2023QC14170100' . $idImpulso;
+                DB::beginTransaction();
+                DB::table('solicitudes_calentadores_master')
+                    ->Where('id', $idImpulso)
+                    ->update([
+                        'FolioImpulso' => $folioImpulso,
+                    ]);
+                DB::commit();
+                DB::beginTransaction();
+                DB::table('solicitudes_calentadores')
+                    ->Where('id', $data->id)
+                    ->update([
+                        'FolioImpulso' => $folioImpulso,
+                    ]);
+                DB::commit();
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => 0,
+                'totalArchivos' => $total,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'totalArchivos' => 0,
+                'errors' => $errors,
+                'message' => 'Ocurrio un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getPdfByFolioApi(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioApi' => 'required|size:6',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+        $params = $request->only(['FolioApi']);
+        $user = auth()->user();
+        $permisos = DB::table('users')
+            ->Select('idTipoUser')
+            ->Where('id', $user->id)
+            ->first();
+        if (!$permisos) {
+            return [
+                'success' => true,
+                'results' => false,
+                'message' => 'No tiene acceso para ver la información',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+        if ($permisos->idTipoUser !== 10) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'No tiene autorización para ver la información',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+        try {
+            $folioApi = hexdec($params['FolioApi']);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'El folio ingresado no es válido.',
+            ]);
+        }
+
+        $solicitud = DB::Table('solicitudes_calentadores')
+            ->Select('idEstatusSolicitud')
+            ->Where('id', $folioApi)
+            ->WhereNull('FechaElimino')
+            ->first();
+
+        if (!$solicitud) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'La solicitud no fue encontrada',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        if ($solicitud->idEstatusSolicitud != 14) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'La solicitud aún no está marcada como aprobada por comité',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        try {
+            $res = DB::table('solicitudes_calentadores as N')
+                ->select(
+                    'N.FolioImpulso AS id',
+                    DB::RAw(
+                        'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+            ELSE "          " END AS FechaSolicitud'
+                    ),
+                    DB::raw(
+                        'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                    ),
+                    'N.CURP',
+                    'N.Sexo',
+                    'N.Calle',
+                    'N.NumExt',
+                    'N.NumInt',
+                    'N.CP',
+                    'N.Colonia',
+                    'L.Nombre AS Localidad',
+                    'm.Nombre AS Municipio',
+                    DB::raw(
+                        'CONCAT_WS(" ",N.NombreTutor,N.PaternoTutor,N.MaternoTutor) AS Tutor'
+                    ),
+                    'p.Parentesco',
+                    'N.CURPTutor',
+                    'N.Telefono',
+                    'N.Celular',
+                    'N.Correo'
+                )
+                ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+                ->JOIN(
+                    'et_cat_localidad_2022 as L',
+                    'N.idLocalidad',
+                    '=',
+                    'L.id'
+                )
+                ->LeftJoin(
+                    'cat_parentesco_tutor AS p',
+                    'p.id',
+                    'N.idParentescoTutor'
+                )
+                ->where('N.id', $folioApi)
+                ->get();
+
+            if ($res->count() === 0) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La solicitud consultada no fue encontrada.',
+                    'data' => [],
+                ];
+            }
+
+            $calentadores = $res
+                ->map(function ($x) {
+                    $x = is_object($x) ? (array) $x : $x;
+                    return $x;
+                })
+                ->toArray();
+            $pdf = \PDF::loadView('pdf_solicitud_c2', compact('calentadores'));
+            return $pdf->download($folioApi . '.pdf');
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function getPdfByFolioImpulso(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioImpulso' => 'required|size:19',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $v->errors(),
+            ];
+            return response()->json($response, 200);
+        }
+        $params = $request->only(['FolioImpulso']);
+        if (!preg_match('/^S2023QC141701/', $params['FolioImpulso'])) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'El folio impulso no es válido',
+            ];
+            return response()->json($response, 200);
+        }
+        $user = auth()->user();
+        $permisos = DB::table('users')
+            ->Select('idTipoUser')
+            ->Where('id', $user->id)
+            ->first();
+        if (!$permisos) {
+            return [
+                'success' => true,
+                'results' => false,
+                'message' => 'No tiene acceso para ver la información',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+        if ($permisos->idTipoUser !== 10) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'No tiene autorización para ver la información',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        $folioApi = $params['FolioImpulso'];
+
+        $solicitud = DB::Table('solicitudes_calentadores')
+            ->Select('idEstatusSolicitud')
+            ->Where('FolioImpulso', $folioApi)
+            ->WhereNull('FechaElimino')
+            ->first();
+
+        if (!$solicitud) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => 'La solicitud no fue encontrada',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        if ($solicitud->idEstatusSolicitud != 14) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'La solicitud aún no está marcada como aprobada por comité',
+                'data' => [],
+            ];
+            return response()->json($response, 200);
+        }
+
+        try {
+            $res = DB::table('solicitudes_calentadores as N')
+                ->select(
+                    'N.FolioImpulso AS id',
+                    DB::RAw(
+                        'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+            ELSE "          " END AS FechaSolicitud'
+                    ),
+                    DB::raw(
+                        'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                    ),
+                    'N.CURP',
+                    'N.Sexo',
+                    'N.Calle',
+                    'N.NumExt',
+                    'N.NumInt',
+                    'N.CP',
+                    'N.Colonia',
+                    'L.Nombre AS Localidad',
+                    'm.Nombre AS Municipio',
+                    DB::raw(
+                        'CONCAT_WS(" ",N.NombreTutor,N.PaternoTutor,N.MaternoTutor) AS Tutor'
+                    ),
+                    'p.Parentesco',
+                    'N.CURPTutor',
+                    'N.Telefono',
+                    'N.Celular',
+                    'N.Correo'
+                )
+                ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+                ->JOIN(
+                    'et_cat_localidad_2022 as L',
+                    'N.idLocalidad',
+                    '=',
+                    'L.id'
+                )
+                ->LeftJoin(
+                    'cat_parentesco_tutor AS p',
+                    'p.id',
+                    'N.idParentescoTutor'
+                )
+                ->where('N.FolioImpulso', $folioApi)
+                ->get();
+
+            if ($res->count() === 0) {
+                return [
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'La solicitud consultada no fue encontrada.',
+                    'data' => [],
+                ];
+            }
+
+            $calentadores = $res
+                ->map(function ($x) {
+                    $x = is_object($x) ? (array) $x : $x;
+                    return $x;
+                })
+                ->toArray();
+            $pdf = \PDF::loadView('pdf_solicitud_c2', compact('calentadores'));
+            return $pdf->download($folioApi . '.pdf');
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors->getMessage(),
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
+    public function validateInput($value): bool
+    {
+        $containsSpecialChars = preg_match(
+            '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
+            $value
+        );
+        return !$containsSpecialChars;
     }
 }
