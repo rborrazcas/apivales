@@ -291,6 +291,23 @@ class CalentadoresSolares extends Controller
                 ];
             }
 
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                foreach ($params['filtered'] as $filtro) {
+                    $value = $filtro['value'];
+
+                    if (!$this->validateInput($value)) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Uno o más filtros utilizados no son válidos, intente nuevamente',
+                        ];
+
+                        return response()->json($response, 200);
+                    }
+                }
+            }
+
             $seguimiento = $permisos->Seguimiento;
             $viewall = $permisos->ViewAll;
             $filtroPermisos = '';
@@ -3517,5 +3534,14 @@ class CalentadoresSolares extends Controller
 
             return response()->json($response, 200);
         }
+    }
+
+    public function validateInput($value): bool
+    {
+        $containsSpecialChars = preg_match(
+            '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
+            $value
+        );
+        return !$containsSpecialChars;
     }
 }

@@ -917,6 +917,23 @@ class Vales2023Controller extends Controller
                 return response()->json($response, 200);
             }
 
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                foreach ($params['filtered'] as $filtro) {
+                    $value = $filtro['value'];
+
+                    if (!$this->validateInput($value)) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Uno o más filtros utilizados no son válidos, intente nuevamente',
+                        ];
+
+                        return response()->json($response, 200);
+                    }
+                }
+            }
+
             $viewall = $permisos->ViewAll;
 
             $solicitudes = DB::table('vales as v')
@@ -995,7 +1012,7 @@ class Vales2023Controller extends Controller
 
                     if ($id == '.isEntregado' && $value == 0) {
                         if ($filterQuery != '') {
-                            $filterQuery .= ' AND Devuelto = 0 AND ';
+                            $filterQuery .= ' Devuelto = 0 AND';
                         } else {
                             $filterQuery = 'Devuelto = 0 AND ';
                         }
@@ -2559,6 +2576,23 @@ class Vales2023Controller extends Controller
                 return response()->json($response, 200);
             }
 
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                foreach ($params['filtered'] as $filtro) {
+                    $value = $filtro['value'];
+
+                    if (!$this->validateInput($value)) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Uno o más filtros utilizados no son válidos, intente nuevamente',
+                        ];
+
+                        return response()->json($response, 200);
+                    }
+                }
+            }
+
             $viewall = $permisos->ViewAll;
 
             $solicitudes = DB::table('vales as v')
@@ -3958,5 +3992,14 @@ class Vales2023Controller extends Controller
                 str_replace(' ', '_', $fecha) .
                 '.xlsx'
         );
+    }
+
+    public function validateInput($value): bool
+    {
+        $containsSpecialChars = preg_match(
+            '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
+            $value
+        );
+        return !$containsSpecialChars;
     }
 }
