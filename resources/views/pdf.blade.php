@@ -131,7 +131,7 @@
 
         </header>
         <div class="container-fluid">
-            <div class="subTitle" style="padding-top: 37px;">
+            <div class="subTitle" style="padding-top: 7px;">
                 <h7>Programa Vale Grandeza - Compra Local 2023</h7>
             </div>
             <div class="folio">
@@ -155,11 +155,9 @@
                     </tbody>
                 </table>
             </div>
-            <h5 style="text-align: center;"></h5>
+            <br />
             <div class="folio">
                 <table border="1" style="font-size: 5px; margin:auto auto;" cellspacing="0">
-                    <thead style="background-color: #1235A2; color:white;">
-                    </thead>
                     <tbody>
                         <tr
                             style="color:#0267cd; border-radius:16px; font-size:9px;border-color:#0267cd; text-align:center;">
@@ -195,11 +193,9 @@
                     </tbody>
                 </table>
             </div>
-            <h5 style="text-align: center;"></h5>
+            <br />
             <div class="folio">
                 <table border="1" style="font-size: 9px; margin:auto auto;" cellspacing="0">
-                    <thead style="background-color: #1235A2; color:white;">
-                    </thead>
                     <tbody>
                         {{-- <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
                             <td colspan="12"><b>RECEPCIÓN - ENTREGA DEL APOYO</b></td>
@@ -241,7 +237,7 @@
                         </tr>
                     </tbody>
                 </table>
-
+                <br />
                 <table border="1" style="font-size: 9px; margin:auto auto;" cellspacing="0">
                     <tbody>
                         <tr style="text-align: center; font-size:3px;">
@@ -269,11 +265,9 @@
                     </tbody>
                 </table>
             </div>
-
+            <br />
             <div class="folio">
                 <table border="1" style="font-size: 5px; margin:auto auto;" cellspacing="0">
-                    <thead style="background-color: #1235A2; color:white;">
-                    </thead>
                     <tbody>
                         {{-- <tr style="background-color:#0267cd; color:white; border-radius:16px; font-size:9px;">
                             <td colspan="12"><b>REPORTE DE INCIDENCIA</b></td>

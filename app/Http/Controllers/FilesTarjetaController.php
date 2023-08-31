@@ -30,18 +30,6 @@ class FilesTarjetaController extends Controller
             return response()->json($response, 200);
         }
 
-        // $request = new HTTP_Request2();
-        // $request->setUrl(
-        //     'https://seguimiento.guanajuato.gob.mx/ApiTarjeta/api/CargaDocumento'
-        // );
-        // $request->setMethod(HTTP_Request2::METHOD_POST);
-        // $request->setConfig([
-        //     'follow_redirects' => true,
-        // ]);
-        // $request->setHeader([
-        //     'Authorization' => 'Bearer ' . $token,
-        // ]);
-
         $reg = DB::table('EnvioINEVales2022')
             ->Select('id', 'CURP', 'Ejercicio', 'idCedula', 'NombreSistema')
             ->Where('Enviado', 2)
@@ -146,6 +134,9 @@ class FilesTarjetaController extends Controller
 
     public function getTokenImpulso()
     {
+        $creds = DB::table('usuarios_externos')
+            ->Where('id', 1)
+            ->first();
         $request = new HTTP_Request2();
         $request->setUrl(
             'https://seguimiento.guanajuato.gob.mx/ApiTarjeta/token'
@@ -158,9 +149,9 @@ class FilesTarjetaController extends Controller
             'Content-Type' => 'application/x-www-form-urlencoded',
         ]);
         $request->addPostParameter([
-            'username' => 'sedeshu.peb@gmail.com',
-            'password' => 'Temporal_Archivos14',
-            'grant_type' => 'password',
+            'username' => $creds->Usuario,
+            'password' => $creds->Pass,
+            'grant_type' => $creds->Tipo,
         ]);
         try {
             $response = $request->send();

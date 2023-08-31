@@ -12,6 +12,7 @@ use Illuminate\Contracts\Validation\ValidationException;
 use Validator;
 use DB;
 use Illuminate\Support\Facades\Hash;
+use App\Rules\isChain;
 
 class AuthController extends Controller
 {
@@ -347,6 +348,31 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'email' => ['required', new isChain()],
+                'password' => ['required'],
+            ],
+            $messages = [
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $er = '';
+            $errores = $v->errors()->all();
+            foreach ($errores as $e) {
+                $er = $er . '- ' . $e . "\n";
+            }
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $er,
+            ];
+            return response()->json($response, 200);
+        }
+
         $input = $request->only('email', 'password');
         $jwt_token = null;
         if (!($jwt_token = JWTAuth::attempt($input))) {
@@ -364,6 +390,12 @@ class AuthController extends Controller
         }
         //$user = JWTAuth::authenticate($jwt_token);
         $user = auth()->user();
+        $userInfo = [
+            'idUser' => $user->id,
+            'FechaAcceso' => date('Y-m-d H:i:s'),
+        ];
+        DB::Table('users_sessions')->insert($userInfo);
+
         if (
             DB::table('users_cancelados')
                 ->where('idUser', $user->id)
@@ -431,6 +463,12 @@ class AuthController extends Controller
             }
 
             if ($user->idTipoUser->id == 2) {
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'token' => $jwt_token,
+                ];
+            } elseif ($user->idTipoUser->id == 10 && $user->id > 1) {
                 $response = [
                     'success' => true,
                     'results' => true,
