@@ -3538,10 +3538,19 @@ class CalentadoresSolares extends Controller
 
     public function validateInput($value): bool
     {
-        $containsSpecialChars = preg_match(
-            '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
-            $value
-        );
+        if (gettype($value) === 'array') {
+            foreach ($value as $v) {
+                $containsSpecialChars = preg_match(
+                    '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
+                    $v
+                );
+            }
+        } else {
+            $containsSpecialChars = preg_match(
+                '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
+                $value
+            );
+        }
         return !$containsSpecialChars;
     }
 }

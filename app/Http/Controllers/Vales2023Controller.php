@@ -38,7 +38,6 @@ class Vales2023Controller extends Controller
 
         $permisos = DB::table('users_menus')
             ->where(['idUser' => $user->id, 'idMenu' => '29'])
-            ->get()
             ->first();
         if ($permisos !== null) {
             return $permisos;
@@ -52,7 +51,6 @@ class Vales2023Controller extends Controller
         $user = auth()->user();
         $permisos = DB::table('users_menus')
             ->where(['idUser' => $user->id, 'idMenu' => '30'])
-            ->get()
             ->first();
         if ($permisos !== null) {
             return $permisos;
@@ -938,39 +936,41 @@ class Vales2023Controller extends Controller
 
             $solicitudes = DB::table('vales as v')
 
-                ->selectRaw(
-                    'v.id,' .
-                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
-                        'v.FechaSolicitud, ' .
-                        'r.Remesa, ' .
-                        'v.Nombre, ' .
-                        'v.Paterno, ' .
-                        'v.Materno, ' .
-                        'v.CURP, ' .
-                        'v.Sexo, ' .
-                        'v.FechaIne, ' .
-                        'm.SubRegion AS Region,' .
-                        'm.Nombre AS Municipio,' .
-                        'l.Nombre AS Localidad,' .
-                        'v.Calle, ' .
-                        'v.Calle, ' .
-                        'v.Colonia, ' .
-                        'v.NumExt, ' .
-                        'v.NumInt, ' .
-                        'v.CP, ' .
-                        'v.FolioTarjetaContigoSi, ' .
-                        'i.Incidencia, ' .
-                        'CASE WHEN v.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
-                        'v.entrega_at AS FechaEntrega, ' .
-                        'v.TelFijo, ' .
-                        'v.TelCelular, ' .
-                        'v.ResponsableEntrega AS Responsable'
+                ->Select(
+                    'v.id',
+                    DB::RAW('lpad(hex(v.id),6,0) AS FolioSolicitud'),
+                    'v.FechaSolicitud',
+                    'r.Remesa',
+                    'v.Nombre',
+                    'v.Paterno',
+                    'v.Materno',
+                    'v.CURP',
+                    'v.Sexo',
+                    'v.FechaIne',
+                    'm.SubRegion AS Region',
+                    'm.Nombre AS Municipio',
+                    'l.Nombre AS Localidad',
+                    'v.Calle',
+                    'v.Calle',
+                    'v.Colonia',
+                    'v.NumExt',
+                    'v.NumInt',
+                    'v.CP',
+                    'v.FolioTarjetaContigoSi',
+                    'i.Incidencia',
+                    DB::Raw(
+                        'CASE WHEN v.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado'
+                    ),
+                    'v.entrega_at AS FechaEntrega',
+                    'v.TelFijo',
+                    'v.TelCelular',
+                    'v.ResponsableEntrega AS Responsable'
                 )
                 ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'v.idLocalidad')
                 ->LEFTJOIN('vales_incidencias AS i', 'i.id', 'v.idIncidencia')
-                ->WHERERAW('v.Ejercicio = 2023');
+                ->Where('v.Ejercicio', 2023);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -1079,11 +1079,11 @@ class Vales2023Controller extends Controller
 
             $total = $solicitudes->count();
             $solicitudes = $solicitudes
-                ->OrderByRaw('r.RemesaSistema', 'DESC')
+                ->OrderBy('r.RemesaSistema', 'DESC')
                 ->OrderBy('m.Subregion', 'ASC')
                 ->OrderBy('m.Nombre', 'ASC')
                 ->OrderBy('l.Nombre', 'ASC')
-                ->OrderByRaw('r.Remesa', 'ASC')
+                ->OrderBy('r.Remesa', 'ASC')
                 ->offset($startIndex)
                 ->take($pageSize)
                 ->get();
@@ -1213,17 +1213,17 @@ class Vales2023Controller extends Controller
 
             $solicitudes = DB::table('vales as v')
 
-                ->selectRaw(
-                    'v.id,' .
-                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
-                        'r.Remesa, ' .
-                        'v.Nombre, ' .
-                        'v.Paterno, ' .
-                        'v.Materno, ' .
-                        'v.CURP, ' .
-                        's.id AS idSol, ' .
-                        's.SerieInicial, ' .
-                        's.SerieFinal'
+                ->Select(
+                    'v.id',
+                    DB::RAW('lpad(hex(v.id),6,0) AS FolioSolicitud'),
+                    'r.Remesa',
+                    'v.Nombre',
+                    'v.Paterno',
+                    'v.Materno',
+                    'v.CURP',
+                    's.id AS idSol',
+                    's.SerieInicial',
+                    's.SerieFinal'
                 )
                 ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
@@ -2239,7 +2239,7 @@ class Vales2023Controller extends Controller
                 ->Select(DB::RAW('COUNT( v.id ) AS Total'))
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
-                ->WhereRaw('r.Ejercicio = 2023');
+                ->Where('r.Ejercicio', 2023);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2321,7 +2321,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.ExpedienteCompleto', 1)
-                ->WhereRaw('r.Ejercicio = 2023');
+                ->Where('r.Ejercicio', 2023);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2403,7 +2403,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.Validado', 0)
-                ->WhereRaw('r.Ejercicio = 2023');
+                ->Where('r.Ejercicio', 2023);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2485,7 +2485,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.Validado', 1)
-                ->WhereRaw('r.Ejercicio = 2023');
+                ->Where('r.Ejercicio', 2023);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2597,32 +2597,32 @@ class Vales2023Controller extends Controller
 
             $solicitudes = DB::table('vales as v')
 
-                ->selectRaw(
-                    'v.id,' .
-                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
-                        'v.FechaSolicitud, ' .
-                        'v.Remesa, ' .
-                        'v.Nombre, ' .
-                        'v.Paterno, ' .
-                        'v.Materno, ' .
-                        'v.CURP, ' .
-                        'v.Sexo, ' .
-                        'v.FechaIne, ' .
-                        'm.SubRegion AS Region,' .
-                        'm.Nombre AS Municipio,' .
-                        'l.Nombre AS Localidad,' .
-                        'v.Calle, ' .
-                        'v.Calle, ' .
-                        'v.Colonia, ' .
-                        'v.NumExt, ' .
-                        'v.NumInt, ' .
-                        'v.CP, ' .
-                        'v.FolioTarjetaContigoSi, ' .
-                        'v.TelFijo, ' .
-                        'v.TelCelular, ' .
-                        'v.ResponsableEntrega AS Responsable, ' .
-                        'v.ExpedienteCompleto, ' .
-                        'v.Validado'
+                ->Select(
+                    'v.id',
+                    DB::Raw('lpad(hex(v.id),6,0) AS FolioSolicitud'),
+                    'v.FechaSolicitud',
+                    'v.Remesa',
+                    'v.Nombre',
+                    'v.Paterno',
+                    'v.Materno',
+                    'v.CURP',
+                    'v.Sexo',
+                    'v.FechaIne',
+                    'm.SubRegion',
+                    'm.Nombre AS Municipio',
+                    'l.Nombre AS Localidad',
+                    'v.Calle',
+                    'v.Calle',
+                    'v.Colonia',
+                    'v.NumExt',
+                    'v.NumInt',
+                    'v.CP',
+                    'v.FolioTarjetaContigoSi',
+                    'v.TelFijo',
+                    'v.TelCelular',
+                    'v.ResponsableEntrega AS Responsable',
+                    'v.ExpedienteCompleto',
+                    'v.Validado'
                 )
                 ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
@@ -2732,7 +2732,7 @@ class Vales2023Controller extends Controller
 
             $total = $solicitudes->count();
             $solicitudes = $solicitudes
-                ->OrderByRaw('v.Remesa', 'DESC')
+                ->OrderBy('v.Remesa', 'DESC')
                 ->OrderBy('m.Subregion', 'ASC')
                 ->OrderBy('m.Nombre', 'ASC')
                 ->OrderBy('l.Nombre', 'ASC')
@@ -3996,10 +3996,19 @@ class Vales2023Controller extends Controller
 
     public function validateInput($value): bool
     {
-        $containsSpecialChars = preg_match(
-            '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
-            $value
-        );
+        if (gettype($value) === 'array') {
+            foreach ($value as $v) {
+                $containsSpecialChars = preg_match(
+                    '@[' . preg_quote("=%;-?!¡\"`+") . ']@',
+                    $v
+                );
+            }
+        } else {
+            $containsSpecialChars = preg_match(
+                '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
+                $value
+            );
+        }
         return !$containsSpecialChars;
     }
 }
