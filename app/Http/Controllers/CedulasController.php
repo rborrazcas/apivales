@@ -7308,7 +7308,7 @@ class CedulasController extends Controller
                 'cv.tipo_de_operacion',
                 'cv.mes_de_canje',
                 'cv.observacion',
-                'vs.folio_vale',
+                'vs.Serie',
                 'vs.SerieInicial',
                 'vs.SerieFinal',
                 'vr.RemesaSistema',

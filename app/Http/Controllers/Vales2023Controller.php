@@ -2608,7 +2608,7 @@ class Vales2023Controller extends Controller
                     'v.CURP',
                     'v.Sexo',
                     'v.FechaIne',
-                    'm.SubRegion',
+                    'm.SubRegion AS Region',
                     'm.Nombre AS Municipio',
                     'l.Nombre AS Localidad',
                     'v.Calle',
