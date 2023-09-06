@@ -2630,6 +2630,843 @@ class VNegociosController extends Controller
         }
     }
 
+    function getNegociosMaps(Request $request)
+    {
+        $parameters = $request->all();
+
+        try {
+            //AQUI ES LA FUNCION ORIGINAL
+            $res = DB::table('v_negocios as N')
+                ->select(
+                    'N.id',
+                    'N.Codigo',
+                    DB::raw('LPAD(HEX(N.id),6,0) as ClaveUnica'),
+                    'N.RFC',
+                    'N.NombreEmpresa',
+                    'N.Nombre',
+                    'N.Paterno',
+                    'N.Materno',
+                    'N.TelNegocio',
+                    'N.TelCasa',
+                    'N.Celular',
+                    'N.idMunicipio',
+                    'M.Nombre AS Municipio',
+                    'M.SubRegion AS Region',
+                    'N.Calle',
+                    'N.NumExt',
+                    'N.NumInt',
+                    'N.Colonia',
+                    'N.CP',
+                    'N.idTipoNegocio',
+                    'NT.Tipo AS TipoGiro',
+                    'N.Correo',
+                    'N.QuiereTransferencia',
+                    'N.Banco',
+                    'N.CLABE',
+                    'N.NumTarjeta',
+                    'N.Latitude',
+                    'N.Longitude',
+                    'N.FechaInscripcion',
+                    'N.HorarioAtencion',
+                    'N.idStatus',
+                    'E.Estatus',
+                    'N.created_at',
+                    'N.updated_at',
+                    DB::raw(
+                        'CONCAT(T.Nombre," ", T.Paterno," ", T.Materno) as UserCapturo'
+                    ),
+                    DB::raw(
+                        'CONCAT(U.Nombre," ", U.Paterno," ", U.Materno) as UserActualizo'
+                    )
+                )
+                ->leftJoin(
+                    'et_cat_municipio as M',
+                    'M.Id',
+                    '=',
+                    'N.idMunicipio'
+                )
+                ->leftJoin(
+                    'v_negocios_tipo as NT',
+                    'NT.id',
+                    '=',
+                    'N.idTipoNegocio'
+                )
+                ->leftJoin('v_negocios_status as E', 'E.id', '=', 'N.idStatus')
+                ->leftJoin('users as T', 'T.id', '=', 'N.UserCreated')
+                ->leftJoin('users as U', 'U.id', '=', 'N.UserUpdated');
+
+            if (isset($parameters['idStatus'])) {
+                $res->where('N.idStatus', '=', $parameters['idStatus']);
+            }
+            if (isset($parameters['idMunicipio'])) {
+                if (is_array($parameters['idMunicipio'])) {
+                    $res->whereIn('N.idMunicipio', $parameters['idMunicipio']);
+                } else {
+                    $res->where(
+                        'N.idMunicipio',
+                        '=',
+                        $parameters['idMunicipio']
+                    );
+                }
+            }
+            if (isset($parameters['idRegion'])) {
+                if (is_array($parameters['idRegion'])) {
+                    $res->whereIn('M.SubRegion', $parameters['idRegion']);
+                } else {
+                    $res->where('M.SubRegion', '=', $parameters['idRegion']);
+                }
+            }
+            if (isset($parameters['idTipoNegocio'])) {
+                if (is_array($parameters['idTipoNegocio'])) {
+                    $res->whereIn(
+                        'N.idTipoNegocio',
+                        $parameters['idTipoNegocio']
+                    );
+                } else {
+                    $res->where(
+                        'N.idTipoNegocio',
+                        '=',
+                        $parameters['idTipoNegocio']
+                    );
+                }
+            }
+            if (isset($parameters['idTipoGiro'])) {
+                $res->join(
+                    'v_negocios_giros',
+                    'v_negocios_giros.idNegocio',
+                    'N.id'
+                );
+                $res->join('v_giros', 'v_giros.id', 'v_negocios_giros.idGiro');
+                if (is_array($parameters['idTipoGiro'])) {
+                    $res->whereIn(
+                        'v_negocios_giros.idGiro',
+                        $parameters['idTipoGiro']
+                    );
+                } else {
+                    $res->where(
+                        'v_negocios_giros.idGiro',
+                        '=',
+                        $parameters['idTipoGiro']
+                    );
+                }
+            }
+            if (isset($parameters['Folio'])) {
+                $valor_id = $parameters['Folio'];
+                $res->where(
+                    DB::raw('LPAD(HEX(N.id),6,0)'),
+                    'like',
+                    '%' . $valor_id . '%'
+                );
+            }
+
+            $flag = 0;
+            if (isset($parameters['filtered'])) {
+                for ($i = 0; $i < count($parameters['filtered']); $i++) {
+                    if ($flag == 0) {
+                        switch ($parameters['filtered'][$i]['id']) {
+                            case 'id':
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->whereIn(
+                                        'N.id',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->where(
+                                        'N.id',
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                                break;
+                            case 'ClaveUnica':
+                                $res->where(
+                                    DB::raw('LPAD(HEX(N.id),6,0)'),
+                                    '=',
+                                    $parameters['filtered'][$i]['value']
+                                );
+                                break;
+                            case 'RFC':
+                            case 'NombreEmpresa':
+                            case 'TelNegocio':
+                            case 'TelCasa':
+                            case 'Celular':
+                            case 'Calle':
+                            case 'NumExt':
+                            case 'NumInt':
+                            case 'Colonia':
+                            case 'CP':
+                            case 'Correo':
+                            case 'FechaInscripcion':
+                            case 'HorarioAtencion':
+                                $res->where(
+                                    'N.' . $parameters['filtered'][$i]['id'],
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                                break;
+                            case 'Contacto':
+                                $contacto_buscar =
+                                    $parameters['filtered'][$i]['value'];
+                                $contacto_buscar = str_replace(
+                                    ' ',
+                                    '',
+                                    $contacto_buscar
+                                );
+
+                                $res->where(
+                                    DB::raw("
+                                            REPLACE(
+                                            CONCAT(
+                                                N.Nombre,
+                                                N.Paterno,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Materno,
+                                                N.Nombre,
+                                                N.Paterno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Paterno,
+                                                N.Materno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Nombre
+                                            ), ' ', '')"),
+
+                                    'like',
+                                    '%' . $contacto_buscar . '%'
+                                );
+                                break;
+                            case 'idMunicipio':
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->whereIn(
+                                        'N.idMunicipio',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->where(
+                                        'N.idMunicipio',
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                                break;
+                            case 'Municipio':
+                                $res->where(
+                                    'M.Nombre',
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                                break;
+                            case 'Region':
+                                $res->where(
+                                    'M.SubRegion',
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                                break;
+                            case 'idTipoNegocio':
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->whereIn(
+                                        'N.idTipoNegocio',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->where(
+                                        'N.idTipoNegocio',
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                                break;
+                            case 'TipoNegocio':
+                                $res->where(
+                                    'NT.Tipo',
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                                break;
+
+                            case 'Estatus':
+                                if (
+                                    is_array(
+                                        $parameters['filtered'][$i]['value']
+                                    )
+                                ) {
+                                    $res->whereIn(
+                                        'N.idStatus',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                } else {
+                                    $res->where(
+                                        'N.idStatus',
+                                        '=',
+                                        $parameters['filtered'][$i]['value']
+                                    );
+                                }
+                                break;
+
+                            default:
+                                $res->where(
+                                    'XXX',
+                                    'LIKE',
+                                    '%' .
+                                        $parameters['filtered'][$i]['value'] .
+                                        '%'
+                                );
+                                break;
+                        }
+                        $flag = 1;
+                    } else {
+                        if ($parameters['tipo'] == 'and') {
+                            switch ($parameters['filtered'][$i]['id']) {
+                                case 'id':
+                                    if (
+                                        is_array(
+                                            $parameters['filtered'][$i]['value']
+                                        )
+                                    ) {
+                                        $res->whereIn(
+                                            'id',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->where(
+                                            'id',
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    }
+                                    break;
+                                case 'RFC':
+                                case 'NombreEmpresa':
+                                case 'TelNegocio':
+                                case 'TelCasa':
+                                case 'Celular':
+                                case 'Calle':
+                                case 'NumExt':
+                                case 'NumInt':
+                                case 'Colonia':
+                                case 'CP':
+                                case 'Correo':
+                                case 'FechaInscripcion':
+                                case 'HorarioAtencion':
+                                    $res->where(
+                                        'N.' .
+                                            $parameters['filtered'][$i]['id'],
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+                                case 'Contacto':
+                                    $contacto_buscar =
+                                        $parameters['filtered'][$i]['value'];
+                                    $contacto_buscar = str_replace(
+                                        ' ',
+                                        '',
+                                        $contacto_buscar
+                                    );
+                                    $res->where(
+                                        DB::raw("
+                                                REPLACE(
+                                                CONCAT(
+                                                    N.Nombre,
+                                                N.Paterno,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Materno,
+                                                N.Nombre,
+                                                N.Paterno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Paterno,
+                                                N.Materno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Nombre
+                                                    
+                                                ), ' ', '')"),
+
+                                        'like',
+                                        '%' . $contacto_buscar . '%'
+                                    );
+                                    break;
+                                case 'idMunicipio':
+                                    if (
+                                        is_array(
+                                            $parameters['filtered'][$i]['value']
+                                        )
+                                    ) {
+                                        $res->whereIn(
+                                            'N.idMunicipio',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->where(
+                                            'N.idMunicipio',
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    }
+                                    break;
+                                case 'Municipio':
+                                    $res->where(
+                                        'M.Nombre',
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+                                case 'Region':
+                                    $res->where(
+                                        'M.SubRegion',
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+                                case 'idTipoNegocio':
+                                    if (
+                                        is_array(
+                                            $parameters['filtered'][$i]['value']
+                                        )
+                                    ) {
+                                        $res->whereIn(
+                                            'N.idTipoNegocio',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->where(
+                                            'N.idTipoNegocio',
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    }
+                                    break;
+                                case 'TipoNegocio':
+                                    $res->where(
+                                        'NT.Tipo',
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+
+                                case 'Estatus':
+                                    if (
+                                        is_array(
+                                            $parameters['filtered'][$i]['value']
+                                        )
+                                    ) {
+                                        $res->whereIn(
+                                            'N.idStatus',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->where(
+                                            'N.idStatus',
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    }
+                                    break;
+                                default:
+                                    $res->where(
+                                        'XXX',
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+                            }
+                        } else {
+                            switch ($parameters['filtered'][$i]['id']) {
+                                case 'id':
+                                    if (
+                                        is_array(
+                                            $parameters['filtered'][$i]['value']
+                                        )
+                                    ) {
+                                        $res->orWhereIn(
+                                            'id',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->orWhere(
+                                            'id',
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    }
+                                    break;
+                                case 'RFC':
+                                case 'NombreEmpresa':
+                                case 'TelNegocio':
+                                case 'TelCasa':
+                                case 'Celular':
+                                case 'Calle':
+                                case 'NumExt':
+                                case 'NumInt':
+                                case 'Colonia':
+                                case 'CP':
+                                case 'Correo':
+                                case 'FechaInscripcion':
+                                case 'HorarioAtencion':
+                                    $res->orWhere(
+                                        'N.' .
+                                            $parameters['filtered'][$i]['id'],
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+                                case 'Contacto':
+                                    $contacto_buscar =
+                                        $parameters['filtered'][$i]['value'];
+                                    $contacto_buscar = str_replace(
+                                        ' ',
+                                        '',
+                                        $contacto_buscar
+                                    );
+                                    $res->orWhere(
+                                        DB::raw("
+                                                REPLACE(
+                                                CONCAT(
+                                                    N.Nombre,
+                                                N.Paterno,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Materno,
+                                                N.Nombre,
+                                                N.Paterno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Paterno,
+                                                N.Materno,
+                                                N.Nombre,
+                                                N.Materno,
+                                                N.Paterno,
+                                                N.Nombre
+                                                    
+                                                ), ' ', '')"),
+
+                                        'like',
+                                        '%' . $contacto_buscar . '%'
+                                    );
+                                    break;
+                                case 'idMunicipio':
+                                    if (
+                                        is_array(
+                                            $parameters['filtered'][$i]['value']
+                                        )
+                                    ) {
+                                        $res->orWhereIn(
+                                            'N.idMunicipio',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->orWhere(
+                                            'N.idMunicipio',
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    }
+                                    break;
+                                case 'Municipio':
+                                    $res->orWhere(
+                                        'M.Nombre',
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+                                case 'Region':
+                                    $res->orWhere(
+                                        'M.SubRegion',
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+                                case 'idTipoNegocio':
+                                    if (
+                                        is_array(
+                                            $parameters['filtered'][$i]['value']
+                                        )
+                                    ) {
+                                        $res->orWhereIn(
+                                            'idTipoNegocio',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->orWhere(
+                                            'idTipoNegocio',
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    }
+                                    break;
+                                case 'TipoNegocio':
+                                    $res->orWhere(
+                                        'NT.Tipo',
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+
+                                case 'Estatus':
+                                    if (
+                                        is_array(
+                                            $parameters['filtered'][$i]['value']
+                                        )
+                                    ) {
+                                        $res->orWhereIn(
+                                            'N.idStatus',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    } else {
+                                        $res->orWhere(
+                                            'N.idStatus',
+                                            '=',
+                                            $parameters['filtered'][$i]['value']
+                                        );
+                                    }
+                                    break;
+                                default:
+                                    $res->where(
+                                        'XXX',
+                                        'LIKE',
+                                        '%' .
+                                            $parameters['filtered'][$i][
+                                                'value'
+                                            ] .
+                                            '%'
+                                    );
+                                    break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (isset($parameters['NombreCompleto'])) {
+                $filtro_recibido = $parameters['NombreCompleto'];
+                $filtro_recibido = str_replace(' ', '', $filtro_recibido);
+
+                $res->where(
+                    DB::raw("
+                    REPLACE(
+                    CONCAT(
+                        LPAD(HEX(N.id),6,0),
+                        M.Nombre,
+                        N.NombreEmpresa,
+                        N.Colonia,
+                        N.Nombre,
+                        N.Paterno,
+                        N.Materno,
+                        N.NombreEmpresa,
+                        N.Nombre,
+                        N.Materno,
+                        N.Paterno,
+                        N.NombreEmpresa,
+                        N.Paterno,
+                        N.Nombre,
+                        N.Materno,
+                        N.NombreEmpresa,
+                        N.Paterno,
+                        N.Materno,
+                        N.Nombre,
+                        N.NombreEmpresa,
+                        N.Materno,
+                        N.Nombre,
+                        N.Paterno,
+                        N.NombreEmpresa,
+                        N.Materno,
+                        N.Paterno,
+                        N.Nombre,
+                        N.Nombre,
+                        N.NombreEmpresa,
+                        N.Paterno,
+                        N.Materno,
+                        N.Nombre,
+                        N.NombreEmpresa,
+                        N.Materno,
+                        N.Paterno,
+                        N.Nombre,
+                        N.Paterno,
+                        N.NombreEmpresa,
+                        N.Materno,
+                        N.Nombre,
+                        N.Paterno,
+                        N.Materno,
+                        N.NombreEmpresa,
+                        N.Nombre,
+                        N.Materno,
+                        N.NombreEmpresa,
+                        N.Paterno,
+                        N.Nombre,
+                        N.Materno,
+                        N.Paterno,
+                        N.NombreEmpresa,
+                        N.Paterno,
+                        N.NombreEmpresa,
+                        N.Nombre,
+                        N.Materno,
+                        N.Paterno,
+                        N.NombreEmpresa,
+                        N.Materno,
+                        N.Nombre,
+                        N.Paterno,
+                        N.Nombre,
+                        N.NombreEmpresa,
+                        N.Materno,
+                        N.Paterno,
+                        N.Nombre,
+                        N.Materno,
+                        N.NombreEmpresa,
+                        N.Paterno,
+                        N.Materno,
+                        N.NombreEmpresa,
+                        N.Nombre,
+                        N.Paterno,
+                        N.Materno,
+                        N.Nombre,
+                        N.NombreEmpresa,
+                        N.Materno,
+                        N.NombreEmpresa,
+                        N.Nombre,
+                        N.Paterno,
+                        N.Materno,
+                        N.NombreEmpresa,
+                        N.Paterno,
+                        N.Nombre,
+                        N.Materno,
+                        N.Nombre,
+                        N.NombreEmpresa,
+                        N.Paterno,
+                        N.Materno,
+                        N.Nombre,
+                        N.Paterno,
+                        N.NombreEmpresa,
+                        N.Materno,
+                        N.Paterno,
+                        N.NombreEmpresa,
+                        N.Nombre,
+                        N.Materno,
+                        N.Paterno,
+                        N.Nombre,
+                        N.NombreEmpresa
+                        
+                    ), ' ', '')"),
+
+                    'like',
+                    '%' . $filtro_recibido . '%'
+                );
+            }
+
+            $page = $parameters['page'];
+            $pageSize = $parameters['pageSize'];
+
+            $startIndex = $page * $pageSize;
+            if (isset($parameters['sorted'])) {
+                for ($i = 0; $i < count($parameters['sorted']); $i++) {
+                    if ($parameters['sorted'][$i]['desc'] === true) {
+                        $res->orderBy($parameters['sorted'][$i]['id'], 'desc');
+                    } else {
+                        $res->orderBy($parameters['sorted'][$i]['id'], 'asc');
+                    }
+                }
+            }
+
+            $total = $res->count();
+            $res = $res
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+            return [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'filtros' => $parameters['filtered'],
+                'data' => $res,
+            ];
+        } catch (QueryException $e) {
+            $errors = [
+                'Clave' => '01',
+            ];
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'filtros' => $parameters['filtered'],
+                'errors' => $errors,
+                'message' => 'Campo de consulta incorrecto',
+            ];
+
+            return response()->json($response, 200);
+        }
+    }
+
     function getNegociosPublico(Request $request)
     {
         $parameters = $request->all();

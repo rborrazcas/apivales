@@ -310,6 +310,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         '/getNegociosAppMaps',
         'VNegociosController@getNegociosAppMaps'
     );
+    Route::post('/getNegociosMaps', 'VNegociosController@getNegociosMaps');
     Route::post(
         '/getNegociosPublico',
         'VNegociosController@getNegociosPublico'
