@@ -3385,7 +3385,7 @@ class Vales2023Controller extends Controller
             ->select(
                 'o.Origen',
                 DB::RAW('LPAD(HEX(p.id),6,0) AS FolioPadron'),
-                'p.Region',
+                'mp.Region',
                 'p.Nombre',
                 'p.Paterno',
                 'p.Materno',
@@ -3427,7 +3427,12 @@ class Vales2023Controller extends Controller
             )
             ->JOIN('padron_archivos AS a', 'a.id', 'p.idArchivo')
             ->Join('cat_padron_origen AS o', 'a.idOrigen', '=', 'o.id')
-            ->JOIN('vales_remesas AS r', 'p.Remesa', 'r.Remesa');
+            ->JOIN('vales_remesas AS r', 'p.Remesa', 'r.Remesa')
+            ->JOIN(
+                'municipios_padron_vales AS mp',
+                'p.Municipio',
+                'mp.Municipio'
+            );
 
         if ($params['region'] == 99) {
             $data
@@ -4159,6 +4164,345 @@ class Vales2023Controller extends Controller
                 'results' => false,
                 'message' => 'Error de validación',
             ]);
+        }
+    }
+
+    function getSolicitudesAuditoria(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'page' => 'required',
+                'pageSize' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $user = auth()->user();
+
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '38'])
+                ->first();
+
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                foreach ($params['filtered'] as $filtro) {
+                    $value = $filtro['value'];
+
+                    if (!$this->validateInput($value)) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Uno o más filtros utilizados no son válidos, intente nuevamente',
+                        ];
+
+                        return response()->json($response, 200);
+                    }
+                }
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('view_vales as v')->Select(
+                'v.Ejercicio',
+                'v.idVale',
+                'v.FolioSolicitud',
+                'v.FechaSolicitud',
+                'v.Nombre',
+                'v.Paterno',
+                'v.Materno',
+                'v.CURP',
+                'v.Region',
+                'v.Municipio',
+                'v.SerieInicial',
+                'v.SerieFinal'
+            );
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where('idUser', $user->id)
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene region asignada',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('v.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+            $municipioRegion = [];
+            $mun = [];
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                $filtersCedulas = ['.Folio'];
+                foreach ($params['filtered'] as $filtro) {
+                    if ($filterQuery != '') {
+                        $filterQuery .= ' AND ';
+                    }
+                    $id = $filtro['id'];
+                    $value = $filtro['value'];
+
+                    if ($id == '.id') {
+                        $id = '.idVale';
+                        $value = hexdec($value);
+                    }
+                    if ($id == 'region') {
+                        $municipios = DB::table('et_cat_municipio')
+                            ->select('id')
+                            ->whereIN('Region', $value)
+                            ->get();
+                        foreach ($municipios as $m) {
+                            $municipioRegion[] = "'" . $m->id . "'";
+                        }
+
+                        $id = '.idMunicipio';
+                        $value = $municipioRegion;
+                    }
+
+                    $id = 'v' . $id;
+
+                    switch (gettype($value)) {
+                        case 'string':
+                            $filterQuery .= " $id LIKE '%$value%' ";
+                            break;
+                        case 'array':
+                            $colonDividedValue = implode(', ', $value);
+                            $filterQuery .= " $id IN ($colonDividedValue) ";
+                            break;
+                        case 'boolean':
+                            $filterQuery .= " $id <> 1 ";
+                            break;
+                        default:
+                            if ($value === -1) {
+                                $filterQuery .= " $id IS NOT NULL ";
+                            } else {
+                                $filterQuery .= " $id = $value ";
+                            }
+                    }
+                }
+            }
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
+
+            $startIndex = $page * $pageSize;
+
+            $total = $solicitudes->count();
+            $solicitudes = $solicitudes
+                ->OrderBy('v.Ejercicio', 'ASC')
+                ->OrderBy('v.Region', 'ASC')
+                ->OrderBy('v.Municipio', 'ASC')
+                ->OrderBy('v.Nombre', 'ASC')
+                ->OrderBy('v.Paterno', 'ASC')
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'filtros' => $params['filtered'],
+                    'data' => $array_res,
+                ];
+            }
+
+            $temp = [];
+            foreach ($solicitudes as $data) {
+                $temp = [
+                    'Ejercicio' => $data->Ejercicio,
+                    'idVale' => $data->idVale,
+                    'FolioSolicitud' => $data->FolioSolicitud,
+                    'FolioSolicitud' => $data->FolioSolicitud,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'CURP' => $data->CURP,
+                    'Region' => $data->Region,
+                    'Municipio' => $data->Municipio,
+                    'SerieInicial' => $data->SerieInicial,
+                    'SerieFinal' => $data->SerieFinal,
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            $filtros = '';
+            if (isset($params['filtered'])) {
+                $filtros = $params['filtered'];
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'total' => $total,
+                'filtros' => $filtros,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getFilesValesAd(Request $request)
+    {
+        $params = $request->all();
+        if ($params['Ejercicio'] == 2023) {
+            $data = $this->getFiles2023($params['idVale']);
+        } else {
+            $data = $this->getFiles2022($params['idVale']);
+        }
+
+        $response = [
+            'success' => true,
+            'results' => true,
+            'data' => $data,
+        ];
+
+        return response()->json($response, 200);
+    }
+
+    public function getFiles2022($idVale)
+    {
+        try {
+            $idCedula = DB::table('cedulas_solicitudes')
+                ->Select('id')
+                ->WhereNull('FechaElimino')
+                ->Where('idVale', $idVale)
+                ->first();
+
+            if ($idCedula) {
+                $id = $idCedula->id;
+            } else {
+                $id = 0;
+            }
+
+            $archivos2 = DB::table('solicitud_archivos AS a')
+                ->select(
+                    'a.id',
+                    'a.idClasificacion',
+                    'c.Clasificacion',
+                    'a.NombreOriginal AS name',
+                    'a.NombreSistema',
+                    'a.Tipo AS type'
+                )
+                ->Join(
+                    'cedula_archivos_clasificacion AS c',
+                    'c.id',
+                    'a.idClasificacion'
+                )
+                ->where('a.idSolicitud', $id)
+                ->WhereIn('c.id', [1, 2, 3, 7, 13])
+                ->whereRaw('a.FechaElimino IS NULL')
+                ->get();
+            $archivosClasificacion = array_map(function ($o) {
+                return $o->idClasificacion;
+            }, $archivos2->toArray());
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/subidos/' .
+                    $o->NombreSistema;
+                // $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
+                return $o;
+            }, $archivos2->toArray());
+
+            $data = [
+                'Archivos' => $archivos,
+            ];
+
+            return $data;
+        } catch (\Throwable $errors) {
+            return $errors;
+        }
+    }
+
+    public function getFiles2023($id)
+    {
+        try {
+            $archivos2 = DB::table('vales_archivos AS a')
+                ->select(
+                    'a.id',
+                    'a.idClasificacion',
+                    'c.Clasificacion',
+                    'a.NombreOriginal AS name',
+                    'a.NombreSistema',
+                    'a.Tipo AS type'
+                )
+                ->Join(
+                    'vales_archivos_clasificacion AS c',
+                    'c.id',
+                    'a.idClasificacion'
+                )
+                ->where('a.idSolicitud', $id)
+                ->WhereIn('c.id', [1, 2, 3, 5])
+                ->whereRaw('a.FechaElimino IS NULL')
+                ->get();
+
+            $archivosClasificacion = array_map(function ($o) {
+                return $o->idClasificacion;
+            }, $archivos2->toArray());
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/Remesa01/' .
+                    $o->NombreSistema;
+                //$o->ruta = Storage::disk('expedientes')->url($o->NombreSistema);
+                return $o;
+            }, $archivos2->toArray());
+
+            $data = [
+                'Archivos' => $archivos,
+            ];
+            return $data;
+        } catch (\Throwable $errors) {
+            return $errors;
         }
     }
 }

@@ -611,7 +611,8 @@ class CalentadoresSolares extends Controller
                 DB::raw(
                     'CONCAT_WS(" ",editor.Nombre,editor.Paterno,editor.Materno) AS Actualizo'
                 ),
-                'c.FechaActualizo'
+                'c.FechaActualizo',
+                'c.FolioImpulso'
             )
             ->JOIN('users AS creador', 'creador.id', '=', 'c.idUsuarioCreo')
             ->leftJoin(

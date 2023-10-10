@@ -920,6 +920,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
         Route::get('/getMunicipiosVales', 'Vales2023Controller@getMunicipios');
         Route::get('/getFilesById/{id}', 'Vales2023Controller@getFilesById');
+        Route::post('/getQ3450', 'Vales2023Controller@getSolicitudesAuditoria');
+        Route::post('/getFilesValesAd', 'Vales2023Controller@getFilesValesAd');
         Route::post('/getVales2023', 'Vales2023Controller@getSolicitudes2023');
         Route::post(
             '/getListadoVales2023',
@@ -1320,4 +1322,5 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
     Route::get('/getTokenImpulso', 'FilesTarjetaController@getTokenImpulso');
     Route::post('/sendFilesImpulso', 'FilesTarjetaController@sendFiles');
+    Route::post('/getUsersByRegion', 'AsistenciaController@getUsersByRegion');
 });

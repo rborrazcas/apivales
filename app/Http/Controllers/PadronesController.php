@@ -211,6 +211,8 @@ class PadronesController extends Controller
 
             DB::select('CALL padron_validacion_curp_registrada(' . $id . ')');
 
+            DB::select('CALL padron_validacion_curp_funcionario(' . $id . ')');
+
             DB::select('CALL padron_validacion(' . $id . ')');
 
             DB::select('CALL padron_validacion_peb(' . $id . ')');
