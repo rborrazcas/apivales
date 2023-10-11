@@ -1343,7 +1343,7 @@ class CalentadoresSolares extends Controller
                 'Paterno' => 'required',
                 'Sexo' => 'required',
                 'FechaINE' => 'required',
-                'idEntidadNacimiento' => 'required',
+                //'idEntidadNacimiento' => 'required',
                 'idMunicipio' => 'required',
                 'idLocalidad' => 'required',
                 'CP' => 'required',
@@ -1359,9 +1359,9 @@ class CalentadoresSolares extends Controller
                     'success' => true,
                     'results' => false,
                     'errors' =>
-                        'Uno o más campos obligatorios están vaciós o no tiene el formato correcto',
+                        'Uno o más campos obligatorios están vacíos o no tiene el formato correcto',
                     'message' =>
-                        'Uno o más campos obligatorios están vaciós o no tiene el formato correcto',
+                        'Uno o más campos obligatorios están vacíos o no tiene el formato correcto',
                 ];
                 return response()->json($response, 200);
             }

@@ -161,7 +161,7 @@ class Vales2023Controller extends Controller
             $remesas = DB::Select(
                 "
                 SELECT
-	                DISTINCT(RemesaSistema) AS value
+	                Remesa AS value
                 FROM
 	                vales_remesas AS r 
                 WHERE
@@ -648,34 +648,14 @@ class Vales2023Controller extends Controller
                 "
                     SELECT 
                         m.SubRegion AS Region,
-                        COUNT( s.idSolicitud ) AS Total 
+                        COUNT( v.id ) AS Aprobados,
+                        COUNT( s.idSolicitud) AS Pineados  
                     FROM
                         vales AS v
                         LEFT JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
-                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
-                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id                         
                     WHERE
-                            r.RemesaSistema = '" .
-                    $params['remesa'] .
-                    "' " .
-                    $filtroPermisos .
-                    "
-                    GROUP BY
-                        m.SubRegion;
-                "
-            );
-
-            $dataMetasRegion = DB::Select(
-                "
-                    SELECT 
-                        m.SubRegion AS Region,
-                        COUNT( v.id ) AS Total 
-                    FROM
-                        vales AS v
-                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
-                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
-                    WHERE
-                            r.RemesaSistema = '" .
+                            v.Remesa = '" .
                     $params['remesa'] .
                     "' " .
                     $filtroPermisos .
@@ -689,42 +669,20 @@ class Vales2023Controller extends Controller
                 "
                     SELECT 
                         m.Nombre AS Municipio,
-                        COUNT( s.idSolicitud ) AS Total 
+                        COUNT( v.id ) AS Aprobados,
+                        COUNT( s.idSolicitud ) AS Pineados 
                     FROM
                         vales AS v
                         LEFT JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
-                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
-                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id                         
                     WHERE
-                        r.RemesaSistema = '" .
+                        v.Remesa = '" .
                     $params['remesa'] .
                     "' AND m.Subregion = " .
                     $params['region'] .
                     ' ' .
                     $filtroPermisos .
                     "
-                    GROUP BY
-                        m.Nombre;
-                "
-            );
-
-            $dataMetasMunicipio = DB::Select(
-                "
-                    SELECT 
-                        m.Nombre AS Municipio,
-                        COUNT( v.id ) AS Total 
-                    FROM
-                        vales AS v
-                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
-                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
-                        WHERE
-                        r.RemesaSistema = '" .
-                    $params['remesa'] .
-                    "' AND m.Subregion = " .
-                    $params['region'] .
-                    ' ' .
-                    $filtroPermisos .
-                    " 
                     GROUP BY
                         m.Nombre;
                 "
@@ -744,7 +702,7 @@ class Vales2023Controller extends Controller
 	                    JOIN vales AS v ON g.id = v.idGrupo
 	                    LEFT JOIN vales_solicitudes AS s ON s.idSolicitud = v.id 
                     WHERE
-	                    r.RemesaSistema = '" .
+	                    r.Remesa = '" .
                     $params['remesa'] .
                     "' " .
                     ' AND g.idMunicipio IN ( SELECT id FROM et_cat_municipio WHERE SubRegion = ' .
@@ -765,9 +723,7 @@ class Vales2023Controller extends Controller
                 'results' => true,
                 'data' => [
                     'region' => $dataRegion,
-                    'metasRegion' => $dataMetasRegion,
                     'municipio' => $dataMunicipio,
-                    'metasMunicipio' => $dataMetasMunicipio,
                     'cveInterventor' => $dataCveInterventor,
                 ],
             ];
