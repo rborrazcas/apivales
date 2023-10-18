@@ -3341,7 +3341,7 @@ class Vales2023Controller extends Controller
             ->select(
                 'o.Origen',
                 DB::RAW('LPAD(HEX(p.id),6,0) AS FolioPadron'),
-                'mp.Region',
+                'mpn.Region',
                 'p.Nombre',
                 'p.Paterno',
                 'p.Materno',
@@ -3385,9 +3385,9 @@ class Vales2023Controller extends Controller
             ->Join('cat_padron_origen AS o', 'a.idOrigen', '=', 'o.id')
             ->JOIN('vales_remesas AS r', 'p.Remesa', 'r.Remesa')
             ->JOIN(
-                'municipios_padron_vales AS mp',
+                'municipios_padron_vales AS mpn',
                 'p.Municipio',
-                'mp.Municipio'
+                'mpn.Municipio'
             );
 
         if ($params['region'] == 99) {
@@ -3395,16 +3395,22 @@ class Vales2023Controller extends Controller
                 ->Where('r.RemesaSistema', $params['remesa'])
                 ->Where('o.id', '>', 7);
         } else {
-            $data
-                ->JOIN(
-                    'municipios_padron_vales AS mp',
-                    'mp.Municipio',
-                    'p.Municipio'
-                )
-                ->JOIN('et_cat_municipio AS m', 'mp.idCatalogo', 'm.Id')
-                ->Where('r.RemesaSistema', $params['remesa'])
-                ->Where('m.SubRegion', $params['region'])
-                ->Where('o.id', '<', 8);
+            if ($params['remesa'] === '03_2023') {
+                $data
+                    ->Where('r.RemesaSistema', $params['remesa'])
+                    ->Where('o.id', '=', $params['region']);
+            } else {
+                $data
+                    ->JOIN(
+                        'municipios_padron_vales AS mp',
+                        'mp.Municipio',
+                        'p.Municipio'
+                    )
+                    ->JOIN('et_cat_municipio AS m', 'mp.idCatalogo', 'm.Id')
+                    ->Where('r.RemesaSistema', $params['remesa'])
+                    ->Where('m.SubRegion', $params['region'])
+                    ->Where('o.id', '<', 8);
+            }
         }
 
         $data->Where('p.EstatusOrigen', 'SI')->OrderBy('p.id');
@@ -4459,6 +4465,92 @@ class Vales2023Controller extends Controller
             return $data;
         } catch (\Throwable $errors) {
             return $errors;
+        }
+    }
+
+    public function getListadoPdf(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        if (!isset($parameters['folio'])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron resultados de la solicitud.',
+            ]);
+        }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                DB::RAw(
+                    'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+                    ELSE "          " END AS FechaSolicitud'
+                ),
+                DB::raw(
+                    'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                ),
+                'N.CURP',
+                'N.Sexo',
+                'N.Calle',
+                'N.NumExt',
+                'N.NumInt',
+                'N.CP',
+                'N.Colonia',
+                'L.Nombre AS Localidad',
+                'm.Nombre AS Municipio',
+                DB::raw('NULL AS Tutor'),
+                DB::raw('NULL AS Parentesco'),
+                DB::raw('NULL AS CURPTutor'),
+                'N.TelFijo AS Telefono',
+                'N.TelCelular AS Celular',
+                'N.CorreoElectronico AS Correo'
+            )
+            ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
+            ->where('N.id', $parameters['folio'])
+            ->orderBy('m.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'ASC')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->ResponsableEntrega .
+                    '_NominaValesGrandeza' .
+                    date('Y-m-d') .
+                    '.xlsx'
+            );
+        }
+
+        $nombreArchivo = 'solicitud-' . $parameters['folio'];
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+            return $pdf->download($nombreArchivo . '.pdf');
         }
     }
 }

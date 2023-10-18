@@ -1323,4 +1323,9 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     Route::get('/getTokenImpulso', 'FilesTarjetaController@getTokenImpulso');
     Route::post('/sendFilesImpulso', 'FilesTarjetaController@sendFiles');
     Route::post('/getUsersByRegion', 'AsistenciaController@getUsersByRegion');
+    Route::post('/getAssistants', 'AsistenciaController@getAssistants');
+    Route::post('/checkAssistant', 'AsistenciaController@checkAssistant');
+    Route::post('/deleteAssistant', 'AsistenciaController@deleteAssistant');
+    Route::get('/getListAssistants', 'AsistenciaController@getListAssistants');
+    Route::get('/getListPdf', 'AsistenciaController@getListPdf');
 });
