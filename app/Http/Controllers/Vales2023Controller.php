@@ -16,6 +16,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use Milon\Barcode\DNS1D;
 use PDF;
 use DateTime;
 use JWTAuth;
@@ -28,6 +29,7 @@ use App\VNegociosFiltros;
 use Carbon\Carbon as time;
 use App\Rules\isChain;
 use Excel;
+use Zipper;
 use App\Imports\ConciliacionImport;
 use App\Exports\PadronBeneficiariosExport;
 
@@ -166,7 +168,7 @@ class Vales2023Controller extends Controller
 	                vales_remesas AS r 
                 WHERE
 	                r.Ejercicio = 2023 
-                    AND Estatus = 1
+                    
                 "
             );
 
@@ -2565,7 +2567,7 @@ class Vales2023Controller extends Controller
                     'v.CURP',
                     'v.Sexo',
                     'v.FechaIne',
-                    'm.SubRegion',
+                    'm.SubRegion AS Region',
                     'm.Nombre AS Municipio',
                     'l.Nombre AS Localidad',
                     'v.Calle',
@@ -2607,7 +2609,10 @@ class Vales2023Controller extends Controller
                     return response()->json($response, 200);
                 }
 
-                $solicitudes = $solicitudes->where('m.Region', $region->Region);
+                $solicitudes = $solicitudes->where(
+                    'm.SubRegion',
+                    $region->Region
+                );
             }
 
             $filterQuery = '';
@@ -4472,14 +4477,16 @@ class Vales2023Controller extends Controller
     {
         $parameters = $request->all();
         $user = auth()->user();
-        if (!isset($parameters['folio'])) {
-            return response()->json([
-                'success' => true,
-                'results' => false,
-                'data' => [],
-                'message' => 'No se encontraron resultados de la solicitud.',
-            ]);
-        }
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        // if (!isset($parameters['folio'])) {
+        //     return response()->json([
+        //         'success' => true,
+        //         'results' => false,
+        //         'data' => [],
+        //         'message' => 'No se encontraron resultados de la solicitud.',
+        //     ]);
+        // }
 
         $res = DB::table('vales as N')
             ->select(
@@ -4510,7 +4517,8 @@ class Vales2023Controller extends Controller
             ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
             ->JOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
-            ->where('N.id', $parameters['folio'])
+            ->Join('reimpresiones_solicitudes_vales AS rp', 'rp.idVale', 'N.id')
+            ->where('m.SubRegion', 7)
             ->orderBy('m.Nombre', 'asc')
             ->orderBy('N.CveInterventor', 'ASC')
             ->orderBy('L.Nombre', 'asc')
@@ -4545,12 +4553,145 @@ class Vales2023Controller extends Controller
             );
         }
 
-        $nombreArchivo = 'solicitud-' . $parameters['folio'];
+        $carpeta = 'Solicitudes_RVII';
+
+        $path = public_path() . '/subidos/' . $carpeta;
+
+        $nombreArchivo = 'solicitudes-region-7';
+
+        File::makeDirectory($path, $mode = 0777, true, true);
+
         $counter = 0;
         foreach (array_chunk($d, 20) as $arrayData) {
+            $counter++;
             $vales = $arrayData;
-            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
-            return $pdf->download($nombreArchivo . '.pdf');
+            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'))->save(
+                $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
+            );
+            unset($pdf);
         }
+
+        $this->createZipEvidencia($carpeta);
+
+        return response()->download(
+            public_path('subidos/' . $carpeta . '.zip'),
+            'Solicitudes_RVII.zip'
+        );
+    }
+
+    private function createZipEvidencia($carpeta)
+    {
+        try {
+            $files = glob(public_path('subidos/' . $carpeta . '/*'));
+            $fileName = $carpeta . '.zip';
+            //$path = Storage::disk('subidos')->path($fileName);
+            $path = public_path('subidos/' . $fileName);
+            Zipper::make($path)
+                ->add($files)
+                ->close();
+            if (\file_exists(public_path('subidos/' . $carpeta))) {
+                File::deleteDirectory(public_path('subidos/' . $carpeta));
+            }
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function getAcuses(Request $request)
+    {
+        $user = auth()->user();
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+
+        $carpeta = 'Acuses_R7';
+        $path = public_path() . '/subidos/' . $carpeta;
+        $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
+
+        if (file_exists($fileExists)) {
+            return response()->download($fileExists, 'ACUSES_R7.zip');
+        }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'N.id  AS idVale',
+                'vr.NumAcuerdo AS acuerdo',
+                'M.SubRegion AS region',
+                'N.ResponsableEntrega AS enlace',
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                ),
+                'N.curp',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                ),
+                'M.Nombre AS municipio',
+                'L.Nombre AS localidad',
+                'N.Colonia AS colonia',
+                'N.CP AS cp',
+                'VS.SerieInicial AS folioinicial',
+                'VS.SerieFinal AS foliofinal'
+            )
+            ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN(
+                DB::RAW(
+                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
+                ),
+                'VS.idSolicitud',
+                '=',
+                'N.id'
+            )
+            ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+            ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+            ->Join('reimpresiones_solicitudes_vales AS rp', 'rp.idVale', 'N.id')
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                'NominaValesGrandeza' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        $nombreArchivo = 'ACUSES_RVII';
+
+        File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $counter++;
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf', compact('vales'))->save(
+                $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
+            );
+            unset($pdf);
+        }
+
+        $this->createZipEvidencia($carpeta);
+
+        return response()->download(
+            public_path('subidos/' . $carpeta . '.zip'),
+            'ACUSES_RVII.zip'
+        );
     }
 }
