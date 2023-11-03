@@ -66,7 +66,10 @@ Route::post('/updateLocation', 'CedulasController@updateLocation');
 
 Route::post('/acuse', 'CedulasController@getFile');
 
-Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
+// Route::post('/reimprimirVales', 'Vales2023Controller@getListadoPdf');
+// Route::post('/reimprimirAcusesVales', 'Vales2023Controller@getAcuses');
+
+// Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
 
 // Route::post(
 //     '/RegisterCalentadores',
@@ -1241,6 +1244,29 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('validate', 'Vales2023Controller@validateCodigo');
         // Route::post('register', 'CalentadoresSolares@register');
         // Route::post('getList', 'CalentadoresSolares@getList');
+        // //Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioApi');
+        // Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioImpulso');
+        // //Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioApi');
+        // Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioImpulso');
+    });
+
+    //! Encuestas
+    Route::group(['prefix' => 'encuestas'], function ($route) {
+        Route::post('getEncuestas', 'EncuestasController@getEncuestas');
+        Route::post('getMunicipios', 'EncuestasController@getMunicipios');
+        Route::get('/getCatalogs', 'EncuestasController@getCatalogs');
+        Route::post('getBeneficiarios', 'EncuestasController@getBeneficiarios');
+        Route::post('create', 'EncuestasController@create');
+        Route::post('delete', 'EncuestasController@delete');
+        Route::post('getResponses', 'EncuestasController@getResponses');
+        Route::post(
+            '/getReporteEncuestas',
+            'EncuestasController@getReporteEncuestas'
+        );
+        Route::get(
+            'getReporteEncuestas',
+            'EncuestasController@getReporteEncuestas'
+        );
         // //Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioApi');
         // Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioImpulso');
         // //Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioApi');
