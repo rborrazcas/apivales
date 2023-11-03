@@ -8963,6 +8963,13 @@ class ReportesController extends Controller
             ->first();
 
         $carpeta = $resGpo->id . $resGpo->idMunicipio . $resGpo->Remesa;
+        $mun = $resGpo->Municipio;
+
+        if (str_contains($mun, 'DOLORES')) {
+            $mun = 'DOLORESH';
+        } elseif (str_contains($mun, 'SILAO')) {
+            $mun = 'SILAO';
+        }
 
         $path = public_path() . '/subidos/' . $carpeta;
         $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
@@ -8973,7 +8980,7 @@ class ReportesController extends Controller
                 'ACUSES_' .
                     $resGpo->id .
                     '_' .
-                    str_replace(' ', '_', $resGpo->Municipio) .
+                    str_replace(' ', '_', $mun) .
                     '_' .
                     $resGpo->CveInterventor .
                     '_' .
@@ -9061,7 +9068,7 @@ class ReportesController extends Controller
             '_' .
             $resGpo->Remesa .
             '_' .
-            str_replace(' ', '_', $resGpo->Municipio) .
+            str_replace(' ', '_', $mun) .
             '_' .
             str_replace(' ', '_', $resGpo->ResponsableEntrega);
 
@@ -9084,7 +9091,7 @@ class ReportesController extends Controller
             'ACUSES_' .
                 $resGpo->id .
                 '_' .
-                str_replace(' ', '_', $resGpo->Municipio) .
+                str_replace(' ', '_', $mun) .
                 '_' .
                 $resGpo->CveInterventor .
                 '_' .
