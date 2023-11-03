@@ -350,6 +350,8 @@ class CalentadoresSolares extends Controller
                     'c.Telefono',
                     'c.Celular',
                     'c.ExpedienteCompleto',
+                    'c.Formato',
+                    'tac.Apoyo AS TipoApoyo',
                     DB::RAW(
                         "CONCAT_WS(' ',creadores.Nombre,creadores.Paterno,creadores.Materno) AS CreadoPor"
                     )
@@ -358,6 +360,11 @@ class CalentadoresSolares extends Controller
                     'users AS creadores',
                     'creadores.id',
                     'c.idUsuarioCreo'
+                )
+                ->leftJoin(
+                    'cat_tipo_apoyo_calentador AS tac',
+                    'tac.id',
+                    'c.Formato'
                 )
                 ->leftJoin(
                     'users AS editores',
@@ -549,6 +556,7 @@ class CalentadoresSolares extends Controller
                     'c.PaternoTutor',
                     'c.MaternoTutor',
                     'c.Enlace',
+                    'c.Formato',
                     'c.idEstatusSolicitud',
                     'm.SubRegion As Region'
                 )
@@ -624,7 +632,36 @@ class CalentadoresSolares extends Controller
             ->JOIN('et_cat_municipio AS m', 'm.id', 'c.idMunicipio')
             ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'c.idLocalidad')
             ->JOIN('solicitudes_status AS s', 'c.idEstatusSolicitud', 's.id')
+            ->LEFTJOIN('cat_tipo_apoyo_calentador AS t', 't.id', 'c.Formato')
             ->whereRaw('c.FechaElimino IS NULL');
+
+        $archivo = '/archivos/formatoReporteNominaCalentador.xlsx';
+        if (
+            in_array($user->id, [
+                1,
+                52,
+                1073,
+                1360,
+                1469,
+                1582,
+                1682,
+                1887,
+                1888,
+                1889,
+                1890,
+                1909,
+                59,
+                85,
+                171,
+                1908,
+                1294,
+                1295,
+                1340,
+            ])
+        ) {
+            $archivo = '/archivos/formatoReporteNominaCalentador2.xlsx';
+            $res = $res->AddSelect('t.Apoyo AS TipoApoyo');
+        }
 
         $permisos = $this->getPermisos($user->id);
         $seguimiento = $permisos->Seguimiento;
@@ -753,9 +790,7 @@ class CalentadoresSolares extends Controller
             ->toArray();
 
         $reader = IOFactory::createReader('Xlsx');
-        $spreadsheet = $reader->load(
-            public_path() . '/archivos/formatoReporteNominaCalentador.xlsx'
-        );
+        $spreadsheet = $reader->load(public_path() . $archivo);
         $sheet = $spreadsheet->getActiveSheet();
         $largo = count($res);
         $impresion = $largo + 10;
@@ -1646,6 +1681,8 @@ class CalentadoresSolares extends Controller
                     'results' => false,
                     'errors' =>
                         'La solicitud se encuentra validada no se puede editar',
+                    'message' =>
+                        'La solicitud se encuentra validada no se puede editar',
                 ];
                 return response()->json($response, 200);
             }
@@ -2414,7 +2451,7 @@ class CalentadoresSolares extends Controller
                     'c.CURP',
                     'e.Estatus'
                 )
-                ->join(
+                ->LeftJoin(
                     'solicitudes_status AS e',
                     'c.idEstatusSolicitud',
                     'e.id'
