@@ -1240,14 +1240,14 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioImpulso');
     });
 
+    //! Para beneficiarios
     Route::group(['prefix' => 'q3450/v1'], function ($route) {
-        Route::post('validate', 'Vales2023Controller@validateCodigo');
-        // Route::post('register', 'CalentadoresSolares@register');
-        // Route::post('getList', 'CalentadoresSolares@getList');
-        // //Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioApi');
-        // Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioImpulso');
-        // //Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioApi');
-        // Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioImpulso');
+        Route::post('validate', 'Vales2023Controller@validateSerie');
+    });
+
+    //!Para comercios
+    Route::group(['prefix' => 'q3450/v2'], function ($route) {
+        Route::post('validate', 'Vales2023Controller@validateSerieComercio');
     });
 
     //! Encuestas

@@ -3985,12 +3985,14 @@ class Vales2023Controller extends Controller
         return !$containsSpecialChars;
     }
 
-    function validateCodigo(Request $request)
+    function validateSerie(Request $request)
     {
         $v = Validator::make(
             $request->all(),
             [
-                'CodigoBarras' => ['required', 'size:22', new isChain()],
+                'FechaNacimiento' => ['required'],
+                'ApellidoPaterno' => ['required'],
+                'FolioGT' => ['required', 'size:7'],
             ],
             $messages = [
                 'required' => 'El campo :attribute es obligatorio',
@@ -4014,122 +4016,201 @@ class Vales2023Controller extends Controller
             return response()->json($response, 200);
         }
 
-        $params = $request->only('CodigoBarras');
-        $codigo = $params['CodigoBarras'];
         $user = auth()->user();
 
-        $permisos = DB::table('users_menus')
-            ->where(['idUser' => $user->id, 'idMenu' => '36'])
-            ->first();
-        if (!$permisos) {
+        if (!in_array($user->id, [1, 2062])) {
             return response()->json([
                 'success' => true,
                 'results' => false,
-                'message' => 'No tiene permisos, contacte al administrador',
+                'message' =>
+                    'No tiene los permisos necesarios contacte a SEDESHU',
+            ]);
+        }
+
+        $params = $request->all();
+        $serie = $params['FolioGT'];
+        $flagFecha = false;
+        if (!\str_contains($params['FechaNacimiento'], '-')) {
+            $flagFecha = true;
+        }
+
+        $fecha = explode('-', $params['FechaNacimiento']);
+
+        if (count($fecha) < 3 || count($fecha) > 3) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'El formato de la Fecha es incorrecto, debe enviarse como dd/mm/aaaa',
+            ]);
+        }
+
+        if ($fecha[0] < 1 || $fecha[0] > 31) {
+            $flagFecha = true;
+        }
+
+        if ($fecha[1] < 1 || $fecha[1] > 12) {
+            $flagFecha = true;
+        }
+
+        if (strlen($fecha[2]) != 4) {
+            $flagFecha = true;
+        }
+
+        if ($flagFecha) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'El formato de la Fecha es incorrecto, debe enviarse como dd/mm/aaaa',
+            ]);
+        }
+
+        $fechaNac = $fecha[2] . '-' . $fecha[1] . '-' . $fecha[0];
+
+        try {
+            $folioValido = DB::table('vales_series_2023 AS s')
+                ->Select(
+                    's.Serie AS FolioGT',
+                    's.CodigoBarras',
+                    DB::RAW(
+                        'CASE WHEN LENGTH(v.Nombre) > 0 THEN True ELSE False END AS  ValeraValida'
+                    ),
+                    DB::RAW(
+                        'CONCAT_WS(" ",v.Nombre,v.Paterno,v.Materno) AS Beneficiario'
+                    )
+                )
+                ->LeftJoin(
+                    'vales_solicitudes AS sol',
+                    's.SerieInicial',
+                    'sol.SerieInicial'
+                )
+                ->LeftJoin('vales AS v', 'sol.idSolicitud', 'v.id')
+                ->Where([
+                    's.Serie' => $serie,
+                    'v.FechaNacimiento' => $fechaNac,
+                    'v.Paterno' => $params['ApellidoPaterno'],
+                ])
+                ->first();
+
+            if ($folioValido) {
+                $data = [
+                    'FolioGT' => $folioValido->FolioGT,
+                    'CodigoBarras' => $folioValido->CodigoBarras,
+                    'ValeraValida' => $folioValido->ValeraValida,
+                    'Beneficiario' => $folioValido->Beneficiario,
+                ];
+
+                return response()->json([
+                    'success' => true,
+                    'results' => true,
+                    'data' => $data,
+                ]);
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'Valera no registrada, contacte a SEDESHU',
+                ]);
+            }
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' => 'Error de validación, Contacte a SEDESHU',
+                'errors' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    function validateSerieComercio(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioGT' => ['required', 'size:7'],
+            ],
+            $messages = [
+                'required' => 'El campo :attribute es obligatorio',
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+            ]
+        );
+
+        if ($v->fails()) {
+            $er = '';
+            $errores = $v->errors()->all();
+            foreach ($errores as $e) {
+                $er = $er . $e . ' ';
+            }
+
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $er,
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->only('FolioGT');
+        $serie = $params['FolioGT'];
+        $user = auth()->user();
+
+        if (!in_array($user->id, [1, 2062])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'No tiene los permisos necesarios contacte a SEDESHU',
             ]);
         }
 
         try {
             $folioValido = DB::table('folios_vales_2023 AS f')
                 ->Select(
-                    'f.Serie',
+                    'f.Serie AS FolioGT',
                     'f.CodigoBarras',
-                    'f.Estatus',
-                    'series.SerieInicial',
-                    'series.SerieFinal',
-                    's.idSolicitud'
+                    DB::RAW(
+                        'CASE WHEN LENGTH(v.Nombre) > 0 THEN True ELSE False END AS  ValeraValida'
+                    )
                 )
-                ->Join('vales_series_2023 AS series', 'f.Serie', 'series.Serie')
+                ->LeftJoin('vales_series_2023 AS s', 's.Serie', 'f.Serie')
                 ->LeftJoin(
-                    'vales_solicitudes AS s',
+                    'vales_solicitudes AS sol',
                     's.SerieInicial',
-                    'series.SerieInicial'
+                    'sol.SerieInicial'
                 )
-                ->Where('f.CodigoBarras', '=', $codigo)
+                ->LeftJoin('vales AS v', 'sol.idSolicitud', 'v.id')
+                ->Where([
+                    's.Serie' => $serie,
+                ])
                 ->first();
 
-            if (!$folioValido) {
-                $data = [
-                    'CodigoBarras' => $codigo,
-                    'idUsuarioValido' => $user->id,
-                    'FechaValido' => date('Y-m-d H:i:s'),
-                    'esValido' => 0,
-                    'Error' => 'Codigo de barras no encontrado',
-                ];
-
-                DB::table('vales_folios_solicitud')->insert($data);
-
+            if ($folioValido) {
+                return response()->json([
+                    'success' => true,
+                    'results' => true,
+                    'FolioGT' => $folioValido->FolioGT,
+                    'CodigoBarras' => $folioValido->CodigoBarras,
+                    'ValeraValida' => $folioValido->ValeraValida,
+                    'message' =>
+                        $folioValido->ValeraValida == 1
+                            ? 'Valera válida'
+                            : 'Valera no válida',
+                ]);
+            } else {
                 return response()->json([
                     'success' => true,
                     'results' => false,
-                    'message' => 'Codigo inválido',
+                    'message' => 'Valera no válida, contacte a SEDESHU',
                 ]);
             }
-
-            if ($folioValido->Estatus == 0) {
-                $data = [
-                    'CodigoBarras' => $codigo,
-                    'idUsuarioValido' => $user->id,
-                    'FechaValido' => date('Y-m-d H:i:s'),
-                    'esValido' => 0,
-                    'Error' => 'Codigo de barras bloqueado',
-                ];
-
-                DB::table('vales_folios_solicitud')->insert($data);
-
-                return response()->json([
-                    'success' => true,
-                    'results' => false,
-                    'message' => 'Codigo bloqueado',
-                ]);
-            }
-
-            if ($folioValido->idSolicitud == null) {
-                $data = [
-                    'CodigoBarras' => $codigo,
-                    'idUsuarioValido' => $user->id,
-                    'FechaValido' => date('Y-m-d H:i:s'),
-                    'esValido' => 0,
-                    'Error' => 'Codigo de barras no asignado',
-                ];
-
-                DB::table('vales_folios_solicitud')->insert($data);
-
-                return response()->json([
-                    'success' => true,
-                    'results' => false,
-                    'message' => 'Codigo inactivo',
-                ]);
-            }
-
-            $data = [
-                'CodigoBarras' => $codigo,
-                'idUsuarioValido' => $user->id,
-                'FechaValido' => date('Y-m-d H:i:s'),
-                'esValido' => 1,
-                'Error' => 'Codigo de barras activo',
-            ];
-
-            DB::table('vales_folios_solicitud')->insert($data);
-
-            return response()->json([
-                'success' => true,
-                'results' => true,
-                'message' => 'Codigo activo',
-            ]);
         } catch (Exception $e) {
-            $data = [
-                'CodigoBarras' => $codigo,
-                'idUsuarioValido' => $user->id,
-                'FechaValido' => date('Y-m-d H:i:s'),
-                'esValido' => 0,
-                'Error' => 'Error en consulta',
-            ];
-            DB::table('vales_folios_solicitud')->insert($data);
             return response()->json([
                 'success' => true,
                 'results' => false,
-                'message' => 'Error de validación',
+                'message' => 'Error de validación, Contacte a SEDESHU',
+                'errors' => $e->getMessage(),
             ]);
         }
     }
@@ -4694,4 +4775,153 @@ class Vales2023Controller extends Controller
             'ACUSES_RVII.zip'
         );
     }
+
+    // function validateCodigo(Request $request)
+    // {
+    //     $v = Validator::make(
+    //         $request->all(),
+    //         [
+    //             'CodigoBarras' => ['required', 'size:22', new isChain()],
+    //         ],
+    //         $messages = [
+    //             'required' => 'El campo :attribute es obligatorio',
+    //             'size' =>
+    //                 'El campo :attribute debe ser una cadena de :size caractares.',
+    //         ]
+    //     );
+
+    //     if ($v->fails()) {
+    //         $er = '';
+    //         $errores = $v->errors()->all();
+    //         foreach ($errores as $e) {
+    //             $er = $er . $e . " \n";
+    //         }
+
+    //         $response = [
+    //             'success' => true,
+    //             'results' => false,
+    //             'message' => $er,
+    //         ];
+    //         return response()->json($response, 200);
+    //     }
+
+    //     $params = $request->only('CodigoBarras');
+    //     $codigo = $params['CodigoBarras'];
+    //     $user = auth()->user();
+
+    //     $permisos = DB::table('users_menus')
+    //         ->where(['idUser' => $user->id, 'idMenu' => '36'])
+    //         ->first();
+    //     if (!$permisos) {
+    //         return response()->json([
+    //             'success' => true,
+    //             'results' => false,
+    //             'message' => 'No tiene permisos, contacte al administrador',
+    //         ]);
+    //     }
+
+    //     try {
+    //         $folioValido = DB::table('folios_vales_2023 AS f')
+    //             ->Select(
+    //                 'f.Serie',
+    //                 'f.CodigoBarras',
+    //                 'f.Estatus',
+    //                 'series.SerieInicial',
+    //                 'series.SerieFinal',
+    //                 's.idSolicitud'
+    //             )
+    //             ->Join('vales_series_2023 AS series', 'f.Serie', 'series.Serie')
+    //             ->LeftJoin(
+    //                 'vales_solicitudes AS s',
+    //                 's.SerieInicial',
+    //                 'series.SerieInicial'
+    //             )
+    //             ->Where('f.CodigoBarras', '=', $codigo)
+    //             ->first();
+
+    //         if (!$folioValido) {
+    //             $data = [
+    //                 'CodigoBarras' => $codigo,
+    //                 'idUsuarioValido' => $user->id,
+    //                 'FechaValido' => date('Y-m-d H:i:s'),
+    //                 'esValido' => 0,
+    //                 'Error' => 'Codigo de barras no encontrado',
+    //             ];
+
+    //             DB::table('vales_folios_solicitud')->insert($data);
+
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'results' => false,
+    //                 'message' => 'Codigo inválido',
+    //             ]);
+    //         }
+
+    //         if ($folioValido->Estatus == 0) {
+    //             $data = [
+    //                 'CodigoBarras' => $codigo,
+    //                 'idUsuarioValido' => $user->id,
+    //                 'FechaValido' => date('Y-m-d H:i:s'),
+    //                 'esValido' => 0,
+    //                 'Error' => 'Codigo de barras bloqueado',
+    //             ];
+
+    //             DB::table('vales_folios_solicitud')->insert($data);
+
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'results' => false,
+    //                 'message' => 'Codigo bloqueado',
+    //             ]);
+    //         }
+
+    //         if ($folioValido->idSolicitud == null) {
+    //             $data = [
+    //                 'CodigoBarras' => $codigo,
+    //                 'idUsuarioValido' => $user->id,
+    //                 'FechaValido' => date('Y-m-d H:i:s'),
+    //                 'esValido' => 0,
+    //                 'Error' => 'Codigo de barras no asignado',
+    //             ];
+
+    //             DB::table('vales_folios_solicitud')->insert($data);
+
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'results' => false,
+    //                 'message' => 'Codigo inactivo',
+    //             ]);
+    //         }
+
+    //         $data = [
+    //             'CodigoBarras' => $codigo,
+    //             'idUsuarioValido' => $user->id,
+    //             'FechaValido' => date('Y-m-d H:i:s'),
+    //             'esValido' => 1,
+    //             'Error' => 'Codigo de barras activo',
+    //         ];
+
+    //         DB::table('vales_folios_solicitud')->insert($data);
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'results' => true,
+    //             'message' => 'Codigo activo',
+    //         ]);
+    //     } catch (Exception $e) {
+    //         $data = [
+    //             'CodigoBarras' => $codigo,
+    //             'idUsuarioValido' => $user->id,
+    //             'FechaValido' => date('Y-m-d H:i:s'),
+    //             'esValido' => 0,
+    //             'Error' => 'Error en consulta',
+    //         ];
+    //         DB::table('vales_folios_solicitud')->insert($data);
+    //         return response()->json([
+    //             'success' => true,
+    //             'results' => false,
+    //             'message' => 'Error de validación',
+    //         ]);
+    //     }
+    // }
 }

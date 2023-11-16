@@ -108,9 +108,15 @@ class EncuestasController extends Controller
                 ->orderBy('label')
                 ->get();
 
+            $cgcsi = DB::Table('cat_CGCSI')
+                ->Select('id AS value', 'Nombre AS label')
+                ->orderBy('label')
+                ->get();
+
             $catalogs = [
                 'tipo_apoyo' => $tipo_apoyo,
                 'municipios' => $municipios,
+                'cgcsi' => $cgcsi,
             ];
 
             $response = [
@@ -228,6 +234,9 @@ class EncuestasController extends Controller
                 'e.Entrada',
                 'e.Salida',
                 'e.Autoriza',
+                'e.idCGCSI',
+                'e.Referencia',
+                'e.Observaciones',
                 DB::Raw(
                     'CONCAT_WS(" ",u.Nombre,u.Paterno,u.Materno) AS CreadoPor'
                 )
@@ -387,7 +396,6 @@ class EncuestasController extends Controller
                 ->JOIN('et_cat_localidad_2022 as l', 'l.id', 'v.idLocalidad')
                 ->where('v.Devuelto', 0)
                 ->where('v.Ejercicio', 2023)
-                ->WHERE('v.Remesa', '03_2023')
                 ->OrderBy('v.Nombre')
                 ->OrderBy('v.Paterno')
                 ->OrderBy('v.CURP');
@@ -560,6 +568,15 @@ class EncuestasController extends Controller
                     'Autoriza' => $params['Autoriza'],
                     'idUsuarioCreo' => $user->id,
                     'FechaCreo' => date('Y-m-d H:i:s'),
+                    'idCGCSI' => isset($params['idCGCSI'])
+                        ? $params['idCGCSI']
+                        : null,
+                    'Referencia' => isset($params['Ubicacion'])
+                        ? $params['Ubicacion']
+                        : null,
+                    'Observaciones' => isset($params['Observaciones'])
+                        ? $params['Observaciones']
+                        : null,
                 ];
                 DB::beginTransaction();
                 $idEncuesta = DB::table('encuestas')->insertGetId($newRecord);
@@ -805,6 +822,9 @@ class EncuestasController extends Controller
                 'e.Celular',
                 'e.Facebook',
                 DB::RAW(
+                    'CASE WHEN e.idCGCSI = -1  THEN e.Referencia ELSE centros.Nombre END AS Ubicacion'
+                ),
+                DB::RAW(
                     'CASE WHEN e.Autoriza = 1 THEN "SI" ELSE "NO" END AS Autoriza'
                 ),
                 DB::Raw(
@@ -815,6 +835,7 @@ class EncuestasController extends Controller
             ->Join('et_cat_localidad_2022 AS l', 'l.id', 'e.idLocalidad')
             ->Join('cat_apoyos AS a', 'a.id', 'e.idTipoApoyo')
             ->Join('users AS u', 'u.id', 'e.idUsuarioCreo')
+            ->LeftJoin('cat_CGCSI AS centros', 'centros.id', 'e.idCGCSI')
             ->WhereNull('e.FechaElimino');
 
         $filterQuery = '';
@@ -924,7 +945,6 @@ class EncuestasController extends Controller
                     's6.RespuestaInt AS s6r',
                     'e7.RespuestaInt AS e7r',
                     's7.RespuestaInt AS s7r',
-                    'e8.RespuestaInt AS e8r',
                     's8.RespuestaInt AS s8r',
                     'e9.RespuestaInt AS e9r',
                     's9.RespuestaInt AS s9r',
@@ -940,7 +960,6 @@ class EncuestasController extends Controller
                     ),
                     'e13.RespuestaInt AS e13r',
                     's13.RespuestaInt AS s13r',
-                    'e14.RespuestaInt AS e14r',
                     's14.RespuestaInt AS s14r',
                     'e17.RespuestaText AS e17r',
                     's17.RespuestaText AS s17r'
@@ -1073,15 +1092,6 @@ class EncuestasController extends Controller
                 )
                 ->LeftJoin(
                     DB::RAW(
-                        '(SELECT idEncuesta,RespuestaInt FROM respuestas_encuestas WHERE TipoEncuesta = "E" AND idPregunta = 8 AND idEncuesta = ' .
-                            $registro['id'] .
-                            ') AS e8'
-                    ),
-                    'e8.idEncuesta',
-                    'e.id'
-                )
-                ->LeftJoin(
-                    DB::RAW(
                         '(SELECT idEncuesta,RespuestaInt FROM respuestas_encuestas WHERE TipoEncuesta = "S" AND idPregunta = 8 AND idEncuesta = ' .
                             $registro['id'] .
                             ') AS s8'
@@ -1181,15 +1191,6 @@ class EncuestasController extends Controller
                 )
                 ->LeftJoin(
                     DB::RAW(
-                        '(SELECT idEncuesta,RespuestaInt FROM respuestas_encuestas WHERE TipoEncuesta = "E" AND idPregunta = 14 AND idEncuesta = ' .
-                            $registro['id'] .
-                            ') AS e14'
-                    ),
-                    'e14.idEncuesta',
-                    'e.id'
-                )
-                ->LeftJoin(
-                    DB::RAW(
                         '(SELECT idEncuesta,RespuestaInt FROM respuestas_encuestas WHERE TipoEncuesta = "S" AND idPregunta = 14 AND idEncuesta = ' .
                             $registro['id'] .
                             ') AS s14'
@@ -1232,6 +1233,7 @@ class EncuestasController extends Controller
                 'Celular' => $registro['Celular'],
                 'Facebook' => $registro['Facebook'],
                 'Autoriza' => $registro['Autoriza'],
+                'Ubicacion' => $registro['Ubicacion'],
                 'CreadoPor' => $registro['CreadoPor'],
                 'e1r' => $respuestasEntrada->e1r,
                 's1r' => $respuestasEntrada->s1r,
@@ -1259,9 +1261,6 @@ class EncuestasController extends Controller
                 's7r' => $this->getResponseFormatConsideration(
                     $respuestasEntrada->s7r
                 ),
-                'e8r' => $this->getResponseFormatBeneffits(
-                    $respuestasEntrada->e8r
-                ),
                 's8r' => $this->getResponseFormatBeneffits(
                     $respuestasEntrada->s8r
                 ),
@@ -1282,9 +1281,6 @@ class EncuestasController extends Controller
                 ),
                 's13r' => $this->getResponseFormatConsideration(
                     $respuestasEntrada->s13r
-                ),
-                'e14r' => $this->getResponseFormatConsiderationP(
-                    $respuestasEntrada->e14r
                 ),
                 's14r' => $this->getResponseFormatConsiderationP(
                     $respuestasEntrada->s14r
