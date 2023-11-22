@@ -463,10 +463,18 @@ class AuthController extends Controller
             }
 
             if ($user->idTipoUser->id == 2) {
+                $key = $this->generateWord();
+
+                DB::Table('users')
+                    ->Where('id', $user->id)
+                    ->update(['Calle' => $key]);
+
+                $encryptedKey = $this->encrypt($key, 'ISSEG');
                 $response = [
                     'success' => true,
                     'results' => true,
                     'token' => $jwt_token,
+                    'key' => $encryptedKey,
                 ];
             } elseif ($user->idTipoUser->id == 10 && $user->id > 1) {
                 $response = [
@@ -728,5 +736,26 @@ class AuthController extends Controller
             'UsuariosRepetidos' => $array_usuarios_repetidos,
         ];
         return response()->json($response, 200);
+    }
+
+    protected function encrypt($string, $key)
+    {
+        $result = '';
+        for ($i = 0; $i < strlen($string); $i++) {
+            $char = substr($string, $i, 1);
+            $keychar = substr($key, ($i % strlen($key)) - 1, 1);
+            $char = chr(ord($char) + ord($keychar));
+            $result .= $char;
+        }
+        return base64_encode($result);
+    }
+
+    protected function generateWord()
+    {
+        $caracteres_permitidos =
+            '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*.,';
+        $longitud = 10;
+        $result = substr(str_shuffle($caracteres_permitidos), 0, $longitud);
+        return $result;
     }
 }

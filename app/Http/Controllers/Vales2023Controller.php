@@ -3993,6 +3993,7 @@ class Vales2023Controller extends Controller
                 'FechaNacimiento' => ['required'],
                 'ApellidoPaterno' => ['required'],
                 'FolioGT' => ['required', 'size:7'],
+                'Key' => ['required'],
             ],
             $messages = [
                 'required' => 'El campo :attribute es obligatorio',
@@ -4015,10 +4016,15 @@ class Vales2023Controller extends Controller
             ];
             return response()->json($response, 200);
         }
+        $params = $request->all();
+        $key = $this->decrypt($params['Key'], 'ISSEG');
 
-        $user = auth()->user();
+        $userInfo = DB::table('users')
+            ->Select('id')
+            ->Where('Calle', $key)
+            ->first();
 
-        if (!in_array($user->id, [1, 2062])) {
+        if (!$userInfo || !in_array($userInfo->id, [1, 13, 2062])) {
             return response()->json([
                 'success' => true,
                 'results' => false,
@@ -4027,7 +4033,6 @@ class Vales2023Controller extends Controller
             ]);
         }
 
-        $params = $request->all();
         $serie = $params['FolioGT'];
         $flagFecha = false;
         if (!\str_contains($params['FechaNacimiento'], '-')) {
@@ -4152,11 +4157,26 @@ class Vales2023Controller extends Controller
             return response()->json($response, 200);
         }
 
-        $params = $request->only('FolioGT');
-        $serie = $params['FolioGT'];
-        $user = auth()->user();
+        $params = $request->all();
 
-        if (!in_array($user->id, [1, 2062])) {
+        $key = $this->decrypt($params['Key'], 'ISSEG');
+
+        $userInfo = DB::table('users')
+            ->Select('id')
+            ->Where('Calle', $key)
+            ->first();
+
+        if (!$userInfo || !in_array($userInfo->id, [1, 13, 2062])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'No tiene los permisos necesarios contacte a SEDESHU',
+            ]);
+        }
+        $serie = $params['FolioGT'];
+
+        if (!in_array($userInfo->id, [1, 13, 2062])) {
             return response()->json([
                 'success' => true,
                 'results' => false,
@@ -4924,4 +4944,17 @@ class Vales2023Controller extends Controller
     //         ]);
     //     }
     // }
+
+    protected function decrypt($string, $key)
+    {
+        $result = '';
+        $string = base64_decode($string);
+        for ($i = 0; $i < strlen($string); $i++) {
+            $char = substr($string, $i, 1);
+            $keychar = substr($key, ($i % strlen($key)) - 1, 1);
+            $char = chr(ord($char) - ord($keychar));
+            $result .= $char;
+        }
+        return $result;
+    }
 }
