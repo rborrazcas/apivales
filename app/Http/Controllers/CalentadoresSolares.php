@@ -657,6 +657,7 @@ class CalentadoresSolares extends Controller
                 1294,
                 1295,
                 1340,
+                2063,
             ])
         ) {
             $archivo = '/archivos/formatoReporteNominaCalentador2.xlsx';
@@ -1495,19 +1496,19 @@ class CalentadoresSolares extends Controller
             }
 
             $isRegistered = $this->isRegistered($params['CURP']);
-            if ($isRegistered) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'La CURP ya cuenta con una solicitud para calentador solar',
-                    'message' =>
-                        'El Beneficiario con CURP ' .
-                        $params['CURP'] .
-                        ' fue registrado con el Folio Impulso ' .
-                        $isRegistered->FolioImpulso,
-                ];
-                return response()->json($response, 200);
-            }
+            // if ($isRegistered) {
+            //     $response = [
+            //         'success' => true,
+            //         'results' => false,
+            //         'La CURP ya cuenta con una solicitud para calentador solar',
+            //         'message' =>
+            //             'El Beneficiario con CURP ' .
+            //             $params['CURP'] .
+            //             ' fue registrado con el Folio Impulso ' .
+            //             $isRegistered->FolioImpulso,
+            //     ];
+            //     return response()->json($response, 200);
+            // }
 
             $params['idUsuarioCreo'] = $user->id;
             $params['FechaCreo'] = date('Y-m-d H:i:s');
@@ -1602,7 +1603,7 @@ class CalentadoresSolares extends Controller
                 'solicitudes_calentadores_master'
             )->insertGetId($newRecord);
             DB::commit();
-            $folioImpulso = 'S2023QC14170100' . $idImpulso;
+            $folioImpulso = 'S2023QC1417010' . $idImpulso;
             DB::beginTransaction();
             DB::table('solicitudes_calentadores_master')
                 ->Where('id', $idImpulso)
@@ -1653,8 +1654,6 @@ class CalentadoresSolares extends Controller
                 'Colonia' => 'required',
                 'Calle' => 'required',
                 'NumExt' => 'required',
-                'NumInt' => 'required',
-                'Referencias' => 'required',
             ]);
 
             if ($v->fails()) {
@@ -3590,5 +3589,275 @@ class CalentadoresSolares extends Controller
             );
         }
         return !$containsSpecialChars;
+    }
+
+    public function getExpedientesCS(Request $request)
+    {
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        if (!isset($request->idMunicipio) && !isset($request->CURP)) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'Debe indicar el municipio o CURP a descargar.',
+            ]);
+        }
+
+        if (isset($request->idMunicipio)) {
+            if (
+                !is_numeric($request->idMunicipio) ||
+                $request->idMunicipio < 1 ||
+                $request->idMunicipio > 46
+            ) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'El idMunicipio enviado no es válido',
+                ]);
+            }
+        }
+
+        if (isset($request->CURP)) {
+            if (
+                !$this->validateInput($request->CURP) ||
+                strlen($request->CURP) != 18
+            ) {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'El CURP enviado no es válido',
+                ]);
+            }
+        }
+
+        $user = auth()->user();
+
+        $curps = DB::table('solicitudes_calentadores AS c')
+            ->select('c.id', 'c.CURP')
+            //->where('c.idMunicipio', $request->idMunicipio)
+            ->whereIn('idEstatusSolicitud', [14, 15])
+            ->WhereNull('FechaElimino');
+        //->get();
+
+        if (isset($request->idMunicipio)) {
+            $mun = DB::table('et_cat_municipio')
+                ->Where('id', $request->idMunicipio)
+                ->first();
+            $carpeta = $mun->Nombre;
+            if (str_contains($carpeta, 'DOLORES')) {
+                $carpeta = 'DOLORES HIDALGO';
+            } elseif (str_contains($carpeta, 'SILAO')) {
+                $carpeta = 'SILAO';
+            }
+            $curps = $curps
+                ->where('c.idMunicipio', $request->idMunicipio)
+                ->get();
+        } else {
+            $carpeta = $request->CURP;
+            $curps = $curps->where('c.CURP', $request->CURP)->get();
+        }
+
+        if ($curps->count() > 0) {
+            $path = public_path() . '/subidos/calentadores/' . $carpeta;
+            if (
+                \file_exists(
+                    public_path('subidos/calentadores/' . $carpeta . '.zip')
+                )
+            ) {
+                File::delete(
+                    public_path('subidos/calentadores/' . $carpeta . '.zip')
+                );
+            }
+            File::makeDirectory($path, $mode = 0777, true, true);
+
+            foreach ($curps as $curp) {
+                $archivos = DB::table('solicitudes_archivos AS a')
+                    ->select('a.NombreSistema', 'ac.Clasificacion')
+                    ->JOIN(
+                        'solicitudes_archivos_clasificacion as ac',
+                        'ac.id',
+                        '=',
+                        'a.idClasificacion'
+                    )
+                    ->Where(['a.idSolicitud' => $curp->id, 'a.idPrograma' => 2])
+                    ->WhereNull('a.FechaElimino')
+                    ->get();
+
+                if ($archivos->count() > 0) {
+                    if (isset($request->idMunicipio)) {
+                        $pathCarpeta = $path . '/' . $curp->CURP;
+
+                        File::makeDirectory(
+                            $pathCarpeta,
+                            $mode = 0777,
+                            true,
+                            true
+                        );
+                    } else {
+                        $pathCarpeta = $path;
+                    }
+
+                    foreach ($archivos as $a) {
+                        $rutaOrigen = Storage::disk('subidos')->path(
+                            $a->NombreSistema
+                        );
+
+                        $rutaDestino =
+                            $pathCarpeta .
+                            '/' .
+                            $a->Clasificacion .
+                            '_' .
+                            $a->NombreSistema;
+
+                        copy($rutaOrigen, $rutaDestino);
+                    }
+                    $this->createZipEvidencia($curp->CURP, $carpeta);
+                }
+            }
+            $this->createZipGeneral($carpeta);
+
+            $filePath = $path . '.zip';
+            $fileName = $carpeta . '.zip';
+
+            $callback = function () use ($filePath, $fileName) {
+                // Open output stream
+                if ($file = fopen($filePath, 'rb')) {
+                    while (!feof($file) and connection_status() == 0) {
+                        print fread($file, 1024 * 1024);
+                        flush();
+                    }
+                    fclose($file);
+                }
+            };
+
+            $headers = [
+                'Content-Type' => 'application/octet-stream',
+                'Content-Disposition' =>
+                    'attachment; filename="' . $fileName . '"',
+                'Content-Transfer-Encoding' => 'Binary',
+                'Pragma' => 'no-cache',
+            ];
+
+            return response()->streamDownload($callback, $fileName, $headers);
+
+            // return response()->download($path . '.zip');
+        } else {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'data' => [],
+                'message' => 'No se encontraron archivos para descargar.',
+            ]);
+        }
+    }
+
+    private function createZipEvidencia($curp, $carpeta)
+    {
+        try {
+            $files = glob(
+                public_path(
+                    'subidos/calentadores/' . $carpeta . '/' . $curp . '/*'
+                )
+            );
+            //$path = Storage::disk('subidos')->path($fileName);
+            $path = public_path(
+                'subidos/calentadores/' . $carpeta . '/' . $curp . '.zip'
+            );
+            Zipper::make($path)
+                ->add($files)
+                ->close();
+
+            File::deleteDirectory(
+                public_path('subidos/calentadores/' . $carpeta . '/' . $curp)
+            );
+            // if (\file_exists(public_path($carpeta))) {
+            //     File::deleteDirectory(public_path($carpeta));
+            // }
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    private function createZipGeneral($carpeta)
+    {
+        try {
+            $files = glob(
+                public_path('subidos/calentadores/' . $carpeta . '/*')
+            );
+            $path = public_path('subidos/calentadores/' . $carpeta . '.zip');
+            Zipper::make($path)
+                ->add($files)
+                ->close();
+            File::deleteDirectory(
+                public_path('subidos/calentadores/' . $carpeta)
+            );
+            // if (\file_exists(public_path($carpeta))) {
+            //     File::deleteDirectory(public_path($carpeta));
+            // }
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function getFilesFromVentanilla()
+    {
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        $inicio = date('Y-m-d H:i:s');
+
+        $user = auth()->user();
+
+        $curps = DB::table('ExpedientesCSVentanilla AS c')
+            ->select('c.id', 'c.CURP', 'c.FOLIO')
+            ->Where('c.Descargado', 0)
+            ->get();
+
+        foreach ($curps as $curp) {
+            try {
+                $uniqueName = $curp->FOLIO . '.zip';
+                $client = new Client();
+                $requestD = $client->request(
+                    'GET',
+                    'https://qa-api-utils-ventanilla-impulso.guanajuato.gob.mx/zipgenerator/zip/generateZipByFolio?folio=' .
+                        $curp->FOLIO,
+                    [
+                        'verify' => false,
+                        'headers' => [
+                            'content-type' => 'application/json',
+                            'Accept' => 'application/json',
+                        ],
+                    ]
+                );
+
+                $f = $requestD->getBody()->getContents();
+                $path =
+                    public_path() .
+                    '/subidos/ExpedientesVentanilla/' .
+                    $uniqueName;
+                File::put($path, $f);
+
+                DB::table('ExpedientesCSVentanilla')
+                    ->Where('FOLIO', $curp->FOLIO)
+                    ->update(['Descargado' => 1, 'NombreZip' => $uniqueName]);
+            } catch (\GuzzleHttp\Exception\ClientException $e) {
+                return response()->json([
+                    'success' => false,
+                    'results' => false,
+                    'error' => 'Error al descargar archivos',
+                ]);
+                return false;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'results' => true,
+            'message' => 'Se obtuvieron los archivos con exito',
+            'inicio' => $inicio,
+            'fin' => date('Y-m-d H:i:s'),
+        ]);
     }
 }

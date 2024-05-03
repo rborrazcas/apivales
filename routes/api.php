@@ -100,7 +100,7 @@ Route::post(
 
 Route::post(
     '/getExpedientesCalentadores',
-    'CalentadoresController@getExpediente'
+    'CalentadoresSolares@getExpedientesxMunicipio'
 );
 
 Route::get(
@@ -123,8 +123,15 @@ Route::group(['prefix' => 'q3450/v2'], function ($route) {
     Route::post('validate', 'Vales2023Controller@validateSerieComercio');
 });
 
+// Route::post('expedientes', 'CalentadoresSolares@getExpedientesCS');
+
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
+    Route::post(
+        '/getFilesVentanillaCS',
+        'CalentadoresSolares@getFilesFromVentanilla'
+    );
+
     Route::post('/register', 'AuthController@register');
     Route::post('/logout', 'AuthController@logout');
     Route::post('/me', 'AuthController@getAuthenticatedUser');
@@ -1250,6 +1257,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioImpulso');
         //Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioApi');
         Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioImpulso');
+        Route::post('expedientes', 'CalentadoresSolares@getExpedientesCS');
     });
 
     //! Encuestas

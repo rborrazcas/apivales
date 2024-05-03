@@ -59,7 +59,8 @@ class VValesController extends Controller
                 )
                 ->LEFTJOIN('vales_grupos as g', 'g.id', 'v.idGrupo')
                 ->leftJoin('users as U', 'U.id', '=', 'VS.UserCreated')
-                ->where('VS.Ejercicio', '=', date('Y'));
+                //->where('VS.Ejercicio', '=', date('Y'));
+                ->where('VS.Ejercicio', '=', 2023);
             $flag = 0;
 
             if (isset($parameters['Folio'])) {

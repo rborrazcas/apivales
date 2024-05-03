@@ -1397,7 +1397,7 @@ class Vales2022Controller extends Controller
             'CASE WHEN vales.Devuelto = 0 THEN "" ELSE "DEVUELTO" END AS Devuelto';
 
         $res = DB::table('vales')
-            ->selectRaw($user->id === 1132 ? $queryCve : $query)
+            ->selectRaw($user->id === 1136 ? $queryCve : $query)
             ->JOIN('vales_remesas AS r', 'vales.Remesa', 'r.Remesa')
             ->LEFTJOIN(
                 'vales_solicitudes AS sol',

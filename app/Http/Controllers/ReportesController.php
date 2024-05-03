@@ -8079,14 +8079,7 @@ class ReportesController extends Controller
             ->select('N.id')
             ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
-            ->Join(
-                DB::RAW(
-                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
-                ),
-                'VS.idSolicitud',
-                '=',
-                'N.id'
-            )
+            ->Join('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
             ->where('N.idGrupo', '=', $resGpo->id);
@@ -8239,11 +8232,19 @@ class ReportesController extends Controller
         unset($res);
         $vales = $d;
         $nombreArchivo = 'acuses_vales' . date('Y-m-d H:i:s');
+        $ejercicio = DB::table('vales_solicitudes')
+            ->Select('Ejercicio')
+            ->Where('idSolicitud', $parameters['folio'])
+            ->first();
 
         if ($parameters['ejercicio'] == 2022) {
             $pdf = \PDF::loadView('pdf_2022', compact('vales'));
         } else {
-            $pdf = \PDF::loadView('pdf', compact('vales'));
+            if ($ejercicio->Ejercicio == 2023) {
+                $pdf = \PDF::loadView('pdf_2023', compact('vales'));
+            } else {
+                $pdf = \PDF::loadView('pdf', compact('vales'));
+            }
         }
 
         return $pdf->download($nombreArchivo . '.pdf');
@@ -8951,6 +8952,7 @@ class ReportesController extends Controller
                 'G.id',
                 'G.idMunicipio',
                 'G.Remesa',
+                'G.Ejercicio',
                 'G.TotalAprobados',
                 'G.ResponsableEntrega',
                 'G.CveInterventor',
@@ -9016,14 +9018,7 @@ class ReportesController extends Controller
             )
             ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
-            ->JOIN(
-                DB::RAW(
-                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
-                ),
-                'VS.idSolicitud',
-                '=',
-                'N.id'
-            )
+            ->JOIN('vales_solicitudes  as VS', 'VS.idSolicitud', '=', 'N.id')
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
             ->where('N.idGrupo', '=', $resGpo->id)
@@ -9075,10 +9070,17 @@ class ReportesController extends Controller
         File::makeDirectory($path, $mode = 0777, true, true);
 
         $counter = 0;
+
+        $view = 'pdf';
+
+        if ($resGpo->Ejercicio == '2023') {
+            $view = 'pdf_2023';
+        }
+
         foreach (array_chunk($d, 20) as $arrayData) {
             $counter++;
             $vales = $arrayData;
-            $pdf = \PDF::loadView('pdf', compact('vales'))->save(
+            $pdf = \PDF::loadView($view, compact('vales'))->save(
                 $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
             );
             unset($pdf);
@@ -9437,7 +9439,7 @@ class ReportesController extends Controller
             )
             ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
-            ->JOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
+            ->LeftJOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
             ->where('N.id', $parameters['folio'])
             ->orderBy('m.Nombre', 'asc')
             ->orderBy('N.CveInterventor', 'ASC')

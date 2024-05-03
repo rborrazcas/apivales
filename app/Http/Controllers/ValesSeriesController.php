@@ -111,12 +111,12 @@ class ValesSeriesController extends Controller
 
         if (strlen($request->CodigoBarra) < 22) {
             $resultall = DB::table('folios_vales_2023')
-                ->where('Ejercicio', '=', date('Y'))
+
                 ->where('Serie', '=', $request->CodigoBarra)
                 ->first();
         } else {
             $resultall = DB::table('folios_vales_2023')
-                ->where('Ejercicio', '=', date('Y'))
+
                 ->where('CodigoBarras', '=', $request->CodigoBarra)
                 ->first();
         }
@@ -142,7 +142,7 @@ class ValesSeriesController extends Controller
 
             $nueva_serie = $resultall->Serie + 9;
             $result2 = DB::table('folios_vales_2023')
-                ->where('Ejercicio', '=', date('Y'))
+
                 ->where('Serie', '=', $nueva_serie)
                 ->first();
 

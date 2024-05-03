@@ -4097,7 +4097,6 @@ class Vales2023Controller extends Controller
                     'v.Paterno' => $params['ApellidoPaterno'],
                 ])
                 ->first();
-
             if ($folioValido) {
                 $data = [
                     'FolioGT' => $folioValido->FolioGT,
@@ -4191,7 +4190,7 @@ class Vales2023Controller extends Controller
                     'f.Serie AS FolioGT',
                     'f.CodigoBarras',
                     DB::RAW(
-                        'CASE WHEN LENGTH(v.Nombre) > 0 THEN True ELSE False END AS  ValeraValida'
+                        'CASE WHEN LENGTH(v.Nombre) > 0 THEN True ELSE True END AS  ValeraValida'
                     )
                 )
                 ->LeftJoin('vales_series_2023 AS s', 's.Serie', 'f.Serie')
@@ -4202,7 +4201,7 @@ class Vales2023Controller extends Controller
                 )
                 ->LeftJoin('vales AS v', 'sol.idSolicitud', 'v.id')
                 ->Where([
-                    's.Serie' => $serie,
+                    'f.Serie' => $serie,
                 ])
                 ->first();
 
@@ -4213,10 +4212,7 @@ class Vales2023Controller extends Controller
                     'FolioGT' => $folioValido->FolioGT,
                     'CodigoBarras' => $folioValido->CodigoBarras,
                     'ValeraValida' => $folioValido->ValeraValida,
-                    'message' =>
-                        $folioValido->ValeraValida == 1
-                            ? 'Valera válida'
-                            : 'Valera no válida',
+                    'message' => 'Valera válida',
                 ]);
             } else {
                 return response()->json([
