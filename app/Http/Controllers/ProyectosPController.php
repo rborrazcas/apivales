@@ -1306,9 +1306,9 @@ class ProyectosPController extends Controller
                 'CURP' => 'required',
                 'Nombre' => 'required',
                 'Paterno' => 'required',
-                'Sexo' => 'required',
+                // 'Sexo' => 'required',
                 'FechaINE' => 'required',
-                'idEntidadNacimiento' => 'required',
+                // 'idEntidadNacimiento' => 'required',
                 'idMunicipio' => 'required',
                 'idLocalidad' => 'required',
                 'CP' => 'required',
@@ -1316,7 +1316,7 @@ class ProyectosPController extends Controller
                 'Calle' => 'required',
                 'NumExt' => 'required',
                 'Celular' => 'required',
-                'Enlace' => 'required',
+                // 'Enlace' => 'required',
             ]);
 
             if ($v->fails()) {
@@ -1357,7 +1357,7 @@ class ProyectosPController extends Controller
 
             if (isset($params['FechaINE'])) {
                 $fechaINE = intval($params['FechaINE']);
-                if ($year_start > $fechaINE) {
+                if ($fechaINE < 2023) {
                     $response = [
                         'success' => true,
                         'results' => false,
@@ -1438,7 +1438,7 @@ class ProyectosPController extends Controller
                 'id' => 'required',
                 'Nombre' => 'required',
                 'Paterno' => 'required',
-                'Sexo' => 'required',
+                // 'Sexo' => 'required',
                 'CURP' => 'required',
                 'idMunicipio' => 'required',
                 'idLocalidad' => 'required',
@@ -1446,8 +1446,8 @@ class ProyectosPController extends Controller
                 'Colonia' => 'required',
                 'Calle' => 'required',
                 'NumExt' => 'required',
-                'NumInt' => 'required',
-                'Referencias' => 'required',
+                // 'NumInt' => 'required',
+                // 'Referencias' => 'required',
             ]);
 
             if ($v->fails()) {

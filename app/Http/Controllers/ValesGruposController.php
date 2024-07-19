@@ -287,7 +287,7 @@ class ValesGruposController extends Controller
                     '=',
                     'vales_grupos.idLocalidad'
                 )
-                ->where('Ejercicio', 2023);
+                ->WhereIn('Ejercicio', [2023, 2024]);
 
             $flag = 0;
             $permisos = DB::table('users_menus')
@@ -309,16 +309,16 @@ class ValesGruposController extends Controller
             $viewall = $permisos->ViewAll;
 
             if ($viewall < 1) {
-                if ($permisos->Exportar === 0) {
-                    $response = [
-                        'success' => true,
-                        'results' => true,
-                        'total' => '0',
-                        'filtros' => '',
-                        'data' => [],
-                    ];
-                    return response()->json($response, 200);
-                }
+                // if ($permisos->Exportar === 0) {
+                //     $response = [
+                //         'success' => true,
+                //         'results' => true,
+                //         'total' => '0',
+                //         'filtros' => '',
+                //         'data' => [],
+                //     ];
+                //     return response()->json($response, 200);
+                // }
 
                 $region = DB::table('users_region')
                     ->selectRaw('Region')
@@ -452,6 +452,8 @@ class ValesGruposController extends Controller
                     }
                 }
             } else {
+                $res->orderBy('vales_grupos.Ejercicio', 'DESC');
+                $res->orderBy('vales_grupos.Remesa', 'DESC');
                 $res->orderBy('et_cat_municipio.SubRegion', 'asc');
                 $res->orderBy('et_cat_municipio.Nombre', 'asc');
                 $res->orderBy('vales_grupos.CveInterventor', 'asc');

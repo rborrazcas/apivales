@@ -54,7 +54,20 @@ class CalentadoresSolares extends Controller
             $filtroPermisos = '';
 
             if ($viewall < 1 && $seguimiento < 1) {
-                $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+                $userMunicipio = DB::table('users_municipios')
+                    ->Where('idUser', $user->id)
+                    ->get();
+
+                if ($userMunicipio->count() == 0) {
+                    $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+                } else {
+                    $filtroPermisos =
+                        '(c.idMunicipio IN (' .
+                        'SELECT idMunicipio FROM users_municipios WHERE idPrograma = 2 AND idUser = ' .
+                        $user->id .
+                        ')' .
+                        ')';
+                }
             } elseif ($viewall < 1) {
                 $filtroPermisos =
                     'm.SubRegion IN (' .
@@ -110,7 +123,20 @@ class CalentadoresSolares extends Controller
             $filtroPermisos = '';
 
             if ($viewall < 1 && $seguimiento < 1) {
-                $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+                $userMunicipio = DB::table('users_municipios')
+                    ->Where('idUser', $user->id)
+                    ->get();
+
+                if ($userMunicipio->count() == 0) {
+                    $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+                } else {
+                    $filtroPermisos =
+                        '(c.idMunicipio IN (' .
+                        'SELECT idMunicipio FROM users_municipios WHERE idPrograma = 2 AND idUser = ' .
+                        $user->id .
+                        ')' .
+                        ')';
+                }
             } elseif ($viewall < 1) {
                 $filtroPermisos =
                     'm.SubRegion IN (' .
@@ -164,7 +190,20 @@ class CalentadoresSolares extends Controller
             $filtroPermisos = '';
 
             if ($viewall < 1 && $seguimiento < 1) {
-                $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+                $userMunicipio = DB::table('users_municipios')
+                    ->Where('idUser', $user->id)
+                    ->get();
+
+                if ($userMunicipio->count() == 0) {
+                    $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+                } else {
+                    $filtroPermisos =
+                        '(c.idMunicipio IN (' .
+                        'SELECT idMunicipio FROM users_municipios WHERE idPrograma = 2 AND idUser = ' .
+                        $user->id .
+                        ')' .
+                        ')';
+                }
             } elseif ($viewall < 1) {
                 $filtroPermisos =
                     'm.SubRegion IN (' .
@@ -218,11 +257,24 @@ class CalentadoresSolares extends Controller
             $filtroPermisos = '';
 
             if ($viewall < 1 && $seguimiento < 1) {
-                $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+                $userMunicipio = DB::table('users_municipios')
+                    ->Where('idUser', $user->id)
+                    ->get();
+
+                if ($userMunicipio->count() == 0) {
+                    $filtroPermisos = 'c.idUsuarioCreo = ' . $user->id;
+                } else {
+                    $filtroPermisos =
+                        '(c.idMunicipio IN (' .
+                        'SELECT idMunicipio FROM users_municipios WHERE idPrograma = 2 AND idUser = ' .
+                        $user->id .
+                        ')' .
+                        ')';
+                }
             } elseif ($viewall < 1) {
                 $filtroPermisos =
                     'm.SubRegion IN (' .
-                    'SELECT Region FROM users_region WHERE idPrograma = 2 AND idUser = ' .
+                    'SELECT DISTINCT Region FROM users_region WHERE idPrograma = 2 AND idUser = ' .
                     $user->id .
                     ')';
             }
@@ -314,13 +366,20 @@ class CalentadoresSolares extends Controller
             $filtroSeguimiento = '';
 
             if ($viewall < 1 && $seguimiento < 1) {
-                $filtroPermisos =
-                    '(c.idMunicipio IN (' .
-                    'SELECT idMunicipio FROM users_municipios WHERE idPrograma = 2 AND idUser = ' .
-                    $user->id .
-                    ')' .
-                    ')';
-                $filtroSeguimiento = 'c.idUsuarioCreo = ' . $user->id;
+                $userMunicipio = DB::table('users_municipios')
+                    ->Where('idUser', $user->id)
+                    ->get();
+
+                if ($userMunicipio->count() == 0) {
+                    $filtroSeguimiento = 'c.idUsuarioCreo = ' . $user->id;
+                } else {
+                    $filtroPermisos =
+                        '(c.idMunicipio IN (' .
+                        'SELECT idMunicipio FROM users_municipios WHERE idPrograma = 2 AND idUser = ' .
+                        $user->id .
+                        ')' .
+                        ')';
+                }
             } elseif ($viewall < 1) {
                 $filtroPermisos =
                     '(m.SubRegion IN (' .
@@ -620,7 +679,8 @@ class CalentadoresSolares extends Controller
                     'CONCAT_WS(" ",editor.Nombre,editor.Paterno,editor.Materno) AS Actualizo'
                 ),
                 'c.FechaActualizo',
-                'c.FolioImpulso'
+                'c.FolioImpulso',
+                'c.Ejercicio'
             )
             ->JOIN('users AS creador', 'creador.id', '=', 'c.idUsuarioCreo')
             ->leftJoin(
@@ -630,7 +690,7 @@ class CalentadoresSolares extends Controller
                 'c.idUsuarioActualizo'
             )
             ->JOIN('et_cat_municipio AS m', 'm.id', 'c.idMunicipio')
-            ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'c.idLocalidad')
+            ->LEFTJOIN('et_cat_localidad_2022 AS l', 'l.id', 'c.idLocalidad')
             ->JOIN('solicitudes_status AS s', 'c.idEstatusSolicitud', 's.id')
             ->LEFTJOIN('cat_tipo_apoyo_calentador AS t', 't.id', 'c.Formato')
             ->whereRaw('c.FechaElimino IS NULL');
@@ -1440,10 +1500,14 @@ class CalentadoresSolares extends Controller
             }
 
             $curpRegistrado = DB::table('solicitudes_calentadores')
-                ->select(DB::RAW('lpad( hex(id ), 6, 0 ) AS Folio'), 'CURP')
+                ->select(
+                    DB::RAW('lpad( hex(id ), 6, 0 ) AS Folio'),
+                    'CURP',
+                    'Ejercicio'
+                )
                 ->where('CURP', $params['CURP'])
                 ->whereNull('FechaElimino')
-                ->whereRaw('YEAR(FechaCreo) = ' . $year_start)
+                //->whereRaw('YEAR(FechaCreo) = ' . $year_start)
                 ->first();
 
             if ($curpRegistrado !== null) {
@@ -1453,17 +1517,17 @@ class CalentadoresSolares extends Controller
                     'errors' =>
                         'El Beneficiario con CURP ' .
                         $params['CURP'] .
-                        ' ya se encuentra registrado para el ejercicio ' .
-                        $year_start .
-                        ' con el Folio ' .
-                        $curpRegistrado->Folio,
+                        ' ya se encuentra registrado en el padron con el Folio ' .
+                        $curpRegistrado->Folio .
+                        ', para el ejercicio ' .
+                        $curpRegistrado->Ejercicio,
                     'message' =>
                         'El Beneficiario con CURP ' .
                         $params['CURP'] .
-                        ' ya se encuentra registrado para el ejercicio ' .
-                        $year_start .
-                        ' con el Folio ' .
-                        $curpRegistrado->Folio,
+                        ' ya se encuentra registrado en el padron con el Folio ' .
+                        $curpRegistrado->Folio .
+                        ', para el ejercicio ' .
+                        $curpRegistrado->Ejercicio,
                 ];
 
                 return response()->json($response, 200);
@@ -1496,19 +1560,19 @@ class CalentadoresSolares extends Controller
             }
 
             $isRegistered = $this->isRegistered($params['CURP']);
-            // if ($isRegistered) {
-            //     $response = [
-            //         'success' => true,
-            //         'results' => false,
-            //         'La CURP ya cuenta con una solicitud para calentador solar',
-            //         'message' =>
-            //             'El Beneficiario con CURP ' .
-            //             $params['CURP'] .
-            //             ' fue registrado con el Folio Impulso ' .
-            //             $isRegistered->FolioImpulso,
-            //     ];
-            //     return response()->json($response, 200);
-            // }
+            if ($isRegistered) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'La CURP ya cuenta con una solicitud para calentador solar',
+                    'message' =>
+                        'El Beneficiario con CURP ' .
+                        $params['CURP'] .
+                        ' fue registrado con el Folio Impulso ' .
+                        $isRegistered->FolioImpulso,
+                ];
+                return response()->json($response, 200);
+            }
 
             $params['idUsuarioCreo'] = $user->id;
             $params['FechaCreo'] = date('Y-m-d H:i:s');
@@ -1531,7 +1595,7 @@ class CalentadoresSolares extends Controller
 
             $curpValida = $this->isCurp($params['CURP']);
             $newRecord = [
-                'FolioApi' => $folioSolicitud,
+                'FolioApi' => strtoupper($folioSolicitud),
                 'FechaSolicitud' => $params['FechaSolicitud'],
                 'FolioTarjetaImpulso' => isset($params['FolioTarjetaImpulso'])
                     ? $params['FolioTarjetaImpulso']
@@ -1596,16 +1660,26 @@ class CalentadoresSolares extends Controller
                 'FormatoCURPCorrecto' => $curpValida,
                 'idUsuarioCreo' => $user->id,
                 'FechaCreo' => date('Y-m-d H:i:s'),
+                'Ejercicio' => isset($params['Ejercicio'])
+                    ? $params['Ejercicio']
+                    : 2024,
             ];
 
             DB::beginTransaction();
             $idImpulso = DB::table(
-                'solicitudes_calentadores_master'
+                'solicitudes_calentadores_master_2024'
             )->insertGetId($newRecord);
             DB::commit();
-            $folioImpulso = 'S2023QC1417010' . $idImpulso;
+
+            $folioImpulso = '';
+            $idImpulso > '9999'
+                ? ($folioImpulso = 'S2024QC1417010')
+                : ($folioImpulso = 'S2024QC14170100');
+
+            $folioImpulso .= $idImpulso;
+
             DB::beginTransaction();
-            DB::table('solicitudes_calentadores_master')
+            DB::table('solicitudes_calentadores_master_2024')
                 ->Where('id', $idImpulso)
                 ->update([
                     'FolioImpulso' => $folioImpulso,
@@ -1671,20 +1745,17 @@ class CalentadoresSolares extends Controller
                 ->where('solicitudes_calentadores.id', $params['id'])
                 ->first();
 
-            if (
-                $solicitud->idEstatusSolicitud === 5 &&
-                $params['idEstatusSolicitud'] != 14
-            ) {
-                $response = [
-                    'success' => true,
-                    'results' => false,
-                    'errors' =>
-                        'La solicitud se encuentra validada no se puede editar',
-                    'message' =>
-                        'La solicitud se encuentra validada no se puede editar',
-                ];
-                return response()->json($response, 200);
-            }
+            // if ($solicitud->idEstatusSolicitud == 14) {
+            //     $response = [
+            //         'success' => true,
+            //         'results' => false,
+            //         'errors' =>
+            //             'La solicitud se encuentra aprobada por comité no se puede editar',
+            //         'message' =>
+            //             'La solicitud se encuentra aprobada por comité no se puede editar',
+            //     ];
+            //     return response()->json($response, 200);
+            // }
             if (
                 isset($params['idEstatusSolicitud']) &&
                 $params['idEstatusSolicitud'] == 5
@@ -1806,6 +1877,7 @@ class CalentadoresSolares extends Controller
             $id = $params['id'];
             unset($params['id']);
             unset($params['Folio']);
+            unset($params['Ejercicio']);
 
             DB::table('solicitudes_calentadores')
                 ->where('id', $id)
@@ -1852,10 +1924,10 @@ class CalentadoresSolares extends Controller
             $user = auth()->user();
 
             $solicitud = DB::table('solicitudes_calentadores AS c')
-                ->select('c.id', 'c.idEstatusSolicitud')
+                ->select('c.id', 'c.idEstatusSolicitud', 'c.CURP')
                 ->where('c.id', $id)
                 ->first();
-            if ($solicitud->idEstatusSolicitud === 5) {
+            if ($solicitud->idEstatusSolicitud === 14) {
                 $response = [
                     'success' => true,
                     'results' => false,
@@ -1877,6 +1949,13 @@ class CalentadoresSolares extends Controller
                 ]);
             DB::table('solicitudes_calentadores AS c')
                 ->where('c.id', $id)
+                ->update([
+                    'idUsuarioElimino' => $user->id,
+                    'FechaElimino' => date('Y-m-d H:i:s'),
+                ]);
+
+            DB::table('solicitudes_calentadores_master_2024 AS c')
+                ->where('c.CURP', $solicitud->CURP)
                 ->update([
                     'idUsuarioElimino' => $user->id,
                     'FechaElimino' => date('Y-m-d H:i:s'),
@@ -2461,7 +2540,28 @@ class CalentadoresSolares extends Controller
             if ($res) {
                 return $res;
             } else {
-                return null;
+                $res = DB::table('solicitudes_calentadores_master_2024 as c')
+                    ->select(
+                        'c.id',
+                        'c.FolioImpulso',
+                        'c.FechaSolicitud',
+                        'c.CURP',
+                        'e.Estatus'
+                    )
+                    ->LeftJoin(
+                        'solicitudes_status AS e',
+                        'c.idEstatusSolicitud',
+                        'e.id'
+                    )
+                    ->where('c.CURP', $curp)
+                    ->WhereNull('c.FechaElimino')
+                    ->first();
+
+                if ($res) {
+                    return $res;
+                } else {
+                    return null;
+                }
             }
         } catch (QueryException $errors) {
             return null;
@@ -3595,6 +3695,31 @@ class CalentadoresSolares extends Controller
     {
         ini_set('memory_limit', '-1');
         ini_set('max_execution_time', 1000);
+
+        // $filePath =
+        //     '/var/www/html/plataforma/apivales/public/subidos/calentadores/LEON.zip';
+        // $fileName = 'LEON.zip';
+
+        // $callback = function () use ($filePath, $fileName) {
+        //     // Open output stream
+        //     if ($file = fopen($filePath, 'rb')) {
+        //         while (!feof($file) and connection_status() == 0) {
+        //             print fread($file, 1024 * 1024);
+        //             flush();
+        //         }
+        //         fclose($file);
+        //     }
+        // };
+
+        // $headers = [
+        //     'Content-Type' => 'application/octet-stream',
+        //     'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        //     'Content-Transfer-Encoding' => 'Binary',
+        //     'Pragma' => 'no-cache',
+        // ];
+
+        // return response()->streamDownload($callback, $fileName, $headers);
+
         if (!isset($request->idMunicipio) && !isset($request->CURP)) {
             return response()->json([
                 'success' => true,
@@ -3637,7 +3762,7 @@ class CalentadoresSolares extends Controller
 
         $curps = DB::table('solicitudes_calentadores AS c')
             ->select('c.id', 'c.CURP')
-            //->where('c.idMunicipio', $request->idMunicipio)
+            ->where('c.idMunicipio', $request->idMunicipio)
             ->whereIn('idEstatusSolicitud', [14, 15])
             ->WhereNull('FechaElimino');
         //->get();
@@ -3719,6 +3844,11 @@ class CalentadoresSolares extends Controller
             }
             $this->createZipGeneral($carpeta);
 
+            //     return response()->json([
+            //         'success' => true,
+            //         'results' => true,
+            //         'message' => 'Expedientes generados.',
+            //     ]);
             $filePath = $path . '.zip';
             $fileName = $carpeta . '.zip';
 

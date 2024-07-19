@@ -1396,8 +1396,13 @@ class Vales2022Controller extends Controller
             'CONCAT(vales.Remesa,"_",vales.CveInterventor) AS Cve, ' .
             'CASE WHEN vales.Devuelto = 0 THEN "" ELSE "DEVUELTO" END AS Devuelto';
 
+        $queryFinal = $query;
+        if (in_array($user->id, [1558, 1136, 2076, 1])) {
+            $queryFinal = $queryCve;
+        }
+
         $res = DB::table('vales')
-            ->selectRaw($user->id === 1136 ? $queryCve : $query)
+            ->selectRaw($queryFinal)
             ->JOIN('vales_remesas AS r', 'vales.Remesa', 'r.Remesa')
             ->LEFTJOIN(
                 'vales_solicitudes AS sol',
@@ -1412,8 +1417,7 @@ class Vales2022Controller extends Controller
             ->JOIN('et_cat_municipio AS m', 'm.id', 'vales.idMunicipio')
             ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'vales.idLocalidad')
             ->LEFTJOIN('vales_status AS s', 's.id', 'vales.idStatus')
-            ->LEFTJOIN('vales_incidencias AS i', 'i.id', 'vales.idIncidencia')
-            ->WHERE('r.Ejercicio', '2023');
+            ->LEFTJOIN('vales_incidencias AS i', 'i.id', 'vales.idIncidencia');
 
         // //Agregando Filtros por permisos
         // $permisos = $this->getPermisos();
@@ -1559,6 +1563,7 @@ class Vales2022Controller extends Controller
         }
 
         $data = $res
+            ->orderBy('vales.Ejercicio', 'desc')
             ->orderBy('vales.Remesa', 'asc')
             ->orderBy('vales.idGrupo', 'asc')
             ->orderBy('vales.Colonia', 'asc')
@@ -1586,7 +1591,7 @@ class Vales2022Controller extends Controller
             ->toArray();
 
         $reader = IOFactory::createReader('Xlsx');
-        if ($user->id === 1132) {
+        if (in_array($user->id, [1558, 1136, 2076, 1])) {
             $spreadsheet = $reader->load(
                 public_path() . '/archivos/Vales2023_2.xlsx'
             );

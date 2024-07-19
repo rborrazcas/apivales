@@ -782,6 +782,17 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'FechasEntregaController@getCatalogsFechasEntrega'
     );
 
+    Route::group(['prefix' => 'users'], function ($route) {
+        Route::post('/getAll', 'UserController@getAll');
+        Route::post('/getMenus', 'UserController@getMenus');
+        Route::get('getMenusById/{id}', 'UserController@getMenusById');
+        Route::post('/create', 'UserController@create');
+        Route::post('/update', 'UserController@update');
+        Route::get('/getCatalogs','UserController@getCatalogs');
+        Route::post('/setMenu', 'UserController@setMenu');
+        Route::post('/bloqueoMasivo', 'UserController@bloqueoMasivo');
+    });
+
     Route::group(['prefix' => 'cedula'], function ($route) {
         Route::get(
             '/getCatalogsCedulaCompletos',

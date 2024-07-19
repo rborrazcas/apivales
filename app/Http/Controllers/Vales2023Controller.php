@@ -121,6 +121,8 @@ class Vales2023Controller extends Controller
                 return response()->json($response, 200);
             }
 
+            $year = date('Y');
+
             $semanas = DB::Select(
                 "
                 SELECT
@@ -130,7 +132,7 @@ class Vales2023Controller extends Controller
 	                vales_solicitudes AS s 
                     JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                 WHERE
-	                s.Ejercicio = 2023 " .
+	                YEAR(created_at) = " . $year . 
                     $filtroPermisos .
                     " GROUP BY
 	                CONCAT( 'SEMANA ', WEEK ( s.created_at ), ' - REMESA ', s.Remesa ),
@@ -160,6 +162,7 @@ class Vales2023Controller extends Controller
     function getRemesas(Request $request)
     {
         try {
+            $year = date('Y');
             $remesas = DB::Select(
                 "
                 SELECT
@@ -167,9 +170,7 @@ class Vales2023Controller extends Controller
                 FROM
 	                vales_remesas AS r 
                 WHERE
-	                r.Ejercicio = 2023 
-                    
-                "
+	                r.Ejercicio  = " . $year 
             );
 
             $response = [
@@ -219,7 +220,7 @@ class Vales2023Controller extends Controller
                     FROM
                         vales_remesas AS r 
                     WHERE
-                        r.Ejercicio = 2023                         
+                        r.Ejercicio IN (2023,2024) 
                     "
                 );
             }
@@ -415,7 +416,7 @@ class Vales2023Controller extends Controller
                             vales_solicitudes AS s 
                             JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                         WHERE
-                            s.Ejercicio = 2023
+                            s.Ejercicio IN (2023,2024)
                             AND s.Remesa = '" .
                         $remesa .
                         "'  AND DATE(s.created_at) = '" .
@@ -435,7 +436,7 @@ class Vales2023Controller extends Controller
                             vales_solicitudes AS s
                             JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                         WHERE
-                            s.Ejercicio = 2023
+                            s.Ejercicio IN (2023,2024)
                             AND s.Remesa = '" .
                         $remesa .
                         "'  AND DATE(s.created_at) = '" .
@@ -566,7 +567,7 @@ class Vales2023Controller extends Controller
 	                    JOIN users AS u ON s.UserCreated = u.id 
                         JOIN et_cat_municipio AS m ON m.Id = s.idMunicipio
                     WHERE
-	                    s.Ejercicio = 2023 
+                        s.Ejercicio IN (2023,2024)
 	                    AND s.Remesa = '" .
                     $remesa .
                     "' AND DATE( s.created_at ) = '" .
@@ -929,7 +930,7 @@ class Vales2023Controller extends Controller
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'v.idLocalidad')
                 ->LEFTJOIN('vales_incidencias AS i', 'i.id', 'v.idIncidencia')
-                ->Where('v.Ejercicio', 2023);
+                ->WhereIn('v.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -1038,6 +1039,7 @@ class Vales2023Controller extends Controller
 
             $total = $solicitudes->count();
             $solicitudes = $solicitudes
+                ->OrderBy('r.Ejercicio', 'DESC')
                 ->OrderBy('r.RemesaSistema', 'DESC')
                 ->OrderBy('m.Subregion', 'ASC')
                 ->OrderBy('m.Nombre', 'ASC')
@@ -2198,7 +2200,7 @@ class Vales2023Controller extends Controller
                 ->Select(DB::RAW('COUNT( v.id ) AS Total'))
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
-                ->Where('r.Ejercicio', 2023);
+                ->WhereIn('r.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2280,7 +2282,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.ExpedienteCompleto', 1)
-                ->Where('r.Ejercicio', 2023);
+                ->WhereIn('r.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2362,7 +2364,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.Validado', 0)
-                ->Where('r.Ejercicio', 2023);
+                ->WhereIn('r.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2444,7 +2446,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.Validado', 1)
-                ->Where('r.Ejercicio', 2023);
+                ->WhereIn('r.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2590,7 +2592,7 @@ class Vales2023Controller extends Controller
                     'v.Remesa' => $params['Remesa'],
                     'v.CveInterventor' => $params['CveInterventor'],
                 ])
-                ->WHERERAW('v.Ejercicio = 2023');
+                ->WHERERAW('v.Ejercicio IN (2023,2024)');
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')

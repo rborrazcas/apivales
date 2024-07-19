@@ -481,7 +481,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('Remesa')
                 ->orderBy('r.Ejercicio', 'DESC')
                 ->orderBy('r.Remesa', 'ASC')
@@ -496,7 +496,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('Municipio')
                 ->orderBy('Municipio', 'ASC')
                 ->get()
@@ -510,7 +510,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('Responsable')
                 ->orderBy('Responsable', 'ASC')
                 ->get()
@@ -524,7 +524,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('ResponsableEntrega')
                 ->orderBy('ResponsableEntrega', 'ASC')
                 ->get()
@@ -538,7 +538,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('Localidad')
                 ->orderBy('Localidad', 'ASC')
                 ->get()
@@ -553,7 +553,7 @@ class ReportesController extends Controller
                     'vales_grupos_totales.Remesa'
                 )
                 ->whereRaw('CveInterventor IS NOT NULL')
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('CveInterventor')
                 ->orderBy('CveInterventor', 'ASC')
                 ->get()
@@ -8203,11 +8203,8 @@ class ReportesController extends Controller
                     'L.id'
                 )
                 ->LEFTJOIN(
-                    DB::RAW(
-                        '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
-                    ),
+                    'vales_solicitudes as VS',
                     'VS.idSolicitud',
-                    '=',
                     'N.id'
                 )
                 ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
@@ -8232,19 +8229,19 @@ class ReportesController extends Controller
         unset($res);
         $vales = $d;
         $nombreArchivo = 'acuses_vales' . date('Y-m-d H:i:s');
-        $ejercicio = DB::table('vales_solicitudes')
+        $ejercicio = DB::table('vales')
             ->Select('Ejercicio')
-            ->Where('idSolicitud', $parameters['folio'])
+            ->Where('id', $parameters['folio'])
             ->first();
 
         if ($parameters['ejercicio'] == 2022) {
             $pdf = \PDF::loadView('pdf_2022', compact('vales'));
-        } else {
-            if ($ejercicio->Ejercicio == 2023) {
-                $pdf = \PDF::loadView('pdf_2023', compact('vales'));
-            } else {
-                $pdf = \PDF::loadView('pdf', compact('vales'));
-            }
+        } else {        
+                if($ejercicio->Ejercicio == 2023){
+                    $pdf = \PDF::loadView('pdf_2023', compact('vales'));
+                }else{
+                    $pdf = \PDF::loadView('pdf', compact('vales'));
+                }            
         }
 
         return $pdf->download($nombreArchivo . '.pdf');
