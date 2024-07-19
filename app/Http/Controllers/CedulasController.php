@@ -6024,11 +6024,16 @@ class CedulasController extends Controller
                 'vales.UsuarioAplicativo'
             )
             ->leftJoin('users AS enlace', 'enlace.id', '=', 'vales.idEnlace')
-            ->Join('vales AS v', 'v.id', '=', 'vales.idVale')
+            ->Join('vales_respaldo_2022 AS v', 'v.id', '=', 'vales.idVale')
             ->Join('vales_incidencias AS i', 'v.idIncidencia', '=', 'i.id')
             ->Join('vales_status', 'vales_status.id', '=', 'v.idStatus')
             ->LeftJoin('vales_devueltos AS d', 'v.id', '=', 'd.idSolicitud')
-            ->LeftJoin('vales_solicitudes AS s', 'v.id', '=', 's.idSolicitud')
+            ->LeftJoin(
+                'vales_solicitudes_respaldo_2022 AS s',
+                'v.id',
+                '=',
+                's.idSolicitud'
+            )
             ->whereRaw('FechaElimino IS NULL');
 
         //dd($res->toSql());

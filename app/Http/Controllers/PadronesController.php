@@ -36,7 +36,8 @@ class PadronesController extends Controller
         try {
             $res = DB::table('vales_remesas')
                 ->select('Remesa AS label', 'Remesa AS value')
-                ->where(['Ejercicio' => '2023', 'Estatus' => 0])
+                ->where(['Estatus' => 0])
+                ->WhereIn('Ejercicio', [2023, 2024])
                 ->orderBy('RemesaSistema')
                 ->distinct()
                 ->get();
@@ -210,6 +211,8 @@ class PadronesController extends Controller
             unset($totalRows);
 
             DB::select('CALL padron_validacion_curp_registrada(' . $id . ')');
+
+            DB::select('CALL padron_validacion_curp_funcionario(' . $id . ')');
 
             DB::select('CALL padron_validacion(' . $id . ')');
 

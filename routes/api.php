@@ -66,7 +66,10 @@ Route::post('/updateLocation', 'CedulasController@updateLocation');
 
 Route::post('/acuse', 'CedulasController@getFile');
 
-Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
+// Route::post('/reimprimirVales', 'Vales2023Controller@getListadoPdf');
+// Route::post('/reimprimirAcusesVales', 'Vales2023Controller@getAcuses');
+
+// Route::post('/envioMasivoVentanillaY', 'YoPuedoController@envioMasivoYoPuedo');
 
 // Route::post(
 //     '/RegisterCalentadores',
@@ -97,7 +100,7 @@ Route::post(
 
 Route::post(
     '/getExpedientesCalentadores',
-    'CalentadoresController@getExpediente'
+    'CalentadoresSolares@getExpedientesxMunicipio'
 );
 
 Route::get(
@@ -108,8 +111,27 @@ Route::get(
 Route::get('/generateFiles', 'ReportesController@generateFiles');
 
 Route::post('/acuseUnico', 'ReportesController@getAcuseValesUnico');
+
+// APIS para validación de SeriesVales
+//! Para beneficiarios
+Route::group(['prefix' => 'q3450/v1'], function ($route) {
+    Route::post('validate', 'Vales2023Controller@validateSerie');
+});
+
+//!Para comercios
+Route::group(['prefix' => 'q3450/v2'], function ($route) {
+    Route::post('validate', 'Vales2023Controller@validateSerieComercio');
+});
+
+// Route::post('expedientes', 'CalentadoresSolares@getExpedientesCS');
+
 // estas rutas requiren de un token válido para poder accederse.
 Route::group(['middleware' => 'jwt.auth'], function () {
+    Route::post(
+        '/getFilesVentanillaCS',
+        'CalentadoresSolares@getFilesFromVentanilla'
+    );
+
     Route::post('/register', 'AuthController@register');
     Route::post('/logout', 'AuthController@logout');
     Route::post('/me', 'AuthController@getAuthenticatedUser');
@@ -760,6 +782,17 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         'FechasEntregaController@getCatalogsFechasEntrega'
     );
 
+    Route::group(['prefix' => 'users'], function ($route) {
+        Route::post('/getAll', 'UserController@getAll');
+        Route::post('/getMenus', 'UserController@getMenus');
+        Route::get('getMenusById/{id}', 'UserController@getMenusById');
+        Route::post('/create', 'UserController@create');
+        Route::post('/update', 'UserController@update');
+        Route::get('/getCatalogs','UserController@getCatalogs');
+        Route::post('/setMenu', 'UserController@setMenu');
+        Route::post('/bloqueoMasivo', 'UserController@bloqueoMasivo');
+    });
+
     Route::group(['prefix' => 'cedula'], function ($route) {
         Route::get(
             '/getCatalogsCedulaCompletos',
@@ -920,6 +953,8 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
         Route::get('/getMunicipiosVales', 'Vales2023Controller@getMunicipios');
         Route::get('/getFilesById/{id}', 'Vales2023Controller@getFilesById');
+        Route::post('/getQ3450', 'Vales2023Controller@getSolicitudesAuditoria');
+        Route::post('/getFilesValesAd', 'Vales2023Controller@getFilesValesAd');
         Route::post('/getVales2023', 'Vales2023Controller@getSolicitudes2023');
         Route::post(
             '/getListadoVales2023',
@@ -1233,6 +1268,30 @@ Route::group(['middleware' => 'jwt.auth'], function () {
         Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioImpulso');
         //Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioApi');
         Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioImpulso');
+        Route::post('expedientes', 'CalentadoresSolares@getExpedientesCS');
+    });
+
+    //! Encuestas
+    Route::group(['prefix' => 'encuestas'], function ($route) {
+        Route::post('getEncuestas', 'EncuestasController@getEncuestas');
+        Route::post('getMunicipios', 'EncuestasController@getMunicipios');
+        Route::get('/getCatalogs', 'EncuestasController@getCatalogs');
+        Route::post('getBeneficiarios', 'EncuestasController@getBeneficiarios');
+        Route::post('create', 'EncuestasController@create');
+        Route::post('delete', 'EncuestasController@delete');
+        Route::post('getResponses', 'EncuestasController@getResponses');
+        Route::post(
+            '/getReporteEncuestas',
+            'EncuestasController@getReporteEncuestas'
+        );
+        Route::get(
+            'getReporteEncuestas',
+            'EncuestasController@getReporteEncuestas'
+        );
+        // //Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioApi');
+        // Route::post('getFiles', 'CalentadoresSolares@getFilesByFolioImpulso');
+        // //Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioApi');
+        // Route::post('getPdf', 'CalentadoresSolares@getPdfByFolioImpulso');
     });
 
     //! Proyectos Productivos
@@ -1310,4 +1369,10 @@ Route::group(['middleware' => 'jwt.auth'], function () {
 
     Route::get('/getTokenImpulso', 'FilesTarjetaController@getTokenImpulso');
     Route::post('/sendFilesImpulso', 'FilesTarjetaController@sendFiles');
+    Route::post('/getUsersByRegion', 'AsistenciaController@getUsersByRegion');
+    Route::post('/getAssistants', 'AsistenciaController@getAssistants');
+    Route::post('/checkAssistant', 'AsistenciaController@checkAssistant');
+    Route::post('/deleteAssistant', 'AsistenciaController@deleteAssistant');
+    Route::get('/getListAssistants', 'AsistenciaController@getListAssistants');
+    Route::get('/getListPdf', 'AsistenciaController@getListPdf');
 });

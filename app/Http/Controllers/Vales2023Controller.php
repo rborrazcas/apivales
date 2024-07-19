@@ -16,6 +16,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
+use Milon\Barcode\DNS1D;
 use PDF;
 use DateTime;
 use JWTAuth;
@@ -26,7 +27,9 @@ use HTTP_Request2;
 use GuzzleHttp\Client;
 use App\VNegociosFiltros;
 use Carbon\Carbon as time;
+use App\Rules\isChain;
 use Excel;
+use Zipper;
 use App\Imports\ConciliacionImport;
 use App\Exports\PadronBeneficiariosExport;
 
@@ -38,7 +41,6 @@ class Vales2023Controller extends Controller
 
         $permisos = DB::table('users_menus')
             ->where(['idUser' => $user->id, 'idMenu' => '29'])
-            ->get()
             ->first();
         if ($permisos !== null) {
             return $permisos;
@@ -52,7 +54,6 @@ class Vales2023Controller extends Controller
         $user = auth()->user();
         $permisos = DB::table('users_menus')
             ->where(['idUser' => $user->id, 'idMenu' => '30'])
-            ->get()
             ->first();
         if ($permisos !== null) {
             return $permisos;
@@ -120,6 +121,8 @@ class Vales2023Controller extends Controller
                 return response()->json($response, 200);
             }
 
+            $year = date('Y');
+
             $semanas = DB::Select(
                 "
                 SELECT
@@ -129,7 +132,7 @@ class Vales2023Controller extends Controller
 	                vales_solicitudes AS s 
                     JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                 WHERE
-	                s.Ejercicio = 2023 " .
+	                YEAR(created_at) = " . $year . 
                     $filtroPermisos .
                     " GROUP BY
 	                CONCAT( 'SEMANA ', WEEK ( s.created_at ), ' - REMESA ', s.Remesa ),
@@ -159,16 +162,15 @@ class Vales2023Controller extends Controller
     function getRemesas(Request $request)
     {
         try {
+            $year = date('Y');
             $remesas = DB::Select(
                 "
                 SELECT
-	                DISTINCT(RemesaSistema) AS value
+	                Remesa AS value
                 FROM
 	                vales_remesas AS r 
                 WHERE
-	                r.Ejercicio = 2023 
-                    AND Estatus = 1
-                "
+	                r.Ejercicio  = " . $year 
             );
 
             $response = [
@@ -218,7 +220,7 @@ class Vales2023Controller extends Controller
                     FROM
                         vales_remesas AS r 
                     WHERE
-                        r.Ejercicio = 2023                         
+                        r.Ejercicio IN (2023,2024) 
                     "
                 );
             }
@@ -414,7 +416,7 @@ class Vales2023Controller extends Controller
                             vales_solicitudes AS s 
                             JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                         WHERE
-                            s.Ejercicio = 2023
+                            s.Ejercicio IN (2023,2024)
                             AND s.Remesa = '" .
                         $remesa .
                         "'  AND DATE(s.created_at) = '" .
@@ -434,7 +436,7 @@ class Vales2023Controller extends Controller
                             vales_solicitudes AS s
                             JOIN et_cat_municipio AS m ON s.idMunicipio = m.Id
                         WHERE
-                            s.Ejercicio = 2023
+                            s.Ejercicio IN (2023,2024)
                             AND s.Remesa = '" .
                         $remesa .
                         "'  AND DATE(s.created_at) = '" .
@@ -565,7 +567,7 @@ class Vales2023Controller extends Controller
 	                    JOIN users AS u ON s.UserCreated = u.id 
                         JOIN et_cat_municipio AS m ON m.Id = s.idMunicipio
                     WHERE
-	                    s.Ejercicio = 2023 
+                        s.Ejercicio IN (2023,2024)
 	                    AND s.Remesa = '" .
                     $remesa .
                     "' AND DATE( s.created_at ) = '" .
@@ -649,34 +651,14 @@ class Vales2023Controller extends Controller
                 "
                     SELECT 
                         m.SubRegion AS Region,
-                        COUNT( s.idSolicitud ) AS Total 
+                        COUNT( v.id ) AS Aprobados,
+                        COUNT( s.idSolicitud) AS Pineados  
                     FROM
                         vales AS v
                         LEFT JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
-                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
-                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id                         
                     WHERE
-                            r.RemesaSistema = '" .
-                    $params['remesa'] .
-                    "' " .
-                    $filtroPermisos .
-                    "
-                    GROUP BY
-                        m.SubRegion;
-                "
-            );
-
-            $dataMetasRegion = DB::Select(
-                "
-                    SELECT 
-                        m.SubRegion AS Region,
-                        COUNT( v.id ) AS Total 
-                    FROM
-                        vales AS v
-                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
-                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
-                    WHERE
-                            r.RemesaSistema = '" .
+                            v.Remesa = '" .
                     $params['remesa'] .
                     "' " .
                     $filtroPermisos .
@@ -690,42 +672,20 @@ class Vales2023Controller extends Controller
                 "
                     SELECT 
                         m.Nombre AS Municipio,
-                        COUNT( s.idSolicitud ) AS Total 
+                        COUNT( v.id ) AS Aprobados,
+                        COUNT( s.idSolicitud ) AS Pineados 
                     FROM
                         vales AS v
                         LEFT JOIN vales_solicitudes AS s ON v.id = s.idSolicitud
-                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
-                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
+                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id                         
                     WHERE
-                        r.RemesaSistema = '" .
+                        v.Remesa = '" .
                     $params['remesa'] .
                     "' AND m.Subregion = " .
                     $params['region'] .
                     ' ' .
                     $filtroPermisos .
                     "
-                    GROUP BY
-                        m.Nombre;
-                "
-            );
-
-            $dataMetasMunicipio = DB::Select(
-                "
-                    SELECT 
-                        m.Nombre AS Municipio,
-                        COUNT( v.id ) AS Total 
-                    FROM
-                        vales AS v
-                        JOIN et_cat_municipio AS m ON v.idMunicipio = m.id 
-                        JOIN vales_remesas AS r ON v.Remesa = r.Remesa
-                        WHERE
-                        r.RemesaSistema = '" .
-                    $params['remesa'] .
-                    "' AND m.Subregion = " .
-                    $params['region'] .
-                    ' ' .
-                    $filtroPermisos .
-                    " 
                     GROUP BY
                         m.Nombre;
                 "
@@ -745,7 +705,7 @@ class Vales2023Controller extends Controller
 	                    JOIN vales AS v ON g.id = v.idGrupo
 	                    LEFT JOIN vales_solicitudes AS s ON s.idSolicitud = v.id 
                     WHERE
-	                    r.RemesaSistema = '" .
+	                    r.Remesa = '" .
                     $params['remesa'] .
                     "' " .
                     ' AND g.idMunicipio IN ( SELECT id FROM et_cat_municipio WHERE SubRegion = ' .
@@ -766,9 +726,7 @@ class Vales2023Controller extends Controller
                 'results' => true,
                 'data' => [
                     'region' => $dataRegion,
-                    'metasRegion' => $dataMetasRegion,
                     'municipio' => $dataMunicipio,
-                    'metasMunicipio' => $dataMetasMunicipio,
                     'cveInterventor' => $dataCveInterventor,
                 ],
             ];
@@ -938,39 +896,41 @@ class Vales2023Controller extends Controller
 
             $solicitudes = DB::table('vales as v')
 
-                ->selectRaw(
-                    'v.id,' .
-                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
-                        'v.FechaSolicitud, ' .
-                        'r.Remesa, ' .
-                        'v.Nombre, ' .
-                        'v.Paterno, ' .
-                        'v.Materno, ' .
-                        'v.CURP, ' .
-                        'v.Sexo, ' .
-                        'v.FechaIne, ' .
-                        'm.SubRegion AS Region,' .
-                        'm.Nombre AS Municipio,' .
-                        'l.Nombre AS Localidad,' .
-                        'v.Calle, ' .
-                        'v.Calle, ' .
-                        'v.Colonia, ' .
-                        'v.NumExt, ' .
-                        'v.NumInt, ' .
-                        'v.CP, ' .
-                        'v.FolioTarjetaContigoSi, ' .
-                        'i.Incidencia, ' .
-                        'CASE WHEN v.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado, ' .
-                        'v.entrega_at AS FechaEntrega, ' .
-                        'v.TelFijo, ' .
-                        'v.TelCelular, ' .
-                        'v.ResponsableEntrega AS Responsable'
+                ->Select(
+                    'v.id',
+                    DB::RAW('lpad(hex(v.id),6,0) AS FolioSolicitud'),
+                    'v.FechaSolicitud',
+                    'r.Remesa',
+                    'v.Nombre',
+                    'v.Paterno',
+                    'v.Materno',
+                    'v.CURP',
+                    'v.Sexo',
+                    'v.FechaIne',
+                    'm.SubRegion AS Region',
+                    'm.Nombre AS Municipio',
+                    'l.Nombre AS Localidad',
+                    'v.Calle',
+                    'v.Calle',
+                    'v.Colonia',
+                    'v.NumExt',
+                    'v.NumInt',
+                    'v.CP',
+                    'v.FolioTarjetaContigoSi',
+                    'i.Incidencia',
+                    DB::Raw(
+                        'CASE WHEN v.isEntregado = 1 THEN "SI" ELSE "NO" END AS Entregado'
+                    ),
+                    'v.entrega_at AS FechaEntrega',
+                    'v.TelFijo',
+                    'v.TelCelular',
+                    'v.ResponsableEntrega AS Responsable'
                 )
                 ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->JOIN('et_cat_localidad_2022 AS l', 'l.id', 'v.idLocalidad')
                 ->LEFTJOIN('vales_incidencias AS i', 'i.id', 'v.idIncidencia')
-                ->WHERERAW('v.Ejercicio = 2023');
+                ->WhereIn('v.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -1079,11 +1039,12 @@ class Vales2023Controller extends Controller
 
             $total = $solicitudes->count();
             $solicitudes = $solicitudes
-                ->OrderByRaw('r.RemesaSistema', 'DESC')
+                ->OrderBy('r.Ejercicio', 'DESC')
+                ->OrderBy('r.RemesaSistema', 'DESC')
                 ->OrderBy('m.Subregion', 'ASC')
                 ->OrderBy('m.Nombre', 'ASC')
                 ->OrderBy('l.Nombre', 'ASC')
-                ->OrderByRaw('r.Remesa', 'ASC')
+                ->OrderBy('r.Remesa', 'ASC')
                 ->offset($startIndex)
                 ->take($pageSize)
                 ->get();
@@ -1213,17 +1174,17 @@ class Vales2023Controller extends Controller
 
             $solicitudes = DB::table('vales as v')
 
-                ->selectRaw(
-                    'v.id,' .
-                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
-                        'r.Remesa, ' .
-                        'v.Nombre, ' .
-                        'v.Paterno, ' .
-                        'v.Materno, ' .
-                        'v.CURP, ' .
-                        's.id AS idSol, ' .
-                        's.SerieInicial, ' .
-                        's.SerieFinal'
+                ->Select(
+                    'v.id',
+                    DB::RAW('lpad(hex(v.id),6,0) AS FolioSolicitud'),
+                    'r.Remesa',
+                    'v.Nombre',
+                    'v.Paterno',
+                    'v.Materno',
+                    'v.CURP',
+                    's.id AS idSol',
+                    's.SerieInicial',
+                    's.SerieFinal'
                 )
                 ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
@@ -2239,7 +2200,7 @@ class Vales2023Controller extends Controller
                 ->Select(DB::RAW('COUNT( v.id ) AS Total'))
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
-                ->WhereRaw('r.Ejercicio = 2023');
+                ->WhereIn('r.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2321,7 +2282,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.ExpedienteCompleto', 1)
-                ->WhereRaw('r.Ejercicio = 2023');
+                ->WhereIn('r.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2403,7 +2364,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.Validado', 0)
-                ->WhereRaw('r.Ejercicio = 2023');
+                ->WhereIn('r.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2485,7 +2446,7 @@ class Vales2023Controller extends Controller
                 ->Join('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
                 ->Join('vales_remesas AS r', 'r.Remesa', 'v.Remesa')
                 ->where('v.Validado', 1)
-                ->WhereRaw('r.Ejercicio = 2023');
+                ->WhereIn('r.Ejercicio', [2023, 2024]);
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2597,32 +2558,32 @@ class Vales2023Controller extends Controller
 
             $solicitudes = DB::table('vales as v')
 
-                ->selectRaw(
-                    'v.id,' .
-                        'lpad(hex(v.id),6,0) AS FolioSolicitud, ' .
-                        'v.FechaSolicitud, ' .
-                        'v.Remesa, ' .
-                        'v.Nombre, ' .
-                        'v.Paterno, ' .
-                        'v.Materno, ' .
-                        'v.CURP, ' .
-                        'v.Sexo, ' .
-                        'v.FechaIne, ' .
-                        'm.SubRegion AS Region,' .
-                        'm.Nombre AS Municipio,' .
-                        'l.Nombre AS Localidad,' .
-                        'v.Calle, ' .
-                        'v.Calle, ' .
-                        'v.Colonia, ' .
-                        'v.NumExt, ' .
-                        'v.NumInt, ' .
-                        'v.CP, ' .
-                        'v.FolioTarjetaContigoSi, ' .
-                        'v.TelFijo, ' .
-                        'v.TelCelular, ' .
-                        'v.ResponsableEntrega AS Responsable, ' .
-                        'v.ExpedienteCompleto, ' .
-                        'v.Validado'
+                ->Select(
+                    'v.id',
+                    DB::Raw('lpad(hex(v.id),6,0) AS FolioSolicitud'),
+                    'v.FechaSolicitud',
+                    'v.Remesa',
+                    'v.Nombre',
+                    'v.Paterno',
+                    'v.Materno',
+                    'v.CURP',
+                    'v.Sexo',
+                    'v.FechaIne',
+                    'm.SubRegion AS Region',
+                    'm.Nombre AS Municipio',
+                    'l.Nombre AS Localidad',
+                    'v.Calle',
+                    'v.Calle',
+                    'v.Colonia',
+                    'v.NumExt',
+                    'v.NumInt',
+                    'v.CP',
+                    'v.FolioTarjetaContigoSi',
+                    'v.TelFijo',
+                    'v.TelCelular',
+                    'v.ResponsableEntrega AS Responsable',
+                    'v.ExpedienteCompleto',
+                    'v.Validado'
                 )
                 ->JOIN('vales_remesas AS r', 'v.Remesa', 'r.Remesa')
                 ->JOIN('et_cat_municipio AS m', 'm.id', 'v.idMunicipio')
@@ -2631,7 +2592,7 @@ class Vales2023Controller extends Controller
                     'v.Remesa' => $params['Remesa'],
                     'v.CveInterventor' => $params['CveInterventor'],
                 ])
-                ->WHERERAW('v.Ejercicio = 2023');
+                ->WHERERAW('v.Ejercicio IN (2023,2024)');
 
             if ($viewall < 1) {
                 $region = DB::table('users_region')
@@ -2650,7 +2611,10 @@ class Vales2023Controller extends Controller
                     return response()->json($response, 200);
                 }
 
-                $solicitudes = $solicitudes->where('m.Region', $region->Region);
+                $solicitudes = $solicitudes->where(
+                    'm.SubRegion',
+                    $region->Region
+                );
             }
 
             $filterQuery = '';
@@ -2732,7 +2696,7 @@ class Vales2023Controller extends Controller
 
             $total = $solicitudes->count();
             $solicitudes = $solicitudes
-                ->OrderByRaw('v.Remesa', 'DESC')
+                ->OrderBy('v.Remesa', 'DESC')
                 ->OrderBy('m.Subregion', 'ASC')
                 ->OrderBy('m.Nombre', 'ASC')
                 ->OrderBy('l.Nombre', 'ASC')
@@ -3384,7 +3348,7 @@ class Vales2023Controller extends Controller
             ->select(
                 'o.Origen',
                 DB::RAW('LPAD(HEX(p.id),6,0) AS FolioPadron'),
-                'p.Region',
+                'mpn.Region',
                 'p.Nombre',
                 'p.Paterno',
                 'p.Materno',
@@ -3426,23 +3390,34 @@ class Vales2023Controller extends Controller
             )
             ->JOIN('padron_archivos AS a', 'a.id', 'p.idArchivo')
             ->Join('cat_padron_origen AS o', 'a.idOrigen', '=', 'o.id')
-            ->JOIN('vales_remesas AS r', 'p.Remesa', 'r.Remesa');
+            ->JOIN('vales_remesas AS r', 'p.Remesa', 'r.Remesa')
+            ->JOIN(
+                'municipios_padron_vales AS mpn',
+                'p.Municipio',
+                'mpn.Municipio'
+            );
 
         if ($params['region'] == 99) {
             $data
                 ->Where('r.RemesaSistema', $params['remesa'])
                 ->Where('o.id', '>', 7);
         } else {
-            $data
-                ->JOIN(
-                    'municipios_padron_vales AS mp',
-                    'mp.Municipio',
-                    'p.Municipio'
-                )
-                ->JOIN('et_cat_municipio AS m', 'mp.idCatalogo', 'm.Id')
-                ->Where('r.RemesaSistema', $params['remesa'])
-                ->Where('m.SubRegion', $params['region'])
-                ->Where('o.id', '<', 8);
+            if ($params['remesa'] === '03_2023') {
+                $data
+                    ->Where('r.RemesaSistema', $params['remesa'])
+                    ->Where('o.id', '=', $params['region']);
+            } else {
+                $data
+                    ->JOIN(
+                        'municipios_padron_vales AS mp',
+                        'mp.Municipio',
+                        'p.Municipio'
+                    )
+                    ->JOIN('et_cat_municipio AS m', 'mp.idCatalogo', 'm.Id')
+                    ->Where('r.RemesaSistema', $params['remesa'])
+                    ->Where('m.SubRegion', $params['region'])
+                    ->Where('o.id', '<', 8);
+            }
         }
 
         $data->Where('p.EstatusOrigen', 'SI')->OrderBy('p.id');
@@ -3996,10 +3971,988 @@ class Vales2023Controller extends Controller
 
     public function validateInput($value): bool
     {
-        $containsSpecialChars = preg_match(
-            '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
-            $value
-        );
+        if (gettype($value) === 'array') {
+            foreach ($value as $v) {
+                $containsSpecialChars = preg_match(
+                    '@[' . preg_quote("=%;-?!¡\"`+") . ']@',
+                    $v
+                );
+            }
+        } else {
+            $containsSpecialChars = preg_match(
+                '@[' . preg_quote("'=%;-?!¡\"`+") . ']@',
+                $value
+            );
+        }
         return !$containsSpecialChars;
+    }
+
+    function validateSerie(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FechaNacimiento' => ['required'],
+                'ApellidoPaterno' => ['required'],
+                'FolioGT' => ['required', 'size:7'],
+                'Key' => ['required'],
+            ],
+            $messages = [
+                'required' => 'El campo :attribute es obligatorio',
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+            ]
+        );
+
+        if ($v->fails()) {
+            $er = '';
+            $errores = $v->errors()->all();
+            foreach ($errores as $e) {
+                $er = $er . $e . " \n";
+            }
+
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $er,
+            ];
+            return response()->json($response, 200);
+        }
+        $params = $request->all();
+        $key = $this->decrypt($params['Key'], 'ISSEG');
+
+        $userInfo = DB::table('users')
+            ->Select('id')
+            ->Where('Calle', $key)
+            ->first();
+
+        if (!$userInfo || !in_array($userInfo->id, [1, 13, 2062])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'No tiene los permisos necesarios contacte a SEDESHU',
+            ]);
+        }
+
+        $serie = $params['FolioGT'];
+        $flagFecha = false;
+        if (!\str_contains($params['FechaNacimiento'], '-')) {
+            $flagFecha = true;
+        }
+
+        $fecha = explode('-', $params['FechaNacimiento']);
+
+        if (count($fecha) < 3 || count($fecha) > 3) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'El formato de la Fecha es incorrecto, debe enviarse como dd/mm/aaaa',
+            ]);
+        }
+
+        if ($fecha[0] < 1 || $fecha[0] > 31) {
+            $flagFecha = true;
+        }
+
+        if ($fecha[1] < 1 || $fecha[1] > 12) {
+            $flagFecha = true;
+        }
+
+        if (strlen($fecha[2]) != 4) {
+            $flagFecha = true;
+        }
+
+        if ($flagFecha) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'El formato de la Fecha es incorrecto, debe enviarse como dd/mm/aaaa',
+            ]);
+        }
+
+        $fechaNac = $fecha[2] . '-' . $fecha[1] . '-' . $fecha[0];
+
+        try {
+            $folioValido = DB::table('vales_series_2023 AS s')
+                ->Select(
+                    's.Serie AS FolioGT',
+                    's.CodigoBarras',
+                    DB::RAW(
+                        'CASE WHEN LENGTH(v.Nombre) > 0 THEN True ELSE False END AS  ValeraValida'
+                    ),
+                    DB::RAW(
+                        'CONCAT_WS(" ",v.Nombre,v.Paterno,v.Materno) AS Beneficiario'
+                    )
+                )
+                ->LeftJoin(
+                    'vales_solicitudes AS sol',
+                    's.SerieInicial',
+                    'sol.SerieInicial'
+                )
+                ->LeftJoin('vales AS v', 'sol.idSolicitud', 'v.id')
+                ->Where([
+                    's.Serie' => $serie,
+                    'v.FechaNacimiento' => $fechaNac,
+                    'v.Paterno' => $params['ApellidoPaterno'],
+                ])
+                ->first();
+            if ($folioValido) {
+                $data = [
+                    'FolioGT' => $folioValido->FolioGT,
+                    'CodigoBarras' => $folioValido->CodigoBarras,
+                    'ValeraValida' => $folioValido->ValeraValida,
+                    'Beneficiario' => $folioValido->Beneficiario,
+                ];
+
+                return response()->json([
+                    'success' => true,
+                    'results' => true,
+                    'data' => $data,
+                ]);
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'Valera no registrada, contacte a SEDESHU',
+                ]);
+            }
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' => 'Error de validación, Contacte a SEDESHU',
+                'errors' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    function validateSerieComercio(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'FolioGT' => ['required', 'size:7'],
+            ],
+            $messages = [
+                'required' => 'El campo :attribute es obligatorio',
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+            ]
+        );
+
+        if ($v->fails()) {
+            $er = '';
+            $errores = $v->errors()->all();
+            foreach ($errores as $e) {
+                $er = $er . $e . ' ';
+            }
+
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $er,
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+
+        $key = $this->decrypt($params['Key'], 'ISSEG');
+
+        $userInfo = DB::table('users')
+            ->Select('id')
+            ->Where('Calle', $key)
+            ->first();
+
+        if (!$userInfo || !in_array($userInfo->id, [1, 13, 2062])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'No tiene los permisos necesarios contacte a SEDESHU',
+            ]);
+        }
+        $serie = $params['FolioGT'];
+
+        if (!in_array($userInfo->id, [1, 13, 2062])) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' =>
+                    'No tiene los permisos necesarios contacte a SEDESHU',
+            ]);
+        }
+
+        try {
+            $folioValido = DB::table('folios_vales_2023 AS f')
+                ->Select(
+                    'f.Serie AS FolioGT',
+                    'f.CodigoBarras',
+                    DB::RAW(
+                        'CASE WHEN LENGTH(v.Nombre) > 0 THEN True ELSE True END AS  ValeraValida'
+                    )
+                )
+                ->LeftJoin('vales_series_2023 AS s', 's.Serie', 'f.Serie')
+                ->LeftJoin(
+                    'vales_solicitudes AS sol',
+                    's.SerieInicial',
+                    'sol.SerieInicial'
+                )
+                ->LeftJoin('vales AS v', 'sol.idSolicitud', 'v.id')
+                ->Where([
+                    'f.Serie' => $serie,
+                ])
+                ->first();
+
+            if ($folioValido) {
+                return response()->json([
+                    'success' => true,
+                    'results' => true,
+                    'FolioGT' => $folioValido->FolioGT,
+                    'CodigoBarras' => $folioValido->CodigoBarras,
+                    'ValeraValida' => $folioValido->ValeraValida,
+                    'message' => 'Valera válida',
+                ]);
+            } else {
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'message' => 'Valera no válida, contacte a SEDESHU',
+                ]);
+            }
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => true,
+                'results' => false,
+                'message' => 'Error de validación, Contacte a SEDESHU',
+                'errors' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    function getSolicitudesAuditoria(Request $request)
+    {
+        try {
+            $v = Validator::make($request->all(), [
+                'page' => 'required',
+                'pageSize' => 'required',
+            ]);
+            if ($v->fails()) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'errors' => $v->errors(),
+                ];
+                return response()->json($response, 200);
+            }
+
+            $params = $request->all();
+            $user = auth()->user();
+
+            $permisos = DB::table('users_menus')
+                ->where(['idUser' => $user->id, 'idMenu' => '38'])
+                ->first();
+
+            if ($permisos === null) {
+                $response = [
+                    'success' => true,
+                    'results' => false,
+                    'total' => 0,
+                    'message' => 'No tiene permisos en este módulo',
+                ];
+
+                return response()->json($response, 200);
+            }
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                foreach ($params['filtered'] as $filtro) {
+                    $value = $filtro['value'];
+
+                    if (!$this->validateInput($value)) {
+                        $response = [
+                            'success' => true,
+                            'results' => false,
+                            'message' =>
+                                'Uno o más filtros utilizados no son válidos, intente nuevamente',
+                        ];
+
+                        return response()->json($response, 200);
+                    }
+                }
+            }
+
+            $viewall = $permisos->ViewAll;
+
+            $solicitudes = DB::table('view_vales as v')->Select(
+                'v.Ejercicio',
+                'v.idVale',
+                'v.FolioSolicitud',
+                'v.FechaSolicitud',
+                'v.Nombre',
+                'v.Paterno',
+                'v.Materno',
+                'v.CURP',
+                'v.Region',
+                'v.Municipio',
+                'v.SerieInicial',
+                'v.SerieFinal'
+            );
+
+            if ($viewall < 1) {
+                $region = DB::table('users_region')
+                    ->selectRaw('Region')
+                    ->where('idUser', $user->id)
+                    ->first();
+
+                if ($region === null) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' => 'No tiene region asignada',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+
+                $solicitudes = $solicitudes->where('v.Region', $region->Region);
+            }
+
+            $filterQuery = '';
+            $municipioRegion = [];
+            $mun = [];
+
+            if (isset($params['filtered']) && count($params['filtered']) > 0) {
+                $filtersCedulas = ['.Folio'];
+                foreach ($params['filtered'] as $filtro) {
+                    if ($filterQuery != '') {
+                        $filterQuery .= ' AND ';
+                    }
+                    $id = $filtro['id'];
+                    $value = $filtro['value'];
+
+                    if ($id == '.id') {
+                        $id = '.idVale';
+                        $value = hexdec($value);
+                    }
+                    if ($id == 'region') {
+                        $municipios = DB::table('et_cat_municipio')
+                            ->select('id')
+                            ->whereIN('Region', $value)
+                            ->get();
+                        foreach ($municipios as $m) {
+                            $municipioRegion[] = "'" . $m->id . "'";
+                        }
+
+                        $id = '.idMunicipio';
+                        $value = $municipioRegion;
+                    }
+
+                    $id = 'v' . $id;
+
+                    switch (gettype($value)) {
+                        case 'string':
+                            $filterQuery .= " $id LIKE '%$value%' ";
+                            break;
+                        case 'array':
+                            $colonDividedValue = implode(', ', $value);
+                            $filterQuery .= " $id IN ($colonDividedValue) ";
+                            break;
+                        case 'boolean':
+                            $filterQuery .= " $id <> 1 ";
+                            break;
+                        default:
+                            if ($value === -1) {
+                                $filterQuery .= " $id IS NOT NULL ";
+                            } else {
+                                $filterQuery .= " $id = $value ";
+                            }
+                    }
+                }
+            }
+            if ($filterQuery != '') {
+                $solicitudes->whereRaw($filterQuery);
+            }
+
+            // dd(
+            //     str_replace_array(
+            //         '?',
+            //         $solicitudes->getBindings(),
+            //         $solicitudes->toSql()
+            //     )
+            // );
+
+            $page = $params['page'];
+            $pageSize = $params['pageSize'];
+
+            $startIndex = $page * $pageSize;
+
+            $total = $solicitudes->count();
+            $solicitudes = $solicitudes
+                ->OrderBy('v.Ejercicio', 'ASC')
+                ->OrderBy('v.Region', 'ASC')
+                ->OrderBy('v.Municipio', 'ASC')
+                ->OrderBy('v.Nombre', 'ASC')
+                ->OrderBy('v.Paterno', 'ASC')
+                ->offset($startIndex)
+                ->take($pageSize)
+                ->get();
+
+            $array_res = [];
+
+            if ($total == 0) {
+                return [
+                    'success' => true,
+                    'results' => true,
+                    'total' => $total,
+                    'filtros' => $params['filtered'],
+                    'data' => $array_res,
+                ];
+            }
+
+            $temp = [];
+            foreach ($solicitudes as $data) {
+                $temp = [
+                    'Ejercicio' => $data->Ejercicio,
+                    'idVale' => $data->idVale,
+                    'FolioSolicitud' => $data->FolioSolicitud,
+                    'FolioSolicitud' => $data->FolioSolicitud,
+                    'Nombre' => $data->Nombre,
+                    'Paterno' => $data->Paterno,
+                    'Materno' => $data->Materno,
+                    'CURP' => $data->CURP,
+                    'Region' => $data->Region,
+                    'Municipio' => $data->Municipio,
+                    'SerieInicial' => $data->SerieInicial,
+                    'SerieFinal' => $data->SerieFinal,
+                ];
+
+                array_push($array_res, $temp);
+            }
+
+            $filtros = '';
+            if (isset($params['filtered'])) {
+                $filtros = $params['filtered'];
+            }
+
+            $response = [
+                'success' => true,
+                'results' => true,
+                'data' => $array_res,
+                'total' => $total,
+                'filtros' => $filtros,
+            ];
+            return response()->json($response, 200);
+        } catch (QueryException $errors) {
+            $response = [
+                'success' => false,
+                'results' => false,
+                'total' => 0,
+                'errors' => $errors,
+                'message' => 'Ha ocurrido un error, consulte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+    }
+
+    function getFilesValesAd(Request $request)
+    {
+        $params = $request->all();
+        if ($params['Ejercicio'] == 2023) {
+            $data = $this->getFiles2023($params['idVale']);
+        } else {
+            $data = $this->getFiles2022($params['idVale']);
+        }
+
+        $response = [
+            'success' => true,
+            'results' => true,
+            'data' => $data,
+        ];
+
+        return response()->json($response, 200);
+    }
+
+    public function getFiles2022($idVale)
+    {
+        try {
+            $idCedula = DB::table('cedulas_solicitudes')
+                ->Select('id')
+                ->WhereNull('FechaElimino')
+                ->Where('idVale', $idVale)
+                ->first();
+
+            if ($idCedula) {
+                $id = $idCedula->id;
+            } else {
+                $id = 0;
+            }
+
+            $archivos2 = DB::table('solicitud_archivos AS a')
+                ->select(
+                    'a.id',
+                    'a.idClasificacion',
+                    'c.Clasificacion',
+                    'a.NombreOriginal AS name',
+                    'a.NombreSistema',
+                    'a.Tipo AS type'
+                )
+                ->Join(
+                    'cedula_archivos_clasificacion AS c',
+                    'c.id',
+                    'a.idClasificacion'
+                )
+                ->where('a.idSolicitud', $id)
+                ->WhereIn('c.id', [1, 2, 3, 7, 13])
+                ->whereRaw('a.FechaElimino IS NULL')
+                ->get();
+            $archivosClasificacion = array_map(function ($o) {
+                return $o->idClasificacion;
+            }, $archivos2->toArray());
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/subidos/' .
+                    $o->NombreSistema;
+                // $o->ruta = Storage::disk('subidos')->url($o->NombreSistema);
+                return $o;
+            }, $archivos2->toArray());
+
+            $data = [
+                'Archivos' => $archivos,
+            ];
+
+            return $data;
+        } catch (\Throwable $errors) {
+            return $errors;
+        }
+    }
+
+    public function getFiles2023($id)
+    {
+        try {
+            $archivos2 = DB::table('vales_archivos AS a')
+                ->select(
+                    'a.id',
+                    'a.idClasificacion',
+                    'c.Clasificacion',
+                    'a.NombreOriginal AS name',
+                    'a.NombreSistema',
+                    'a.Tipo AS type'
+                )
+                ->Join(
+                    'vales_archivos_clasificacion AS c',
+                    'c.id',
+                    'a.idClasificacion'
+                )
+                ->where('a.idSolicitud', $id)
+                ->WhereIn('c.id', [1, 2, 3, 5])
+                ->whereRaw('a.FechaElimino IS NULL')
+                ->get();
+
+            $archivosClasificacion = array_map(function ($o) {
+                return $o->idClasificacion;
+            }, $archivos2->toArray());
+            $archivos = array_map(function ($o) {
+                $o->ruta =
+                    'https://apivales.apisedeshu.com/Remesa01/' .
+                    $o->NombreSistema;
+                //$o->ruta = Storage::disk('expedientes')->url($o->NombreSistema);
+                return $o;
+            }, $archivos2->toArray());
+
+            $data = [
+                'Archivos' => $archivos,
+            ];
+            return $data;
+        } catch (\Throwable $errors) {
+            return $errors;
+        }
+    }
+
+    public function getListadoPdf(Request $request)
+    {
+        $parameters = $request->all();
+        $user = auth()->user();
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        // if (!isset($parameters['folio'])) {
+        //     return response()->json([
+        //         'success' => true,
+        //         'results' => false,
+        //         'data' => [],
+        //         'message' => 'No se encontraron resultados de la solicitud.',
+        //     ]);
+        // }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                DB::RAw(
+                    'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+                    ELSE "          " END AS FechaSolicitud'
+                ),
+                DB::raw(
+                    'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                ),
+                'N.CURP',
+                'N.Sexo',
+                'N.Calle',
+                'N.NumExt',
+                'N.NumInt',
+                'N.CP',
+                'N.Colonia',
+                'L.Nombre AS Localidad',
+                'm.Nombre AS Municipio',
+                DB::raw('NULL AS Tutor'),
+                DB::raw('NULL AS Parentesco'),
+                DB::raw('NULL AS CURPTutor'),
+                'N.TelFijo AS Telefono',
+                'N.TelCelular AS Celular',
+                'N.CorreoElectronico AS Correo'
+            )
+            ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
+            ->Join('reimpresiones_solicitudes_vales AS rp', 'rp.idVale', 'N.id')
+            ->where('m.SubRegion', 7)
+            ->orderBy('m.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'ASC')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->ResponsableEntrega .
+                    '_NominaValesGrandeza' .
+                    date('Y-m-d') .
+                    '.xlsx'
+            );
+        }
+
+        $carpeta = 'Solicitudes_RVII';
+
+        $path = public_path() . '/subidos/' . $carpeta;
+
+        $nombreArchivo = 'solicitudes-region-7';
+
+        File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $counter++;
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'))->save(
+                $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
+            );
+            unset($pdf);
+        }
+
+        $this->createZipEvidencia($carpeta);
+
+        return response()->download(
+            public_path('subidos/' . $carpeta . '.zip'),
+            'Solicitudes_RVII.zip'
+        );
+    }
+
+    private function createZipEvidencia($carpeta)
+    {
+        try {
+            $files = glob(public_path('subidos/' . $carpeta . '/*'));
+            $fileName = $carpeta . '.zip';
+            //$path = Storage::disk('subidos')->path($fileName);
+            $path = public_path('subidos/' . $fileName);
+            Zipper::make($path)
+                ->add($files)
+                ->close();
+            if (\file_exists(public_path('subidos/' . $carpeta))) {
+                File::deleteDirectory(public_path('subidos/' . $carpeta));
+            }
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function getAcuses(Request $request)
+    {
+        $user = auth()->user();
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+
+        $carpeta = 'Acuses_R7';
+        $path = public_path() . '/subidos/' . $carpeta;
+        $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
+
+        if (file_exists($fileExists)) {
+            return response()->download($fileExists, 'ACUSES_R7.zip');
+        }
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'N.id  AS idVale',
+                'vr.NumAcuerdo AS acuerdo',
+                'M.SubRegion AS region',
+                'N.ResponsableEntrega AS enlace',
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                ),
+                'N.curp',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                ),
+                'M.Nombre AS municipio',
+                'L.Nombre AS localidad',
+                'N.Colonia AS colonia',
+                'N.CP AS cp',
+                'VS.SerieInicial AS folioinicial',
+                'VS.SerieFinal AS foliofinal'
+            )
+            ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN(
+                DB::RAW(
+                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
+                ),
+                'VS.idSolicitud',
+                '=',
+                'N.id'
+            )
+            ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+            ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+            ->Join('reimpresiones_solicitudes_vales AS rp', 'rp.idVale', 'N.id')
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                'NominaValesGrandeza' . date('Y-m-d') . '.xlsx'
+            );
+        }
+
+        $nombreArchivo = 'ACUSES_RVII';
+
+        File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $counter++;
+            $vales = $arrayData;
+            $pdf = \PDF::loadView('pdf', compact('vales'))->save(
+                $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
+            );
+            unset($pdf);
+        }
+
+        $this->createZipEvidencia($carpeta);
+
+        return response()->download(
+            public_path('subidos/' . $carpeta . '.zip'),
+            'ACUSES_RVII.zip'
+        );
+    }
+
+    // function validateCodigo(Request $request)
+    // {
+    //     $v = Validator::make(
+    //         $request->all(),
+    //         [
+    //             'CodigoBarras' => ['required', 'size:22', new isChain()],
+    //         ],
+    //         $messages = [
+    //             'required' => 'El campo :attribute es obligatorio',
+    //             'size' =>
+    //                 'El campo :attribute debe ser una cadena de :size caractares.',
+    //         ]
+    //     );
+
+    //     if ($v->fails()) {
+    //         $er = '';
+    //         $errores = $v->errors()->all();
+    //         foreach ($errores as $e) {
+    //             $er = $er . $e . " \n";
+    //         }
+
+    //         $response = [
+    //             'success' => true,
+    //             'results' => false,
+    //             'message' => $er,
+    //         ];
+    //         return response()->json($response, 200);
+    //     }
+
+    //     $params = $request->only('CodigoBarras');
+    //     $codigo = $params['CodigoBarras'];
+    //     $user = auth()->user();
+
+    //     $permisos = DB::table('users_menus')
+    //         ->where(['idUser' => $user->id, 'idMenu' => '36'])
+    //         ->first();
+    //     if (!$permisos) {
+    //         return response()->json([
+    //             'success' => true,
+    //             'results' => false,
+    //             'message' => 'No tiene permisos, contacte al administrador',
+    //         ]);
+    //     }
+
+    //     try {
+    //         $folioValido = DB::table('folios_vales_2023 AS f')
+    //             ->Select(
+    //                 'f.Serie',
+    //                 'f.CodigoBarras',
+    //                 'f.Estatus',
+    //                 'series.SerieInicial',
+    //                 'series.SerieFinal',
+    //                 's.idSolicitud'
+    //             )
+    //             ->Join('vales_series_2023 AS series', 'f.Serie', 'series.Serie')
+    //             ->LeftJoin(
+    //                 'vales_solicitudes AS s',
+    //                 's.SerieInicial',
+    //                 'series.SerieInicial'
+    //             )
+    //             ->Where('f.CodigoBarras', '=', $codigo)
+    //             ->first();
+
+    //         if (!$folioValido) {
+    //             $data = [
+    //                 'CodigoBarras' => $codigo,
+    //                 'idUsuarioValido' => $user->id,
+    //                 'FechaValido' => date('Y-m-d H:i:s'),
+    //                 'esValido' => 0,
+    //                 'Error' => 'Codigo de barras no encontrado',
+    //             ];
+
+    //             DB::table('vales_folios_solicitud')->insert($data);
+
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'results' => false,
+    //                 'message' => 'Codigo inválido',
+    //             ]);
+    //         }
+
+    //         if ($folioValido->Estatus == 0) {
+    //             $data = [
+    //                 'CodigoBarras' => $codigo,
+    //                 'idUsuarioValido' => $user->id,
+    //                 'FechaValido' => date('Y-m-d H:i:s'),
+    //                 'esValido' => 0,
+    //                 'Error' => 'Codigo de barras bloqueado',
+    //             ];
+
+    //             DB::table('vales_folios_solicitud')->insert($data);
+
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'results' => false,
+    //                 'message' => 'Codigo bloqueado',
+    //             ]);
+    //         }
+
+    //         if ($folioValido->idSolicitud == null) {
+    //             $data = [
+    //                 'CodigoBarras' => $codigo,
+    //                 'idUsuarioValido' => $user->id,
+    //                 'FechaValido' => date('Y-m-d H:i:s'),
+    //                 'esValido' => 0,
+    //                 'Error' => 'Codigo de barras no asignado',
+    //             ];
+
+    //             DB::table('vales_folios_solicitud')->insert($data);
+
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'results' => false,
+    //                 'message' => 'Codigo inactivo',
+    //             ]);
+    //         }
+
+    //         $data = [
+    //             'CodigoBarras' => $codigo,
+    //             'idUsuarioValido' => $user->id,
+    //             'FechaValido' => date('Y-m-d H:i:s'),
+    //             'esValido' => 1,
+    //             'Error' => 'Codigo de barras activo',
+    //         ];
+
+    //         DB::table('vales_folios_solicitud')->insert($data);
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'results' => true,
+    //             'message' => 'Codigo activo',
+    //         ]);
+    //     } catch (Exception $e) {
+    //         $data = [
+    //             'CodigoBarras' => $codigo,
+    //             'idUsuarioValido' => $user->id,
+    //             'FechaValido' => date('Y-m-d H:i:s'),
+    //             'esValido' => 0,
+    //             'Error' => 'Error en consulta',
+    //         ];
+    //         DB::table('vales_folios_solicitud')->insert($data);
+    //         return response()->json([
+    //             'success' => true,
+    //             'results' => false,
+    //             'message' => 'Error de validación',
+    //         ]);
+    //     }
+    // }
+
+    protected function decrypt($string, $key)
+    {
+        $result = '';
+        $string = base64_decode($string);
+        for ($i = 0; $i < strlen($string); $i++) {
+            $char = substr($string, $i, 1);
+            $keychar = substr($key, ($i % strlen($key)) - 1, 1);
+            $char = chr(ord($char) - ord($keychar));
+            $result .= $char;
+        }
+        return $result;
     }
 }

@@ -8,6 +8,7 @@ use DB;
 use Illuminate\Contracts\Validation\ValidationException;
 use Validator;
 use ValesSolicitudes;
+use App\User;
 
 class UserController extends Controller
 {
@@ -1211,12 +1212,12 @@ class UserController extends Controller
                 ->where('V.idStatus', '=', 5)
                 ->where('V.Devuelto', '=', 0)
                 ->where('V.idIncidencia', '=', 1)
-                ->where('V.Ejercicio', 2023)
+                ->whereIn('V.Ejercicio', [2023, 2024])
                 ->whereNotIn('V.id', function ($query) {
                     $query
                         ->select('idSolicitud')
                         ->from('vales_solicitudes')
-                        ->whereRaw('Ejercicio = 2023');
+                        ->whereRaw('Ejercicio IN (2023,2024)');
                 })
                 ->groupBy('V.idMunicipio')
                 ->groupBy('V.CveInterventor')
@@ -1475,5 +1476,116 @@ class UserController extends Controller
 
             return response()->json($response, 200);
         }
+    }
+
+    public function getAll(Request $request){
+        $parameters = $request->all();
+        $userInfo = auth()->user();
+
+        $user = new User;
+        return $user->getAll($userInfo,$parameters);
+        // if($user->getAll($parameters)){
+        //     return response()->json($user->getAll($userInfo,$parameters), 200);
+        // }else{
+        //     return response()->json(['message' => 'Error al obtener los datos'], 400);
+        // }
+    }
+
+    public function getCatalogs(Request $request){
+        $userInfo = auth()->user();
+        $user = new User;
+        return $user->getCatalogs($userInfo);
+    }
+
+    public function getMenus(Request $request){
+        $parameters = $request->all();
+        $userInfo = auth()->user();
+
+        $user = new User;
+
+        return $user->getMenusByIdUser($userInfo,$parameters['id']);
+        // if($user->getById($parameters
+    }
+
+    public function getMenusById($id){
+        $userInfo = auth()->user();
+        $user = new User;
+        return $user->getMenusById($userInfo,$id);
+    }
+
+    public function create(Request $request){
+                
+        $v = Validator::make($request->all(), [
+            'Nombre' => 'required',
+            'Paterno' => 'required',            
+            'password'=>'required|min:10|max:15',
+            'TelCelular' => 'required|size:10',
+            'idTipoUser' => 'required|int',
+            'Region'=>'required|int',
+        ]);        
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $v->errors()->all(),
+            ];
+            return response()->json($response, 400);
+        }
+
+        $parameters = $request->all();
+        $userInfo = auth()->user();
+        $user = new User;
+        return $user->createUser($userInfo,$parameters);
+    }
+
+    public function update(Request $request){
+        $v = Validator::make($request->all(), [
+            'id' => 'required',
+            'email' => 'sometimes|required|size:10',            
+            'TelCelular' => 'sometimes|required|size:10',
+            'idTipoUser' => 'sometimes|required|int',
+        ]);        
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $v->errors()->all(),
+            ];
+            return response()->json($response, 400);
+        }
+
+        $parameters = $request->only('id','email','password','TelCelular','idTipoUser','Region','idStatus','Correo');
+        $userInfo = auth()->user();
+        $user = new User;
+
+        return $user->updateUser($userInfo,$parameters);
+        
+    }
+
+    public function setMenu(Request $request){
+        $v = Validator::make($request->all(), [
+            'idUser' => 'required|int',
+            'idMenu' => 'required|int',
+            'idTipoUser' => 'required|int',
+            'flag' => 'required|int'     
+        ]);
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'errors' => $v->errors()->all(),
+            ];
+            return response()->json($response, 400);
+        }
+        $parameters = $request->only('idUser','idMenu','idTipoUser','flag');
+        $userInfo = auth()->user();
+        $user = new User;
+        return $user->setMenu($userInfo,$parameters);
+    }
+
+    public function bloqueoMasivo(Request $request){
+        $userInfo = auth()->user();
+        $user = new User;
+        return $user->bloqueoMasivo($userInfo);
     }
 }

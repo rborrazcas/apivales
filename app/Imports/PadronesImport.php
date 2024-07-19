@@ -308,28 +308,23 @@ class PadronesImport implements
                         $row['responsable_de_la_entrega']
                     ),
                     'EstatusOrigenValido' =>
-                        $this->validarCadena(
-                            $row['estatus_origen'],
-                            true,
-                            2
-                        ) === 1
+                        $this->validarCadena($row['estatus_origen']) === 1
                             ? (in_array(strtoupper($row['estatus_origen']), [
                                 'SI',
                                 'NO',
+                                'TM',
+                                'VALERA',
+                                'FUNCIONARIO',
                             ])
                                 ? 1
                                 : 0)
                             : 0,
                     'Aprobado' =>
-                        $this->validarCadena(
-                            $row['estatus_origen'],
-                            true,
-                            2
-                        ) === 1
-                            ? (strtoupper($row['estatus_origen']) == 'NO'
-                                ? 0
-                                : 1)
-                            : 1,
+                        $this->validarCadena($row['estatus_origen']) === 1
+                            ? (strtoupper($row['estatus_origen']) == 'SI'
+                                ? 1
+                                : 0)
+                            : 0,
                 ];
             }
         }

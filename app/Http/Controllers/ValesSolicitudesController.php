@@ -368,7 +368,6 @@ class ValesSolicitudesController extends Controller
 
                 $res_pendiente = DB::table('vales_solicitudes')
                     ->select('idSolicitud')
-                    ->where('Ejercicio', '=', 2023)
                     ->where('SerieInicial', '>=', $SerieInicial)
                     ->where('SerieFinal', '<=', $SerieInicial)
                     ->first();
@@ -394,7 +393,6 @@ class ValesSolicitudesController extends Controller
 
                 $res_pendiente2 = DB::table('vales_solicitudes')
                     ->select('idSolicitud')
-                    ->where('Ejercicio', '=', 2023)
                     ->where('SerieInicial', '>=', $SerieFinal)
                     ->where('SerieFinal', '<=', $SerieFinal)
                     ->first();
@@ -418,7 +416,6 @@ class ValesSolicitudesController extends Controller
 
                 $res_pendiente3 = DB::table('vales_solicitudes')
                     ->select('idSolicitud')
-                    ->where('Ejercicio', '=', 2023)
                     ->where('SerieInicial', '<=', $SerieInicial)
                     ->where('SerieFinal', '>=', $SerieInicial)
                     ->first();
@@ -452,7 +449,6 @@ class ValesSolicitudesController extends Controller
                 'data' => $vale_solicitud,
             ];
         } catch (QueryException $e) {
-            dd($e->getMessage());
             $errors = [
                 'Clave' => '01',
             ];

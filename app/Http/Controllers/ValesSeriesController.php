@@ -107,22 +107,42 @@ class ValesSeriesController extends Controller
         //         ->where('CodigoBarra', '=', $request->CodigoBarra)
         //         ->first();
         // }
+        $user = auth()->user();
 
         if (strlen($request->CodigoBarra) < 22) {
             $resultall = DB::table('folios_vales_2023')
-                ->where('Ejercicio', '=', date('Y'))
+
                 ->where('Serie', '=', $request->CodigoBarra)
                 ->first();
         } else {
             $resultall = DB::table('folios_vales_2023')
-                ->where('Ejercicio', '=', date('Y'))
+
                 ->where('CodigoBarras', '=', $request->CodigoBarra)
                 ->first();
         }
+
         if ($resultall) {
+            if ($resultall->Estatus == 0) {
+                $data = [
+                    'CodigoBarras' => $request->CodigoBarra,
+                    'idUsuarioValido' => $user->id,
+                    'FechaValido' => date('Y-m-d H:i:s'),
+                    'esValido' => 0,
+                    'Error' => 'Codigo de barras bloqueado',
+                ];
+
+                DB::table('vales_folios_solicitud')->insert($data);
+                return response()->json([
+                    'success' => true,
+                    'results' => false,
+                    'data' => [],
+                    'message' => 'La valera se encuentra bloqueada.',
+                ]);
+            }
+
             $nueva_serie = $resultall->Serie + 9;
             $result2 = DB::table('folios_vales_2023')
-                ->where('Ejercicio', '=', date('Y'))
+
                 ->where('Serie', '=', $nueva_serie)
                 ->first();
 

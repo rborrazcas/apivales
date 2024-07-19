@@ -481,7 +481,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('Remesa')
                 ->orderBy('r.Ejercicio', 'DESC')
                 ->orderBy('r.Remesa', 'ASC')
@@ -496,7 +496,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('Municipio')
                 ->orderBy('Municipio', 'ASC')
                 ->get()
@@ -510,7 +510,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('Responsable')
                 ->orderBy('Responsable', 'ASC')
                 ->get()
@@ -524,7 +524,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('ResponsableEntrega')
                 ->orderBy('ResponsableEntrega', 'ASC')
                 ->get()
@@ -538,7 +538,7 @@ class ReportesController extends Controller
                     'r.Remesa',
                     'vales_grupos_totales.Remesa'
                 )
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('Localidad')
                 ->orderBy('Localidad', 'ASC')
                 ->get()
@@ -553,7 +553,7 @@ class ReportesController extends Controller
                     'vales_grupos_totales.Remesa'
                 )
                 ->whereRaw('CveInterventor IS NOT NULL')
-                ->WhereRaw('r.Ejercicio = 2023')
+                ->WhereRaw('r.Ejercicio IN (2023,2024)')
                 ->groupBy('CveInterventor')
                 ->orderBy('CveInterventor', 'ASC')
                 ->get()
@@ -8079,14 +8079,7 @@ class ReportesController extends Controller
             ->select('N.id')
             ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
-            ->Join(
-                DB::RAW(
-                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
-                ),
-                'VS.idSolicitud',
-                '=',
-                'N.id'
-            )
+            ->Join('vales_solicitudes as VS', 'VS.idSolicitud', '=', 'N.id')
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
             ->where('N.idGrupo', '=', $resGpo->id);
@@ -8210,11 +8203,8 @@ class ReportesController extends Controller
                     'L.id'
                 )
                 ->LEFTJOIN(
-                    DB::RAW(
-                        '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
-                    ),
+                    'vales_solicitudes as VS',
                     'VS.idSolicitud',
-                    '=',
                     'N.id'
                 )
                 ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
@@ -8239,11 +8229,19 @@ class ReportesController extends Controller
         unset($res);
         $vales = $d;
         $nombreArchivo = 'acuses_vales' . date('Y-m-d H:i:s');
+        $ejercicio = DB::table('vales')
+            ->Select('Ejercicio')
+            ->Where('id', $parameters['folio'])
+            ->first();
 
         if ($parameters['ejercicio'] == 2022) {
             $pdf = \PDF::loadView('pdf_2022', compact('vales'));
-        } else {
-            $pdf = \PDF::loadView('pdf', compact('vales'));
+        } else {        
+                if($ejercicio->Ejercicio == 2023){
+                    $pdf = \PDF::loadView('pdf_2023', compact('vales'));
+                }else{
+                    $pdf = \PDF::loadView('pdf', compact('vales'));
+                }            
         }
 
         return $pdf->download($nombreArchivo . '.pdf');
@@ -8951,6 +8949,7 @@ class ReportesController extends Controller
                 'G.id',
                 'G.idMunicipio',
                 'G.Remesa',
+                'G.Ejercicio',
                 'G.TotalAprobados',
                 'G.ResponsableEntrega',
                 'G.CveInterventor',
@@ -8963,6 +8962,13 @@ class ReportesController extends Controller
             ->first();
 
         $carpeta = $resGpo->id . $resGpo->idMunicipio . $resGpo->Remesa;
+        $mun = $resGpo->Municipio;
+
+        if (str_contains($mun, 'DOLORES')) {
+            $mun = 'DOLORESH';
+        } elseif (str_contains($mun, 'SILAO')) {
+            $mun = 'SILAO';
+        }
 
         $path = public_path() . '/subidos/' . $carpeta;
         $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
@@ -8973,7 +8979,7 @@ class ReportesController extends Controller
                 'ACUSES_' .
                     $resGpo->id .
                     '_' .
-                    str_replace(' ', '_', $resGpo->Municipio) .
+                    str_replace(' ', '_', $mun) .
                     '_' .
                     $resGpo->CveInterventor .
                     '_' .
@@ -9009,14 +9015,7 @@ class ReportesController extends Controller
             )
             ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
-            ->JOIN(
-                DB::RAW(
-                    '(SELECT idSolicitud,SerieInicial,SerieFinal FROM vales_solicitudes WHERE Ejercicio = 2023) as VS'
-                ),
-                'VS.idSolicitud',
-                '=',
-                'N.id'
-            )
+            ->JOIN('vales_solicitudes  as VS', 'VS.idSolicitud', '=', 'N.id')
             ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
             ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
             ->where('N.idGrupo', '=', $resGpo->id)
@@ -9061,17 +9060,24 @@ class ReportesController extends Controller
             '_' .
             $resGpo->Remesa .
             '_' .
-            str_replace(' ', '_', $resGpo->Municipio) .
+            str_replace(' ', '_', $mun) .
             '_' .
             str_replace(' ', '_', $resGpo->ResponsableEntrega);
 
         File::makeDirectory($path, $mode = 0777, true, true);
 
         $counter = 0;
+
+        $view = 'pdf';
+
+        if ($resGpo->Ejercicio == '2023') {
+            $view = 'pdf_2023';
+        }
+
         foreach (array_chunk($d, 20) as $arrayData) {
             $counter++;
             $vales = $arrayData;
-            $pdf = \PDF::loadView('pdf', compact('vales'))->save(
+            $pdf = \PDF::loadView($view, compact('vales'))->save(
                 $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
             );
             unset($pdf);
@@ -9084,7 +9090,7 @@ class ReportesController extends Controller
             'ACUSES_' .
                 $resGpo->id .
                 '_' .
-                str_replace(' ', '_', $resGpo->Municipio) .
+                str_replace(' ', '_', $mun) .
                 '_' .
                 $resGpo->CveInterventor .
                 '_' .
@@ -9430,7 +9436,7 @@ class ReportesController extends Controller
             )
             ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
-            ->JOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
+            ->LeftJOIN('vales_solicitudes as s', 's.idSolicitud', '=', 'N.id')
             ->where('N.id', $parameters['folio'])
             ->orderBy('m.Nombre', 'asc')
             ->orderBy('N.CveInterventor', 'ASC')
