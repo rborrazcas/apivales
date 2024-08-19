@@ -1499,7 +1499,8 @@ class CalentadoresSolares extends Controller
                 }
             }
 
-            $curpRegistrado = DB::table('solicitudes_calentadores')
+            if(!in_array($params['CURP'],['JIRF650621MGTMML06','AAGS870613HGTNRB05','GUSF860705MGTJNR05','TOGF680526HDFRNL05','LOBJ560319HGTPDS07','COJJ591105HDFRMS03','OIGY980113MGTRMR05','GAXM591130HGTRXG06'])){
+                $curpRegistrado = DB::table('solicitudes_calentadores')
                 ->select(
                     DB::RAW('lpad( hex(id ), 6, 0 ) AS Folio'),
                     'CURP',
@@ -1572,6 +1573,8 @@ class CalentadoresSolares extends Controller
                         $isRegistered->FolioImpulso,
                 ];
                 return response()->json($response, 200);
+            }
+
             }
 
             $params['idUsuarioCreo'] = $user->id;

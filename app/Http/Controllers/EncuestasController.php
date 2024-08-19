@@ -28,7 +28,8 @@ class EncuestasController extends Controller
     {
         $permisos = DB::table('users_menus')
             ->Select('Ver', 'Agregar', 'Seguimiento', 'ViewAll')
-            ->Where(['idMenu' => 39, 'idUser' => $idUser])
+            ->Where(['idUser' => $idUser])
+            ->WhereIn('idMenu', [39,41])
             ->first();
         return $permisos;
     }
@@ -691,6 +692,168 @@ class EncuestasController extends Controller
             ];
             return response()->json($response, 200);
         }
+    }
+
+    public function createTCS(Request $request)
+    {
+        $v = Validator::make(
+            $request->all(),
+            [
+                'CURP' => 'required|size:18',
+                'Nombre' => 'required|between:3,150',
+                'Paterno' => 'required|between:3,150',                
+                'idTipoApoyo' => 'required',
+                'TipoEncuesta' => 'required',
+            ],
+            $messages = [
+                'size' =>
+                    'El campo :attribute debe ser una cadena de :size caractares.',
+                'required' => 'El campo :attribute es obligatorio',
+                'between' =>
+                    'El campo :attribute debe tener una longitud de entre :min y :max caracteres.',
+                'date_format' =>
+                    'El formato del campo :attribute es incorrecto debe enviarse como: aaaa-m-d',
+                'max' =>
+                    'El campo :attribute de tener una longitud máxima de :max caracteres.',
+            ]
+        );
+
+        if ($v->fails()) {
+            $er = '';
+            $errores = $v->errors()->all();
+            foreach ($errores as $e) {
+                $er = $er . $e . " \n";
+            }
+
+            $response = [
+                'success' => true,
+                'results' => false,
+                'message' => $er,
+            ];
+            // return response()->json($response, 200);
+        }
+        
+
+        $params = $request->all();
+        $user = auth()->user();
+                
+                $newRecord = [
+                    'idTipoApoyo' => $params['idTipoApoyo'],
+                    'CURP' => $params['CURP'],
+                    'Nombre' => $params['Nombre'],
+                    'Paterno' => $params['Paterno'],
+                    'Materno' => isset($params['Materno'])
+                        ? $params['Materno']
+                        : null,                    
+                    'Municipio' => $params['Municipio'],
+                    'idMunicipio'=>$params['idMunicipio']?$params['idMunicipio']:null,
+                    'idLocalidad' => $params['idLocalidad']?$params['idLocalidad']:null,
+                    'Localidad' => $params['Localidad'],
+                    'Colonia' => isset($params['Colonia'])
+                        ? $params['Colonia']
+                        : null,
+                    'Calle' => isset($params['Calle'])
+                        ? $params['Calle']
+                        : null,
+                    'NumExt' => isset($params['NumExt'])
+                        ? $params['NumExt']
+                        : null,
+                    'CP' => isset($params['CP'])
+                        ? $params['CP']
+                        : null,
+                    'Celular' => isset($params['Celular'])
+                        ? $params['Celular']
+                        : null,
+                    'Correo' => isset($params['Correo'])
+                        ? $params['Correo']
+                        : null,
+                    'Facebook' => isset($params['Facebook'])
+                        ? $params['Facebook']
+                        : null,
+                    'Entrada' => 1,
+                    'idUsuarioCreo' => 1,
+                    'FechaCreo' => date('Y-m-d H:i:s'),
+                    'idCGCSI' => null,
+                    'Referencia' =>  null,
+                    'Observaciones' => isset($params['Observaciones'])
+                        ? $params['Observaciones']
+                        : null,
+                    'idTipoEncuesta'=>2
+                ];
+                DB::beginTransaction();
+                $idEncuesta = DB::table('encuestas')->insertGetId($newRecord);
+                DB::commit();
+
+                $questions = DB::Table('cat_preguntas_encuestas')
+                    ->Select('id')
+                    ->Where('Activa', 1);                    
+
+                $questions = $questions->get();
+                $responses = [];
+                if(isset($params['q22'])){
+                    
+                    $q22 = $params['q22'];
+                    
+                    foreach($q22 as $q => $respuesta){                        
+                        if($q == true || \strlen($q)>0){
+                            $responses[] = [
+                                'idEncuesta' => $idEncuesta,
+                                'Respuesta' => $respuesta,
+                                'cveOpcion' => $q
+                            ];
+                        }
+                        
+                    }
+                    if(count($responses)>0){
+                        DB::Table('cat_respuestas_q22')->insert($responses);
+                    }                    
+                }
+                
+                unset($params['q22']);
+                $responses = [];
+                foreach ($questions as $q) {
+                    if (in_array($q->id,[20,23,24])) {
+                        $responsesText[] = [
+                            'idEncuesta' => $idEncuesta,
+                            'idPregunta' => $q->id,
+                            'TipoEncuesta' => 'E',
+                            'RespuestaText' => $params['q' . $q->id],
+                        ];
+                    } else {
+                        if ($params['q' . $q->id] == 'S') {
+                            $resp = 1;
+                        } elseif ($params['q' . $q->id] == 'N') {
+                            $resp = 0;
+                        } else {
+                            $resp = $params['q' . $q->id];
+                        }
+                        $responses[] = [
+                            'idEncuesta' => $idEncuesta,
+                            'idPregunta' => $q->id,
+                            'TipoEncuesta' => $params['TipoEncuesta'],
+                            'RespuestaInt' => $resp,
+                        ];
+                    }
+                }
+
+                
+
+                DB::Table('respuestas_encuestas')->insert($responses);
+                DB::Table('respuestas_encuestas')->insert($responsesText);
+                $folioImpulso = str_pad(
+                    dechex($idEncuesta),
+                    6,
+                    '0',
+                    STR_PAD_LEFT
+                );
+
+                $response = [
+                    'success' => true,
+                    'results' => true,
+                    'message' => 'Solicitud registada con éxito',
+                    'folio' => $folioImpulso,
+                ];
+                return response()->json($response, 200);        
     }
 
     public function isRegistered($curp, $tipo)
@@ -1418,5 +1581,221 @@ class EncuestasController extends Controller
                 break;
         }
         return $response;
+    }
+
+    protected function getEncuestasTCS (Request $request)
+    {
+        $user = auth()->user();
+        $permisos = $this->getPermisos($user->id);
+
+        if (!$permisos) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' =>
+                    'No tiene permisos para ver la información, contacte al administrador',
+            ];
+            return response()->json($response, 200);
+        }
+
+        $v = Validator::make(
+            $request->all(),
+            [
+                'page' => 'required',
+                'pageSize' => 'required',
+            ],
+            $messages = [
+                'required' => 'El campo :attribute es obligatorio',
+            ]
+        );
+
+        if ($v->fails()) {
+            $response = [
+                'success' => true,
+                'results' => false,
+                'total' => 0,
+                'message' => $v->errors()->all(),
+            ];
+            return response()->json($response, 200);
+        }
+
+        $params = $request->all();
+        $parameters_serializado = serialize($params);
+
+        if (isset($params['filtered']) && count($params['filtered']) > 0) {
+            foreach ($params['filtered'] as $filtro) {
+                $value = $filtro['value'];
+
+                if (!$this->validateInput($value)) {
+                    $response = [
+                        'success' => true,
+                        'results' => false,
+                        'total' => 0,
+                        'message' =>
+                            'Uno o más filtros utilizados no son válidos, intente nuevamente',
+                    ];
+
+                    return response()->json($response, 200);
+                }
+            }
+        }
+
+        $encuestas = DB::table('encuestas AS e')
+            ->Select(
+                'e.id',
+                DB::Raw('LPAD(HEX(e.id),6,0) AS Folio'),
+                'e.idTipoApoyo',
+                'e.FechaCreo',
+                'e.Nombre',
+                'e.Paterno',
+                'e.Materno',
+                'e.CURP',
+                // 'm.SubRegion AS Region',
+                'e.idMunicipio',
+                'e.Municipio',
+                'e.idLocalidad',
+                'e.Localidad',
+                'e.Colonia',
+                'e.Calle',
+                'e.NumExt',
+                'e.CP',
+                'e.Correo',
+                'e.Celular',
+                'e.Facebook',
+                'e.Entrada',
+                'e.Observaciones'             
+            )
+            // ->Join('et_cat_municipio AS m', 'm.Id', 'e.idMunicipio')
+            // ->Join('et_cat_localidad_2022 AS l', 'l.id', 'e.idLocalidad')
+            // ->Join('users AS u', 'u.id', 'e.idUsuarioCreo')
+            ->WhereNull('e.FechaElimino')
+            ->Where('e.idTipoEncuesta', 2)
+            ->Where('e.idTipoApoyo', 11);
+
+        if ($permisos->ViewAll == 0) {
+            $encuestas = $encuestas->where('e.idUsuarioCreo', $user->id);
+        }
+
+        // if ($permisos->ViewAll == 0 && $permisos->Seguimiento == 0) {
+        //     $encuestas = $encuestas->where('e.idUsuarioCreo', $user->id);
+        // } elseif ($permisos->ViewAll == 0) {
+        //     $region = DB::table('users_region')
+        //         ->selectRaw('Region')
+        //         ->where('idUser', $user->id)
+        //         ->first();
+
+        //     if ($region === null) {
+        //         $response = [
+        //             'success' => true,
+        //             'results' => false,
+        //             'total' => 0,
+        //             'message' => 'No tiene region asignada',
+        //         ];
+
+        //         return response()->json($response, 200);
+        //     }
+
+        //     $encuestas = $encuestas->where('m.Region', $region->Region);
+        // }
+
+        $filterQuery = '';
+        $municipioRegion = [];
+
+        if (isset($params['filtered']) && count($params['filtered']) > 0) {
+            foreach ($params['filtered'] as $filtro) {
+                if ($filterQuery != '') {
+                    $filterQuery .= ' AND ';
+                }
+                $id = $filtro['id'];
+                $value = $filtro['value'];
+
+                if ($id == '.id') {
+                    $value = hexdec($value);
+                }
+
+                if ($id == 'region') {
+                    $municipios = DB::table('et_cat_municipio')
+                        ->select('Id')
+                        ->whereIN('SubRegion', $value)
+                        ->get();
+                    foreach ($municipios as $m) {
+                        $municipioRegion[] = $m->Id;
+                    }
+
+                    $id = '.idMunicipio';
+                    $value = $municipioRegion;
+                }
+
+                $id = 'e' . $id;
+
+                switch (gettype($value)) {
+                    case 'string':
+                        $filterQuery .= " $id LIKE '%$value%' ";
+                        break;
+                    case 'array':
+                        $colonDividedValue = implode(', ', $value);
+                        $filterQuery .= " $id IN ($colonDividedValue) ";
+                        break;
+                    default:
+                        if ($value === -1) {
+                            $filterQuery .= " $id IS NOT NULL ";
+                        } else {
+                            $filterQuery .= " $id = $value ";
+                        }
+                }
+            }
+        }
+
+        if ($filterQuery != '') {
+            $encuestas->whereRaw($filterQuery);
+        }
+
+        $page = $params['page'];
+        $pageSize = $params['pageSize'];
+
+        $startIndex = $page * $pageSize;
+
+        $total = $encuestas->count();
+        $encuestas = $encuestas
+            ->offset($startIndex)
+            ->take($pageSize)
+            ->orderby('e.id', 'desc')
+            ->get();
+
+        $filtro_usuario = VNegociosFiltros::where('idUser', '=', $user->id)
+            ->where('api', '=', 'getEncuestas')
+            ->first();
+        if ($filtro_usuario) {
+            $filtro_usuario->parameters = $parameters_serializado;
+            $filtro_usuario->updated_at = time::now();
+            $filtro_usuario->update();
+        } else {
+            $objeto_nuevo = new VNegociosFiltros();
+            $objeto_nuevo->api = 'getEncuestas';
+            $objeto_nuevo->idUser = $user->id;
+            $objeto_nuevo->parameters = $parameters_serializado;
+            $objeto_nuevo->save();
+        }
+
+        if ($total == 0) {
+            $response = [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'data' => [],
+                'filtros' => $params['filtered'],
+            ];
+            return response()->json($response, 200);
+        } else {
+            $response = [
+                'success' => true,
+                'results' => true,
+                'total' => $total,
+                'data' => $encuestas,
+                'filtros' => $params['filtered'],
+            ];
+            return response()->json($response, 200);
+        }
     }
 }

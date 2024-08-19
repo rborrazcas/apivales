@@ -66,6 +66,8 @@ Route::post('/updateLocation', 'CedulasController@updateLocation');
 
 Route::post('/acuse', 'CedulasController@getFile');
 
+Route::post('/encuestaTCS', 'EncuestasController@createTCS');
+
 // Route::post('/reimprimirVales', 'Vales2023Controller@getListadoPdf');
 // Route::post('/reimprimirAcusesVales', 'Vales2023Controller@getAcuses');
 
@@ -1274,6 +1276,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
     //! Encuestas
     Route::group(['prefix' => 'encuestas'], function ($route) {
         Route::post('getEncuestas', 'EncuestasController@getEncuestas');
+        Route::post('getEncuestasTCS', 'EncuestasController@getEncuestasTCS');
         Route::post('getMunicipios', 'EncuestasController@getMunicipios');
         Route::get('/getCatalogs', 'EncuestasController@getCatalogs');
         Route::post('getBeneficiarios', 'EncuestasController@getBeneficiarios');
