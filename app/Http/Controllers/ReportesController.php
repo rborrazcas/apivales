@@ -8230,19 +8230,23 @@ class ReportesController extends Controller
         $vales = $d;
         $nombreArchivo = 'acuses_vales' . date('Y-m-d H:i:s');
         $ejercicio = DB::table('vales')
-            ->Select('Ejercicio')
+            ->Select('Ejercicio','Remesa')
             ->Where('id', $parameters['folio'])
             ->first();
 
         if ($parameters['ejercicio'] == 2022) {
             $pdf = \PDF::loadView('pdf_2022', compact('vales'));
-        } else {        
-                if($ejercicio->Ejercicio == 2023){
-                    $pdf = \PDF::loadView('pdf_2023', compact('vales'));
-                }else{
-                    $pdf = \PDF::loadView('pdf', compact('vales'));
-                }            
-        }
+        } else if($ejercicio->Ejercicio == 2023){
+            $pdf = \PDF::loadView('pdf_2023', compact('vales'));
+        }else{
+            if(!str_contains($ejercicio->Remesa,'01_2024')){
+                $pdf = \PDF::loadView('pdf_2024', compact('vales'));
+            }else{
+                $pdf = \PDF::loadView('pdf', compact('vales'));
+            }
+            
+        }            
+        
 
         return $pdf->download($nombreArchivo . '.pdf');
     }
@@ -9072,6 +9076,8 @@ class ReportesController extends Controller
 
         if ($resGpo->Ejercicio == '2023') {
             $view = 'pdf_2023';
+        }else if(!str_contains($resGpo->Remesa,'01_2024')){
+            $view = 'pdf_2024';
         }
 
         foreach (array_chunk($d, 20) as $arrayData) {
@@ -9100,6 +9106,105 @@ class ReportesController extends Controller
                 '_' .
                 str_replace(' ', '_', $resGpo->Localidad) .
                 '.zip'
+        );
+    }
+
+
+    public function getAcusesEstaticos(Request $request)
+    {       
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        
+        $carpeta = 'Acuses_Cambios_Domicilios_R7';
+        $path = public_path() . '/subidos/' . $carpeta;
+        $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                'N.id  AS idVale',
+                'vr.NumAcuerdo AS acuerdo',
+                'M.SubRegion AS region',
+                'N.ResponsableEntrega AS enlace',
+                DB::raw(
+                    "concat_ws(' ',N.Nombre, N.Paterno, N.Materno) as nombre"
+                ),
+                'N.curp',
+                DB::raw(
+                    "concat_ws(' ',N.Calle, if(N.NumExt is null, ' ', concat('NumExt ',N.NumExt)), if(N.NumInt is null, ' ', concat('Int ',N.NumInt))) AS domicilio"
+                ),
+                'M.Nombre AS municipio',
+                'L.Nombre AS localidad',
+                'N.Colonia AS colonia',
+                'N.CP AS cp',
+                'VS.SerieInicial AS folioinicial',
+                'VS.SerieFinal AS foliofinal'
+            )
+            ->JOIN('et_cat_municipio as M', 'N.idMunicipio', '=', 'M.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN('vales_solicitudes  as VS', 'VS.idSolicitud', '=', 'N.id')
+            ->Join('vales_remesas AS vr', 'N.Remesa', '=', 'vr.Remesa')
+            ->join('vales_status as E', 'N.idStatus', '=', 'E.id')
+            ->Join('curps_acuses AS ca','ca.CURP','N.CURP')
+            ->WhereIn('N.Remesa',['02_2024','02_2024_01','02_2024_03'])
+            ->Where('M.SubRegion','7')
+            ->orderBy('M.Nombre', 'asc')
+            ->orderBy('N.CveInterventor')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+        
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+        if (count($d) == 0) {
+            $file =
+                public_path() . '/archivos/formatoReporteNominaValesv3.xlsx';
+
+            return response()->download(
+                $file,
+                $resGpo->Remesa .
+                    '_' .
+                    $resGpo->idMunicipio .
+                    '_' .
+                    $resGpo->ResponsableEntrega .
+                    '_NominaValesGrandeza' .
+                    date('Y-m-d') .
+                    '.xlsx'
+            );
+        }
+
+        $nombreArchivo ='ACUSES_R7';
+
+        File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+
+        $view = 'pdf_2024';
+
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $counter++;
+            $vales = $arrayData;
+            $pdf = \PDF::loadView($view, compact('vales'))->save(
+                $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
+            );
+            unset($pdf);
+        }
+
+        $this->createZipEvidencia($carpeta);
+
+        return response()->download(
+            public_path('subidos/' . $carpeta . '.zip'),
+            'ACUSES_R7.zip'
         );
     }
 
@@ -9243,10 +9348,16 @@ class ReportesController extends Controller
         File::makeDirectory($path, $mode = 0777, true, true);
 
         $counter = 0;
+        $viewPdf = 'pdf_solicitud_noVeda';
+
+        if(\str_contains($resGpo->Remesa,'01_2024')){
+            $viewPdf = 'pdf_solicitud';
+        }
+
         foreach (array_chunk($d, 20) as $arrayData) {
             $counter++;
             $vales = $arrayData;
-            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'))->save(
+            $pdf = \PDF::loadView($viewPdf, compact('vales'))->save(
                 $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
             );
             unset($pdf);
@@ -9275,6 +9386,95 @@ class ReportesController extends Controller
         // $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
         // return $pdf->download($nombreArchivo . '.pdf');
     }
+
+
+    public function getSolicitudesEstaticasVales(Request $request)
+    {
+        ini_set('memory_limit', '-1');
+        ini_set('max_execution_time', 1000);
+        
+        $carpeta = 'Solicitudes_Cambios_Domicilios_R7';
+
+        $path = public_path() . '/subidos/' . $carpeta;
+        $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
+
+        $res = DB::table('vales as N')
+            ->select(
+                DB::raw('LPAD(HEX(N.id),6,0) AS id'),
+                DB::RAw(
+                    'CASE WHEN N.FechaSolicitud IS NOT NULL THEN date_format(N.FechaSolicitud,"%d/%m/%Y")
+                    ELSE "          " END AS FechaSolicitud'
+                ),
+                DB::raw(
+                    'CONCAT_WS(" ",N.Nombre,N.Paterno,N.Materno) AS Nombre'
+                ),
+                'N.CURP',
+                'N.Sexo',
+                'N.Calle',
+                'N.NumExt',
+                'N.NumInt',
+                'N.CP',
+                'N.Colonia',
+                'L.Nombre AS Localidad',
+                'm.Nombre AS Municipio',
+                DB::raw('NULL AS Tutor'),
+                DB::raw('NULL AS Parentesco'),
+                DB::raw('NULL AS CURPTutor'),
+                'N.TelFijo AS Telefono',
+                'N.TelCelular AS Celular',
+                'N.CorreoElectronico AS Correo'
+            )
+            ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
+            ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
+            ->JOIN('curps_acuses AS ca','ca.CURP','N.CURP')
+            ->WhereIn('N.Remesa',['02_2024','02_2024_01','02_2024_03'])
+            ->Where('m.SubRegion','7')
+            ->orderBy('m.Nombre', 'asc')
+            ->orderBy('N.CveInterventor', 'ASC')
+            ->orderBy('L.Nombre', 'asc')
+            ->orderBy('N.ResponsableEntrega', 'asc')
+            ->orderBy('N.Nombre', 'asc')
+            ->orderBy('N.Paterno', 'asc')
+            ->get();
+
+        $d = $res
+            ->map(function ($x) {
+                $x = is_object($x) ? (array) $x : $x;
+                return $x;
+            })
+            ->toArray();
+        unset($data);
+        unset($res);
+
+
+        $nombreArchivo = 'SOLICITUDES_R7';
+
+        File::makeDirectory($path, $mode = 0777, true, true);
+
+        $counter = 0;
+        $viewPdf = 'pdf_solicitud_noVeda';
+
+        foreach (array_chunk($d, 20) as $arrayData) {
+            $counter++;
+            $vales = $arrayData;
+            $pdf = \PDF::loadView($viewPdf, compact('vales'))->save(
+                $path . '/' . $nombreArchivo . '_' . strval($counter) . '.pdf'
+            );
+            unset($pdf);
+        }
+
+        $this->createZipEvidencia($carpeta);
+
+        return response()->download(
+            public_path('subidos/' . $carpeta . '.zip'),
+            'SOLICITUDES_R7.zip'
+        );
+        // $vales = $d;
+        // $nombreArchivo = 'solicitud_vales' . date('Y-m-d H:i:s');
+        // $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+        // return $pdf->download($nombreArchivo . '.pdf');
+    }
+
 
     public function getSolicitudesValeEstatico(Request $request)
     {

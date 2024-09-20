@@ -537,7 +537,7 @@ class PadronesController extends Controller
                     "IF (p.MunicipioValido = 0,'EL MUNICIPIO NO ES VALIDO','') AS MunicipioValido"
                 ),
                 DB::raw(
-                    "IF (p.LocalidadValido = 0,'EL NÚMERO DE LOCALIDAD NO SE ENCUENTRA EN EL CATÁLOGO','') AS LocalidadValido"
+                    "IF (p.LocalidadValido = 0,'EL NÚMERO DE LOCALIDAD NO EXISTE O NO PERTENECE AL MUNICIPIO','') AS LocalidadValido"
                 ),
                 DB::raw(
                     "IF (p.ColoniaValido = 0,'LA COLONIA NO ES VALIDA','') AS ColoniaValido"

@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+// Route::get('/getAcusesEstaticos', 'ReportesController@getAcusesEstaticos');
+// Route::get('/getSolicitudesEstaticasVales', 'ReportesController@getSolicitudesEstaticasVales');
 
 // estas rutas se pueden acceder sin proveer de un token válido.
 Route::post('/login', 'AuthController@login');

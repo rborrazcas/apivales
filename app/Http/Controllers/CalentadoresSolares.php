@@ -665,6 +665,7 @@ class CalentadoresSolares extends Controller
                 'c.NumInt',
                 'c.Cp',
                 'm.Nombre AS Municipio',
+                'l.CveInegi',
                 'l.Nombre AS Localidad',
                 'c.Telefono',
                 'c.Celular',
@@ -1462,7 +1463,7 @@ class CalentadoresSolares extends Controller
                 return response()->json($response, 200);
             }
 
-            $params = $request->all();
+            $params = $request->all();            
             $user = auth()->user();
             $idAplicativo = '';
             $year_start = idate('Y', strtotime('first day of January', time()));
@@ -1488,7 +1489,7 @@ class CalentadoresSolares extends Controller
 
             if (isset($params['FechaINE'])) {
                 $fechaINE = intval($params['FechaINE']);
-                if ($year_start > $fechaINE) {
+                if ($year_start > $fechaINE && $params['Ejercicio'] > $fechaINE ) {
                     $response = [
                         'success' => true,
                         'results' => false,
@@ -1499,7 +1500,7 @@ class CalentadoresSolares extends Controller
                 }
             }
 
-            if(!in_array($params['CURP'],['JIRF650621MGTMML06','AAGS870613HGTNRB05','GUSF860705MGTJNR05','TOGF680526HDFRNL05','LOBJ560319HGTPDS07','COJJ591105HDFRMS03','OIGY980113MGTRMR05','GAXM591130HGTRXG06'])){
+            if(!in_array($params['CURP'],['JIRF650621MGTMML06','AAGS870613HGTNRB05','GUSF860705MGTJNR05','TOGF680526HDFRNL05','LOBJ560319HGTPDS07','COJJ591105HDFRMS03','OIGY980113MGTRMR05','GAXM591130HGTRXG06','VIBG490328MZSLRR01','LORF570114MJCPML04','AAMG621126MGTLRD07','IATC840512HGTBRR00'])){
                 $curpRegistrado = DB::table('solicitudes_calentadores')
                 ->select(
                     DB::RAW('lpad( hex(id ), 6, 0 ) AS Folio'),
@@ -1668,21 +1669,21 @@ class CalentadoresSolares extends Controller
                     : 2024,
             ];
 
+            $tabla = 'solicitudes_calentadores_master_' . $params['Ejercicio'];
+
             DB::beginTransaction();
-            $idImpulso = DB::table(
-                'solicitudes_calentadores_master_2024'
-            )->insertGetId($newRecord);
+            $idImpulso = DB::table($tabla)->insertGetId($newRecord);
             DB::commit();
 
             $folioImpulso = '';
             $idImpulso > '9999'
-                ? ($folioImpulso = 'S2024QC1417010')
-                : ($folioImpulso = 'S2024QC14170100');
+                ? ($folioImpulso = 'S'.$params['Ejercicio'].'QC1417010')
+                : ($folioImpulso = 'S'.$params['Ejercicio'].'QC14170100');
 
             $folioImpulso .= $idImpulso;
 
             DB::beginTransaction();
-            DB::table('solicitudes_calentadores_master_2024')
+            DB::table($tabla)
                 ->Where('id', $idImpulso)
                 ->update([
                     'FolioImpulso' => $folioImpulso,
@@ -1959,6 +1960,12 @@ class CalentadoresSolares extends Controller
 
             DB::table('solicitudes_calentadores_master_2024 AS c')
                 ->where('c.CURP', $solicitud->CURP)
+                ->update([
+                    'idUsuarioElimino' => $user->id,
+                    'FechaElimino' => date('Y-m-d H:i:s'),
+                ]);
+            DB::table('solicitudes_calentadores_master_2023 AS c')
+            ->where('c.CURP', $solicitud->CURP)
                 ->update([
                     'idUsuarioElimino' => $user->id,
                     'FechaElimino' => date('Y-m-d H:i:s'),
@@ -2524,7 +2531,7 @@ class CalentadoresSolares extends Controller
     public function isRegistered($curp)
     {
         try {
-            $res = DB::table('solicitudes_calentadores_master as c')
+            $res = DB::table('solicitudes_calentadores_master_2023 as c')
                 ->select(
                     'c.id',
                     'c.FolioImpulso',
@@ -3255,7 +3262,7 @@ class CalentadoresSolares extends Controller
                     'c.FechaCreo'
                 )
                 ->LeftJoin(
-                    'solicitudes_calentadores_master AS m',
+                    'solicitudes_calentadores_master_2023 AS m',
                     'm.CURP',
                     'c.CURP'
                 )
@@ -3321,12 +3328,12 @@ class CalentadoresSolares extends Controller
 
                 DB::beginTransaction();
                 $idImpulso = DB::table(
-                    'solicitudes_calentadores_master'
+                    'solicitudes_calentadores_master_2023'
                 )->insertGetId($newRecord);
                 DB::commit();
                 $folioImpulso = 'S2023QC14170100' . $idImpulso;
                 DB::beginTransaction();
-                DB::table('solicitudes_calentadores_master')
+                DB::table('solicitudes_calentadores_master_2023')
                     ->Where('id', $idImpulso)
                     ->update([
                         'FolioImpulso' => $folioImpulso,

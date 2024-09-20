@@ -121,10 +121,20 @@ class SolicitudesController extends Controller
                 ->orderBy('label')
                 ->get();
 
+            $ejercicios = DB::table('cat_ejercicio_fiscal')->Select('Ejercicio AS value','Ejercicio AS label');
+            $year = idate('Y', strtotime('first day of January', time()));
+            $usersEjercicios = DB::table('users_especial')->Where(['idPrograma'=>2,"Opcion"=>'Ejercicios','idUsuario'=>$user->id])->first();
+            
+            if(!$usersEjercicios){
+                $ejercicios = $ejercicios->Where(['Ejercicio'=>$year]);
+            }
+
+
             $catalogs = [
                 'entidades' => $entidades,
                 'municipios' => $municipios->orderBy('label')->get(),
                 'cat_parentesco_tutor' => $cat_parentesco_tutor,
+                'ejercicios' => $ejercicios->get(),
             ];
 
             $response = [
