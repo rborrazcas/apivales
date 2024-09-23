@@ -410,6 +410,7 @@ class CalentadoresSolares extends Controller
                     'c.Celular',
                     'c.ExpedienteCompleto',
                     'c.Formato',
+                    'c.Ejercicio',
                     'tac.Apoyo AS TipoApoyo',
                     DB::RAW(
                         "CONCAT_WS(' ',creadores.Nombre,creadores.Paterno,creadores.Materno) AS CreadoPor"
@@ -616,6 +617,7 @@ class CalentadoresSolares extends Controller
                     'c.MaternoTutor',
                     'c.Enlace',
                     'c.Formato',
+                    'c.Ejercicio',
                     'c.idEstatusSolicitud',
                     'm.SubRegion As Region'
                 )
