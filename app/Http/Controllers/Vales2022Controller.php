@@ -1625,7 +1625,7 @@ class Vales2022Controller extends Controller
                 '_' .
                 $user->email .
                 '_' .
-                'ValesEjercicio2023.xlsx'
+                'ValesGrandeza.xlsx'
         );
         $file =
             public_path() .
@@ -1634,12 +1634,12 @@ class Vales2022Controller extends Controller
             '_' .
             $user->email .
             '_' .
-            'ValesEjercicio2023.xlsx';
+            'ValesGrandeza.xlsx';
         $fecha = date('Y-m-d H-i-s');
 
         return response()->download(
             $file,
-            'ValesEjercicio2023_' .
+            'Reporte_ValesGrandeza_' .
                 date('Y-m-d') .
                 '_' .
                 str_replace(' ', '_', $fecha) .
