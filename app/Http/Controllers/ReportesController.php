@@ -9632,7 +9632,8 @@ class ReportesController extends Controller
                 DB::raw('NULL AS CURPTutor'),
                 'N.TelFijo AS Telefono',
                 'N.TelCelular AS Celular',
-                'N.CorreoElectronico AS Correo'
+                'N.CorreoElectronico AS Correo',
+                'N.Remesa'
             )
             ->JOIN('et_cat_municipio as m', 'N.idMunicipio', '=', 'm.Id')
             ->JOIN('et_cat_localidad_2022 as L', 'N.idLocalidad', '=', 'L.id')
@@ -9674,9 +9675,15 @@ class ReportesController extends Controller
 
         $nombreArchivo = 'solicitud-' . $parameters['folio'];
         $counter = 0;
+
+        $view = "pdf_solicitud_noVeda";
+        if(str_contains($d[0]['Remesa'],'01_2024')){
+            $view = "pdf_solicitud";
+        }
+
         foreach (array_chunk($d, 20) as $arrayData) {
             $vales = $arrayData;
-            $pdf = \PDF::loadView('pdf_solicitud', compact('vales'));
+            $pdf = \PDF::loadView($view, compact('vales'));
             return $pdf->download($nombreArchivo . '.pdf');
         }
     }
