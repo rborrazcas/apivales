@@ -46,10 +46,13 @@ class SolicitudesController extends Controller
                 ->select('ea.id AS value', 'ea.Estatus AS label')
                 ->orderBy('label')
                 ->get();
+            
+                $ejercicios = DB::table('cat_ejercicio_fiscal')->Select('Ejercicio AS value','Ejercicio AS label');
 
             $catalogs = [
                 'archivos_estatus' => $archivosEstatus,
                 'archivos_clasificacion' => $archivosClasificacion,
+                'ejercicios' => $ejercicios->get(),
             ];
 
             $response = [
@@ -129,12 +132,20 @@ class SolicitudesController extends Controller
                 $ejercicios = $ejercicios->Where(['Ejercicio'=>$year]);
             }
 
+            $enlaces = DB::table('cat_enlaces_proyectos')->Select('id AS value','Enlace AS label')->get();
+            $tipoProyecto = DB::table('cat_tipo_proyecto')->Select('id AS value','Tipo AS label')->get();
+
+            $sectores = DB::table('cat_sectores_economicos')->Select('id AS value','Sector AS label')->get();
+
 
             $catalogs = [
                 'entidades' => $entidades,
                 'municipios' => $municipios->orderBy('label')->get(),
                 'cat_parentesco_tutor' => $cat_parentesco_tutor,
                 'ejercicios' => $ejercicios->get(),
+                'enlaces' => $enlaces,
+                'tipo_proyecto' => $tipoProyecto,  
+                'sectores' => $sectores,              
             ];
 
             $response = [
@@ -209,9 +220,10 @@ class SolicitudesController extends Controller
                     'solicitudes_proyectos_cotizaciones AS pc',
                     'a.id',
                     'pc.idArchivo'
-                )
+                )                
                 ->where(['a.idSolicitud' => $id, 'a.idPrograma' => $idPrograma])
                 ->whereNull('a.FechaElimino')
+                ->OrderBy('ac.Orden')
                 ->OrderBy('a.idClasificacion', 'DESC')
                 ->get();
 

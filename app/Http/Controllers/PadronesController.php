@@ -344,9 +344,12 @@ class PadronesController extends Controller
         foreach ($arrayData as $solicitud) {
             if ($solicitud->CURP !== null) {
                 $url =
-                    'https://seguimiento.guanajuato.gob.mx/apiinformacionsocial/api/renapo/porcurp/pL@t_1n|Run$28/' .
+                    //! Se inhabilito esta liga el día 2024-11-22
+                    // 'https://seguimiento.guanajuato.gob.mx/apiinformacionsocial/api/renapo/porcurp/pL@t_1n|Run$28/' .
+                    //! Se habilito esta liga el día 2024-11-25
+                    'https://seguimiento.guanajuato.gob.mx/apiinformacionsocial/api/renapo/porcurp/pL@t_1n|Run$28/'.
                     $solicitud->CURP .
-                    '/7';
+                    '/A94A3BAC-C920-4290-82FD-C1F2A4044DBB';
                 $response = $client->request('GET', $url, [
                     'verify' => false,
                 ]);

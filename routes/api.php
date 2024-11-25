@@ -1343,6 +1343,7 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'ProyectosPController@getFilesClasification'
         );
         Route::get('/getPdf', 'ProyectosPController@getPdf');
+        Route::post('/getEjercicio', 'ProyectosPController@getEjercicio');
         Route::post('/createSolicitud', 'ProyectosPController@create');
         Route::post('/updateSolicitud', 'ProyectosPController@update');
         Route::post('/deleteSolicitud', 'ProyectosPController@delete');
@@ -1351,6 +1352,12 @@ Route::group(['middleware' => 'jwt.auth'], function () {
             'ProyectosPController@createCotizacion'
         );
         Route::post('/saveNewFiles', 'ProyectosPController@saveNewFiles');
+        Route::post(
+            '/setFilesComments',
+            'ProyectosPController@setFilesComments'
+        );
+        Route::post('/changeFiles', 'ProyectosPController@changeFiles');
+        Route::post('/setEstatusArchivo', 'ProyectosPController@setFileStatus');
     });
 
     Route::post('/deleteRelation', 'TrabajemosJuntosController@deleteRelation');
