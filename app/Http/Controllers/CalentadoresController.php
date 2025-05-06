@@ -20,7 +20,8 @@ use Illuminate\Support\Arr;
 use GuzzleHttp\Client;
 use Carbon\Carbon as time;
 
-use Zipper;
+//use Zipper;
+use ZipArchive;
 use Imagick;
 use JWTAuth;
 use Validator;
@@ -3836,32 +3837,71 @@ class CalentadoresController extends Controller
         return $files;
     }
 
+    // private function createZipEvidencia($archivos, $idCedula, $idSolicitud)
+    // {
+    //     $formatedFile = [];
+    //     try {
+    //         $files = [];
+    //         $fileName = $idCedula . '-' . $idSolicitud . '.zip';
+
+    //         foreach ($archivos as $file) {
+    //             $files[] = $file['ruta'];
+    //         }
+
+    //         $path = Storage::disk('subidos')->path($fileName); // '/var/www/html/plataforma/apivales/public/subidos/' .$fileName,
+    //         // Zipper::make(public_path('subidos/' . $fileName))
+    //         Zipper::make($path)
+    //             ->add($files)
+    //             ->close();
+
+    //         $formatedFile = [
+    //             'llave' => 'estandar_Evidencia Fotográfica',
+    //             'ruta' => $path,
+    //             'nombre' => 'Evidencia Fotográfica',
+    //             'header' => '<Content-Type Header>',
+    //         ];
+
+    //         return $formatedFile;
+    //     } catch (Exception $e) {
+    //         return $formatedFile;
+    //     }
+    // }
+
     private function createZipEvidencia($archivos, $idCedula, $idSolicitud)
     {
         $formatedFile = [];
+
         try {
-            $files = [];
+            $zip = new \ZipArchive();
             $fileName = $idCedula . '-' . $idSolicitud . '.zip';
 
-            foreach ($archivos as $file) {
-                $files[] = $file['ruta'];
+            // Ruta completa en el disco 'subidos'
+            $path = Storage::disk('subidos')->path($fileName);
+
+            // Creamos o sobrescribimos el archivo zip
+            if ($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
+                foreach ($archivos as $file) {
+                    $filePath = $file['ruta'];
+
+                    if (file_exists($filePath)) {
+                        $relativeNameInZip = basename($filePath);
+                        $zip->addFile($filePath, $relativeNameInZip);
+                    }
+                }
+
+                $zip->close();
+
+                $formatedFile = [
+                    'llave'   => 'estandar_Evidencia Fotográfica',
+                    'ruta'    => $path,
+                    'nombre'  => 'Evidencia Fotográfica',
+                    'header'  => '<Content-Type Header>', // Puedes personalizarlo si deseas, ej. 'application/zip'
+                ];
             }
 
-            $path = Storage::disk('subidos')->path($fileName); // '/var/www/html/plataforma/apivales/public/subidos/' .$fileName,
-            // Zipper::make(public_path('subidos/' . $fileName))
-            Zipper::make($path)
-                ->add($files)
-                ->close();
-
-            $formatedFile = [
-                'llave' => 'estandar_Evidencia Fotográfica',
-                'ruta' => $path,
-                'nombre' => 'Evidencia Fotográfica',
-                'header' => '<Content-Type Header>',
-            ];
-
             return $formatedFile;
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
+            // Log::error("Error al crear zip: " . $e->getMessage());
             return $formatedFile;
         }
     }
@@ -5459,31 +5499,66 @@ class CalentadoresController extends Controller
         return response()->json($response, 200);
     }
 
+    // private function createZipEvidenciaExpedientes($archivos, $curp)
+    // {
+    //     $formatedFile = [];
+    //     try {
+    //         $files = [];
+    //         $fileName = $curp . '.zip';
+
+    //         foreach ($archivos as $file) {
+    //             $files[] = $file->ruta;
+    //         }
+
+    //         $path = public_path('subidos/temp/' . $fileName);
+
+    //         // Storage::disk('subidos')->path($fileName); // '/var/www/html/plataforma/apivales/public/subidos/' .$fileName,
+    //         // Zipper::make(public_path('subidos/' . $fileName))
+    //         Zipper::make($path)
+    //             ->add($files)
+    //             ->close();
+
+    //         $formatedFile = [
+    //             'carpeta' => $path,
+    //         ];
+
+    //         return $formatedFile;
+    //     } catch (Exception $e) {
+    //         return $formatedFile;
+    //     }
+    // }
     private function createZipEvidenciaExpedientes($archivos, $curp)
     {
         $formatedFile = [];
+
         try {
-            $files = [];
+            $zip = new \ZipArchive();
             $fileName = $curp . '.zip';
-
-            foreach ($archivos as $file) {
-                $files[] = $file->ruta;
-            }
-
             $path = public_path('subidos/temp/' . $fileName);
 
-            // Storage::disk('subidos')->path($fileName); // '/var/www/html/plataforma/apivales/public/subidos/' .$fileName,
-            // Zipper::make(public_path('subidos/' . $fileName))
-            Zipper::make($path)
-                ->add($files)
-                ->close();
+            // Abrimos o creamos el archivo zip
+            if ($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === TRUE) {
+                foreach ($archivos as $file) {
+                    $filePath = $file->ruta;
 
-            $formatedFile = [
-                'carpeta' => $path,
-            ];
+                    // Validar que el archivo exista antes de agregarlo
+                    if (file_exists($filePath)) {
+                        $relativeNameInZip = basename($filePath); // Solo el nombre del archivo
+                        $zip->addFile($filePath, $relativeNameInZip);
+                    }
+                }
+
+                $zip->close();
+
+                $formatedFile = [
+                    'carpeta' => $path,
+                ];
+            }
 
             return $formatedFile;
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
+            // Puedes registrar el error si es necesario
+            // \Log::error("Error al crear zip: " . $e->getMessage());
             return $formatedFile;
         }
     }

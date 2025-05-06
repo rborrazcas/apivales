@@ -20,7 +20,7 @@ use Carbon\Carbon as time;
 use DB;
 use Arr;
 use File;
-use Zipper;
+//use Zipper;
 use Imagick;
 use JWTAuth;
 use Storage;

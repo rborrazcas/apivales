@@ -29,7 +29,8 @@ use App\VNegociosFiltros;
 use Carbon\Carbon as time;
 use App\Rules\isChain;
 use Excel;
-use Zipper;
+//use Zipper;
+use ZipArchive;
 use App\Imports\ConciliacionImport;
 use App\Exports\PadronBeneficiariosExport;
 
@@ -4681,16 +4682,33 @@ class Vales2023Controller extends Controller
     private function createZipEvidencia($carpeta)
     {
         try {
-            $files = glob(public_path('subidos/' . $carpeta . '/*'));
+            // $files = glob(public_path('subidos/' . $carpeta . '/*'));
+            // $fileName = $carpeta . '.zip';
+            // //$path = Storage::disk('subidos')->path($fileName);
+            // $path = public_path('subidos/' . $fileName);
+            // Zipper::make($path)
+            //     ->add($files)
+            //     ->close();
+            // if (\file_exists(public_path('subidos/' . $carpeta))) {
+            //     File::deleteDirectory(public_path('subidos/' . $carpeta));
+            // }
+
+            $files = public_path('subidos/' . $carpeta . '/*');
+            $input_dir = public_path('subidos/' . $carpeta);
             $fileName = $carpeta . '.zip';
-            //$path = Storage::disk('subidos')->path($fileName);
             $path = public_path('subidos/' . $fileName);
-            Zipper::make($path)
-                ->add($files)
-                ->close();
-            if (\file_exists(public_path('subidos/' . $carpeta))) {
-                File::deleteDirectory(public_path('subidos/' . $carpeta));
+            $zip = new ZipArchive();
+            if (!$zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE)) {
+                exit("Error creando ZIP en $path");
             }
+            $options = ['remove_all_path' => TRUE];
+            $zip->addPattern('/\.(?:png|pdf|xlsx)$/', $input_dir, $options);
+            $zip->close();
+
+            if (\file_exists($input_dir)) {
+                File::deleteDirectory($input_dir);
+            }
+
         } catch (Exception $e) {
             return false;
         }

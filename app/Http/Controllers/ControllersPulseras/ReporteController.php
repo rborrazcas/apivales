@@ -19,7 +19,8 @@ use \Milon\Barcode\DNS1D;
 
 use DB;
 use File;
-use Zipper;
+//use Zipper;
+use ZipArchive;
 
 use PhpOffice\PhpPresentation\IOFactory as IOFactories;
 

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Zipper;
+//use Zipper;
 use Imagick;
 use JWTAuth;
 use Validator;

@@ -19,7 +19,7 @@ use Illuminate\Support\Arr;
 
 use GuzzleHttp\Client;
 use Carbon\Carbon as time;
-use Zipper;
+//use Zipper;
 use JWTAuth;
 use Validator;
 use HTTP_Request2;
