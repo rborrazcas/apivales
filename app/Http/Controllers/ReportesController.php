@@ -8117,6 +8117,7 @@ class ReportesController extends Controller
     {
         $user = auth()->user();
         $parameters = $request->all();
+        $barcode = new DNS1D();
 
         if (!isset($parameters['folio'])) {
             return response()->json([
@@ -8220,9 +8221,9 @@ class ReportesController extends Controller
             ->orderBy('N.Paterno', 'asc')
             ->get();
         $d = $data
-            ->map(function ($x) {
+            ->map(function ($x) use($barcode) {
                 $x = is_object($x) ? (array) $x : $x;
-                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                $x['codigo'] = $barcode->getBarcodePNG($x['id'], 'C39');
                 return $x;
             })
             ->toArray();
@@ -8631,6 +8632,7 @@ class ReportesController extends Controller
     {
         $parameters = $request->all();
         $user = auth()->user();
+        $barcode = new DNS1D();
 
         $resGpo = DB::table('vales_grupos as G')
             ->select(
@@ -8716,9 +8718,9 @@ class ReportesController extends Controller
             ->get();
 
         $d = $data
-            ->map(function ($x) {
+            ->map(function ($x) use($barcode) {
                 $x = is_object($x) ? (array) $x : $x;
-                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                $x['codigo'] = $barcode->getBarcodePNG($x['id'], 'C39');
                 //dd($x);
                 return $x;
             })
@@ -8837,6 +8839,7 @@ class ReportesController extends Controller
 
     public function getAcuseVales2023Masivo($idGrupo)
     {
+        $barcode = new DNS1D();
         ini_set('memory_limit', '-1');
         ini_set('max_execution_time', 1000);
         $resGpo = DB::table('vales_grupos as G')
@@ -8902,9 +8905,9 @@ class ReportesController extends Controller
             ->get();
 
         $d = $res
-            ->map(function ($x) {
+            ->map(function ($x) use ($barcode) {
                 $x = is_object($x) ? (array) $x : $x;
-                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                $x['codigo'] = $barcode->getBarcodePNG($x['id'], 'C39');
                 return $x;
             })
             ->toArray();
@@ -8948,7 +8951,7 @@ class ReportesController extends Controller
         $parameters = $request->all();
         $user = auth()->user();
         ini_set('memory_limit', '-1');
-        ini_set('max_execution_time', 1000);
+        ini_set('max_execution_time', 1000);        
         $resGpo = DB::table('vales_grupos as G')
             ->select(
                 'G.id',
@@ -9032,10 +9035,12 @@ class ReportesController extends Controller
             ->orderBy('N.Paterno', 'asc')
             ->get();
 
+        $barcode = new DNS1D();
+
         $d = $res
-            ->map(function ($x) {
+            ->map(function ($x) use ($barcode) {
                 $x = is_object($x) ? (array) $x : $x;
-                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                $x['codigo'] = $barcode->getBarcodePNG($x['id'], 'C39');
                 return $x;
             })
             ->toArray();
@@ -9120,6 +9125,8 @@ class ReportesController extends Controller
         $path = public_path() . '/subidos/' . $carpeta;
         $fileExists = public_path() . '/subidos/' . $carpeta . '.zip';
 
+        $barcode = new DNS1D();
+
         $res = DB::table('vales as N')
             ->select(
                 DB::raw('LPAD(HEX(N.id),6,0) AS id'),
@@ -9158,9 +9165,9 @@ class ReportesController extends Controller
             ->get();
         
         $d = $res
-            ->map(function ($x) {
+            ->map(function ($x) use ($barcode) {
                 $x = is_object($x) ? (array) $x : $x;
-                $x['codigo'] = DNS1D::getBarcodePNG($x['id'], 'C39');
+                $x['codigo'] = $barcode->getBarcodePNG($x['id'], 'C39');
                 return $x;
             })
             ->toArray();
