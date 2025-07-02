@@ -36,13 +36,14 @@ class Kernel extends HttpKernel
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            
+            \App\Http\Middleware\NoSniffHeader::class,
         ],
 
         'api' => [
             'throttle:60,1',
             'bindings',
             // \Barryvdh\Cors\HandleCors::class,
+            \App\Http\Middleware\NoSniffHeader::class,
             
         ],
     ];
@@ -66,9 +67,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         //'jwt' => \App\Http\Middleware\JWT::class,
         'jwt.auth' => \App\Http\Middleware\JWT::class,
-        'jwt.refresh' => \Tymon\JWTAuth\Http\Middleware\RefreshToken::class,
-        
-        
+        'jwt.refresh' => \Tymon\JWTAuth\Http\Middleware\RefreshToken::class,                
     ];
 
     /**
