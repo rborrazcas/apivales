@@ -1,4 +1,19 @@
 <IfModule mod_rewrite.c>
+
+    <IfModule mod_headers.c>
+        # Evita ataques de MIME sniffing
+        Header set X-Content-Type-Options "nosniff"
+
+        # Previene que el sitio se abra en iframes (clickjacking)
+        Header set X-Frame-Options "SAMEORIGIN"
+
+        # Requiere que el sitio se cargue solo con HTTPS
+        Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+
+        # Desactiva XSS Auditor (opcional para navegadores que aún lo soportan)
+        Header set X-XSS-Protection "1; mode=block"
+    </IfModule>
+
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
